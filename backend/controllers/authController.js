@@ -1,11 +1,8 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { v4: uuidv4 } = require("uuid");
-const mongoose = require("mongoose");
 
-const getUsersCollection = () => {
-  return mongoose.connection.db.collection("users");
-};
+const User = require("../models/userModel");
 
 // =======================
 // REGISTER
@@ -14,6 +11,7 @@ const register = async (req, res) => {
   try {
     const { name, mobile, password } = req.body;
 
+    // Validation
     if (!name || !mobile || !password) {
       return res.status(400).json({
         success: false,
@@ -28,9 +26,8 @@ const register = async (req, res) => {
       });
     }
 
-    const users = getUsersCollection();
-
-    const existingUser = await users.findOne({ mobile });
+    // Check existing mobile
+    const existingUser = await User.findOne({ mobile });
 
     if (existingUser) {
       return res.status(409).json({
@@ -39,32 +36,36 @@ const register = async (req, res) => {
       });
     }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const uuid = uuidv4();
-
-    const user = {
-      uuid,
+    // Create user
+    const user = await User.create({
+      uuid: uuidv4(),
       name,
       mobile,
       password: hashedPassword,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    await users.insertOne(user);
+    });
 
     return res.status(201).json({
       success: true,
       message: "User registered successfully",
       data: {
-        uuid,
-        name,
-        mobile,
+        uuid: user.uuid,
+        name: user.name,
+        mobile: user.mobile,
       },
     });
   } catch (error) {
     console.error("Register Error:", error);
+
+    // Duplicate key error
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Mobile number or UUID already exists",
+      });
+    }
 
     return res.status(500).json({
       success: false,
@@ -80,6 +81,7 @@ const login = async (req, res) => {
   try {
     const { mobile, password } = req.body;
 
+    // Validation
     if (!mobile || !password) {
       return res.status(400).json({
         success: false,
@@ -87,9 +89,8 @@ const login = async (req, res) => {
       });
     }
 
-    const users = getUsersCollection();
-
-    const user = await users.findOne({ mobile });
+    // Get user + password
+    const user = await User.findOne({ mobile }).select("+password");
 
     if (!user) {
       return res.status(401).json({
@@ -98,6 +99,7 @@ const login = async (req, res) => {
       });
     }
 
+    // Compare password
     const isPasswordCorrect = await bcrypt.compare(
       password,
       user.password
@@ -110,6 +112,7 @@ const login = async (req, res) => {
       });
     }
 
+    // Create JWT
     const token = jwt.sign(
       {
         uuid: user.uuid,
@@ -120,7 +123,7 @@ const login = async (req, res) => {
       }
     );
 
-    // Save JWT in cookie
+    // Save token in cookie
     res.cookie("usertoken", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -152,17 +155,9 @@ const login = async (req, res) => {
 // =======================
 const getProfile = async (req, res) => {
   try {
-    const users = getUsersCollection();
-
-    const user = await users.findOne(
-      { uuid: req.user.uuid },
-      {
-        projection: {
-          _id: 0,
-          password: 0,
-        },
-      }
-    );
+    const user = await User.findOne({
+      uuid: req.user.uuid,
+    }).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -174,7 +169,13 @@ const getProfile = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Profile fetched successfully",
-      data: user,
+      data: {
+        uuid: user.uuid,
+        name: user.name,
+        mobile: user.mobile,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
     });
   } catch (error) {
     console.error("Get Profile Error:", error);
@@ -191,7 +192,6 @@ const getProfile = async (req, res) => {
 // =======================
 const logout = async (req, res) => {
   try {
-    // Remove usertoken cookie
     res.clearCookie("usertoken", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

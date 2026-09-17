@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 
 const authMiddleware = (req, res, next) => {
   try {
+    // Get token from usertoken cookie
     const token = req.cookies.usertoken;
 
     if (!token) {
@@ -11,12 +12,13 @@ const authMiddleware = (req, res, next) => {
       });
     }
 
+    // Verify token
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET
     );
 
-    // User information request ke andar available
+    // Store decoded user in request
     req.user = decoded;
 
     next();
