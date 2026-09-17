@@ -1,5 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import "./App.css";
+
+import PrivateRoute from "./Components/PrivateRoute";
 import PhoneLayout from "./Layout/PhoneLayout";
 import HomePage from "./Pages/HomePage";
 import Login from "./Pages/Login";
@@ -7,15 +9,18 @@ import Register from "./Pages/Register";
 
 function App() {
   return (
-    <>
-      <Routes>
-        <Route element={<PhoneLayout />}>
+    <Routes>
+      <Route element={<PhoneLayout />}>
+        {/* Public Routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Private Routes */}
+        <Route element={<PrivateRoute />}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
         </Route>
-      </Routes>
-    </>
+      </Route>
+    </Routes>
   );
 }
 

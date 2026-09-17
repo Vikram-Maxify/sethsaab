@@ -1,77 +1,133 @@
-import { ArrowRight, Eye, EyeOff, Lock, Smartphone } from "lucide-react";
+import {
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  Smartphone,
+} from "lucide-react";
 import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
-// import Footer from "../components/Footer";
-import Header from "../Components/Header";
+
+import { login } from "../reducer/slice/authSlice";
 
 const Login = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ number: "", password: "" });
+  const dispatch = useDispatch();
+
+  const [form, setForm] = useState({
+    number: "",
+    password: "",
+  });
+
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
 
-  const handleChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  // Redux state
+  const { loginLoading, loginError } = useSelector((state) => state.auth);
 
-  const handleSubmit = (e) => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    // Mobile number mein sirf numbers allow
+    if (name === "number") {
+      const numericValue = value.replace(/\D/g, "");
+
+      setForm((prev) => ({
+        ...prev,
+        [name]: numericValue,
+      }));
+
+      if (error) setError("");
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    if (error) setError("");
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!form.number || !form.password)
-      return setError("कृपया सभी फ़ील्ड भरें");
-    if (form.number.length !== 10)
-      return setError("मोबाइल नंबर 10 अंकों का होना चाहिए");
 
-    console.log("Login:", form);
-    navigate("/");
+    if (!form.number || !form.password) {
+      setError("कृपया सभी फ़ील्ड भरें");
+      return;
+    }
+
+    if (form.number.length !== 10) {
+      setError("मोबाइल नंबर 10 अंकों का होना चाहिए");
+      return;
+    }
+
+    const result = await dispatch(
+      login({
+        mobile: form.number,
+        password: form.password,
+      }),
+    );
+
+    if (login.fulfilled.match(result)) {
+      navigate("/");
+    }
   };
 
   return (
-    <div className="min-h-screen bg-seth-bg">
-      <Header />
+    <div className="min-h-screen bg-[#0a0a0a]">
+      <div className="px-5 pt-4 pb-6">
+        {/* ================= TOP IMAGE ================= */}
+        <div className="relative w-full h-[180px] rounded-2xl overflow-hidden border border-[#2a2a2a] bg-[#111111] mb-5">
+          <img
+            src="https://images.unsplash.com/photo-1633158829585-23ba8f7c8caf?w=800&q=80"
+            alt="लॉगिन"
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={(e) => (e.target.style.display = "none")}
+          />
 
-      {/* Hero */}
-      <div className="px-5 pt-2 pb-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 pt-2">
-            <h2 className="text-[26px] font-extrabold leading-tight text-white">
-              वापसी पर
+          {/* Dark + golden overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#f5c542]/10 via-transparent to-transparent" />
+
+          {/* Golden top line */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#f5c542] to-transparent" />
+
+          {/* Text content on image */}
+          <div className="relative h-full flex flex-col justify-end px-5 pb-4">
+            <span className="inline-block w-fit bg-[#f5c542]/20 border border-[#f5c542] text-[#f5c542] text-[10px] font-bold px-2.5 py-1 rounded-full mb-2">
+              वापसी पर स्वागत
+            </span>
+            <h2 className="text-[22px] font-extrabold text-white leading-tight">
+              अपनी जीत की यात्रा
             </h2>
-            <h2 className="text-[26px] font-extrabold leading-tight text-seth-gold mt-1">
-              स्वागत है
+            <h2 className="text-[22px] font-extrabold text-[#f5c542] leading-tight">
+              जारी रखें
             </h2>
-            <p className="text-[13px] text-seth-muted mt-3 leading-snug">
-              अपनी जीत की यात्रा जारी रखें
-            </p>
-          </div>
-          <div className="relative w-[180px] h-[180px] flex-shrink-0">
-            <img
-              src="/ganesh.png"
-              alt="गणेश जी"
-              className="w-full h-full object-contain drop-shadow-[0_0_25px_rgba(245,197,66,0.35)]"
-            />
           </div>
         </div>
-      </div>
 
-      {/* Login Form */}
-      <div className="px-5 pb-6">
-        <div className="bg-seth-card border border-seth-border rounded-2xl p-5 shadow-[0_0_40px_rgba(245,197,66,0.08)]">
+        {/* ================= LOGIN FORM ================= */}
+        <div className="bg-[#111111] border border-[#2a2a2a] rounded-2xl p-5 shadow-[0_0_40px_rgba(245,197,66,0.08)]">
           <div className="text-center mb-5">
             <h3 className="text-[22px] font-extrabold text-white">
-              अपने अकाउंट में <span className="text-seth-gold">लॉगिन करें</span>
+              अपने अकाउंट में <span className="text-[#f5c542]">लॉगिन करें</span>
             </h3>
-            <p className="text-[12px] text-seth-muted mt-1.5">
+            <p className="text-[12px] text-[#9ca3af] mt-1.5">
               नंबर और पासवर्ड दर्ज करें
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             {/* Mobile */}
-            <div className="flex items-center bg-black/40 border border-seth-border rounded-xl overflow-hidden focus-within:border-seth-gold transition">
-              <div className="pl-3 pr-2 text-seth-muted">
+            <div className="flex items-center bg-black/40 border border-[#2a2a2a] rounded-xl overflow-hidden focus-within:border-[#f5c542] transition">
+              <div className="pl-3 pr-2 text-[#9ca3af]">
                 <Smartphone size={18} />
               </div>
-              <span className="text-white text-[14px] font-semibold pr-2 border-r border-seth-border py-3.5">
+              <span className="text-white text-[14px] font-semibold pr-2 border-r border-[#2a2a2a] py-3.5">
                 +91
               </span>
               <input
@@ -81,13 +137,14 @@ const Login = () => {
                 value={form.number}
                 onChange={handleChange}
                 placeholder="अपना मोबाइल नंबर दर्ज करें"
-                className="flex-1 bg-transparent text-[13px] text-white placeholder-seth-muted px-3 py-3.5 focus:outline-none"
+                className="flex-1 bg-transparent text-[13px] text-white placeholder-[#9ca3af] px-3 py-3.5 focus:outline-none"
+                disabled={loginLoading}
               />
             </div>
 
             {/* Password */}
-            <div className="flex items-center bg-black/40 border border-seth-border rounded-xl focus-within:border-seth-gold transition">
-              <div className="pl-3 pr-2 text-seth-muted">
+            <div className="flex items-center bg-black/40 border border-[#2a2a2a] rounded-xl focus-within:border-[#f5c542] transition">
+              <div className="pl-3 pr-2 text-[#9ca3af]">
                 <Lock size={18} />
               </div>
               <input
@@ -96,40 +153,60 @@ const Login = () => {
                 value={form.password}
                 onChange={handleChange}
                 placeholder="पासवर्ड दर्ज करें"
-                className="flex-1 bg-transparent text-[13px] text-white placeholder-seth-muted px-2 py-3.5 focus:outline-none"
+                className="flex-1 bg-transparent text-[13px] text-white placeholder-[#9ca3af] px-2 py-3.5 focus:outline-none"
+                disabled={loginLoading}
               />
               <button
                 type="button"
                 onClick={() => setShowPass(!showPass)}
-                className="pr-3 text-seth-muted"
+                className="pr-3 text-[#9ca3af]"
+                disabled={loginLoading}
               >
                 {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
 
-            {error && (
-              <p className="text-red-400 text-[12px] text-center">{error}</p>
+            {/* Error */}
+            {(error || loginError) && (
+              <p className="text-red-400 text-[12px] text-center">
+                {error || loginError}
+              </p>
             )}
 
+            {/* Login Button - Golden Gradient */}
             <button
               type="submit"
-              className="btn-gold mt-2 w-full rounded-xl py-3.5 flex items-center justify-center gap-2 text-black font-extrabold text-[16px] active:scale-[0.98] transition"
+              disabled={loginLoading}
+              className="mt-2 w-full rounded-xl py-3.5 flex items-center justify-center gap-2 text-black font-extrabold text-[16px] active:scale-[0.98] transition disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{
+                background:
+                  "linear-gradient(180deg, #FFD966 0%, #f5c542 50%, #d4a017 100%)",
+                boxShadow:
+                  "0 4px 20px rgba(245, 197, 66, 0.3), inset 0 1px 0 rgba(255,255,255,0.4)",
+              }}
             >
-              लॉगिन करें
-              <ArrowRight size={20} strokeWidth={3} />
+              {loginLoading ? (
+                <>
+                  <Loader2 size={20} strokeWidth={3} className="animate-spin" />
+                  लॉगिन हो रहा है...
+                </>
+              ) : (
+                <>
+                  लॉगिन करें
+                  <ArrowRight size={20} strokeWidth={3} />
+                </>
+              )}
             </button>
           </form>
 
-          <p className="text-center text-[12px] text-seth-muted mt-5">
+          <p className="text-center text-[12px] text-[#9ca3af] mt-5">
             नया खाता बनाना है?{" "}
-            <Link to="/register" className="text-seth-gold font-bold">
+            <Link to="/register" className="text-[#f5c542] font-bold">
               रजिस्टर करें
             </Link>
           </p>
         </div>
       </div>
-
-      {/* <Footer /> */}
     </div>
   );
 };

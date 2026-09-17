@@ -50,7 +50,7 @@ const Hero = () => {
   return (
     <div className="px-5 pt-2 pb-6">
       {/* ================= BANNER CAROUSEL ================= */}
-      <div className="relative w-full h-[150px] rounded-2xl overflow-hidden border border-[#2a2a2a] bg-[#111111] mb-5">
+      <div className="relative w-full h-[220px] rounded-2xl overflow-hidden border border-[#2a2a2a] bg-[#111111] mb-5">
         {/* Sliding track */}
         <div
           className="flex h-full transition-transform duration-700 ease-in-out"
@@ -77,19 +77,19 @@ const Hero = () => {
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#f5c542] to-transparent" />
 
               {/* Content */}
-              <div className="relative h-full flex flex-col justify-center px-5">
+              <div className="relative h-full flex flex-col justify-center px-6">
                 {/* Tag */}
-                <span className="inline-block w-fit bg-[#f5c542]/20 border border-[#f5c542] text-[#f5c542] text-[9px] font-bold px-2 py-[3px] rounded-full mb-2">
+                <span className="inline-block w-fit bg-[#f5c542]/20 border border-[#f5c542] text-[#f5c542] text-[10px] font-bold px-2.5 py-1 rounded-full mb-3">
                   {banner.tag}
                 </span>
 
                 {/* Title */}
-                <h3 className="text-[20px] font-extrabold text-white leading-tight">
+                <h3 className="text-[24px] font-extrabold text-white leading-tight">
                   {banner.title}
                 </h3>
 
                 {/* Subtitle */}
-                <p className="text-[12px] text-[#9ca3af] mt-1 leading-snug">
+                <p className="text-[13px] text-[#9ca3af] mt-1.5 leading-snug">
                   {banner.subtitle}
                 </p>
               </div>
@@ -98,13 +98,13 @@ const Hero = () => {
         </div>
 
         {/* Dots indicator */}
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
           {banners.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrent(i)}
               className={`h-[5px] rounded-full transition-all duration-300 ${
-                current === i ? "w-5 bg-[#f5c542]" : "w-[5px] bg-[#f5c542]/40"
+                current === i ? "w-6 bg-[#f5c542]" : "w-[5px] bg-[#f5c542]/40"
               }`}
               aria-label={`Banner ${i + 1}`}
             />
