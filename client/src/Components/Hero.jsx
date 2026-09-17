@@ -112,41 +112,6 @@ const Hero = () => {
         </div>
       </div>
 
-      {/* ================= HERO TEXT + GANESH ================= */}
-      <div className="flex items-start justify-between gap-3">
-        {/* Left Text */}
-        <div className="flex-1 pt-2">
-          <h2 className="text-[26px] font-extrabold leading-tight text-white">
-            आज ही जुड़ें
-          </h2>
-          <h2 className="text-[26px] font-extrabold leading-tight text-[#f5c542] mt-1">
-            और अपनी
-          </h2>
-          <h2 className="text-[26px] font-extrabold leading-tight text-[#f5c542]">
-            किस्मत आज़माएं
-          </h2>
-          <p className="text-[13px] text-[#9ca3af] mt-3 leading-snug">
-            छोटा कदम, बड़ी जीत की शुरुआत
-          </p>
-        </div>
-
-        {/* Right Image */}
-        <div className="relative w-[180px] h-[180px] flex-shrink-0">
-          <img
-            src="/ganesh.png"
-            alt="गणेश जी"
-            className="w-full h-full object-contain drop-shadow-[0_0_25px_rgba(245,197,66,0.35)]"
-          />
-          {/* शुभ लाभ हमेशा आपके साथ */}
-          <div className="absolute top-2 right-0 text-right leading-tight rotate-[-8deg]">
-            <p className="text-[11px] text-[#f5c542] font-bold">शुभ</p>
-            <p className="text-[11px] text-[#f5c542] font-bold">लाभ</p>
-            <p className="text-[11px] text-[#f5c542] font-bold">हमेशा</p>
-            <p className="text-[11px] text-[#f5c542] font-bold">आपके साथ</p>
-          </div>
-        </div>
-      </div>
-
       {/* 3 Features Row */}
       <div className="flex items-center justify-between mt-4 px-2">
         <Feature icon={<ShieldIcon />} label="100%" sub="सुरक्षित" />

@@ -5,6 +5,7 @@ import PrivateRoute from "./Components/PrivateRoute";
 import PhoneLayout from "./Layout/PhoneLayout";
 import HomePage from "./Pages/HomePage";
 import Login from "./Pages/Login";
+import ProfilePage from "./Pages/ProfilePage";
 import Register from "./Pages/Register";
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
         {/* Private Routes */}
         <Route element={<PrivateRoute />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Route>
     </Routes>

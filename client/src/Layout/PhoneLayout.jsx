@@ -1,13 +1,22 @@
 import { Outlet } from "react-router-dom";
 import Header from "../Components/Header";
+import BottomNavbar from "./BottomNavbar";
 
 const PhoneLayout = () => {
   return (
-    <div className="min-h-screen w-full flex justify-center bg-white">
+    <div className="min-h-screen w-full bg-neutral-950 flex justify-center">
       {/* Phone Frame */}
-      <div className="w-full max-w-[430px] min-h-screen bg-neutral-950 relative shadow-2xl shadow-black/60 phone-scroll overflow-y-auto">
+      <div className="w-full max-w-[490px] min-h-screen bg-neutral-950 relative shadow-2xl shadow-black/60 phone-scroll overflow-y-auto">
+        {/* Header */}
         <Header />
-        <Outlet />
+
+        {/* Page Content */}
+        <main className="pb-[100px]">
+          <Outlet />
+        </main>
+
+        {/* Bottom Navbar */}
+        <BottomNavbar />
       </div>
     </div>
   );
