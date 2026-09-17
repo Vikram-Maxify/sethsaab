@@ -2,12 +2,12 @@ require("dotenv").config();
 
 const express = require("express");
 const cookieParser = require("cookie-parser");
-const dns = require('dns')
+const cors = require("cors");
+const dns = require("dns");
 
 dns.setServers(["1.1.1.1", "8.8.8.8"])
 
 const connectDB = require("./config/db");
-
 const authRoutes = require("./routes/authRoutes");
 
 const amountRoutes = require("./routes/amountRoutes")
@@ -20,11 +20,28 @@ const lotteryResultRoutes = require("./routes/lotteryResultRoutes");
 
 const app = express();
 
-// Middleware
+// =======================
+// CORS
+// =======================
+
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  }),
+);
+
+// =======================
+// MIDDLEWARE
+// =======================
+
 app.use(express.json());
 app.use(cookieParser());
 
-// Routes
+// =======================
+// ROUTES
+// =======================
+
 app.use("/api/auth", authRoutes);
 
 app.use("/api", amountRoutes);
@@ -42,7 +59,11 @@ app.use(
 // Connect DB
 connectDB();
 
-const PORT = process.env.PORT || 5000;
+// =======================
+// SERVER
+// =======================
+
+const PORT = process.env.PORT || 5099;
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
