@@ -21,6 +21,7 @@ const lotteryUserEntrySchema = new mongoose.Schema(
       index: true,
     },
 
+    // User's 6 digit lottery number
     number: {
       type: String,
       required: true,
@@ -31,6 +32,37 @@ const lotteryUserEntrySchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
+    },
+
+    // =================================================
+    // PRIZE DETAILS
+    // =================================================
+    prize: {
+      first: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      second: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      third: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+    },
+
+    // Which prize user won
+    // null = result not declared / no prize
+    prizeType: {
+      type: String,
+      enum: ["1st", "2nd", "3rd", null],
+      default: null,
     },
 
     status: {
