@@ -10,10 +10,16 @@ import {
   UserRound,
   Wallet,
 } from "lucide-react";
+import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
 import { logout } from "../reducer/slice/authSlice";
+import {
+  getMyLotteryEntries,
+  selectMyLotteryEntriesLoading,
+  selectMyLotteryTotalEntries,
+} from "../reducer/slice/createLotteryConfigSlice";
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
@@ -21,6 +27,24 @@ const ProfilePage = () => {
 
   const { user, logoutLoading } = useSelector((state) => state.auth);
 
+  // ==========================================
+  // LOTTERY DATA
+  // ==========================================
+  const totalTickets = useSelector(selectMyLotteryTotalEntries);
+  const myEntriesLoading = useSelector(selectMyLotteryEntriesLoading);
+
+  // ==========================================
+  // FETCH USER'S LOTTERY ENTRIES
+  // ==========================================
+  useEffect(() => {
+    if (user) {
+      dispatch(getMyLotteryEntries());
+    }
+  }, [dispatch, user]);
+
+  // ==========================================
+  // LOGOUT
+  // ==========================================
   const handleLogout = async () => {
     const result = await dispatch(logout());
 
@@ -28,6 +52,16 @@ const ProfilePage = () => {
       navigate("/login", { replace: true });
     }
   };
+
+  // ==========================================
+  // WALLET
+  // ==========================================
+  const walletBalance = Number(user?.wallet || 0);
+
+  const formattedWalletBalance = walletBalance.toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 
   return (
     <div className="min-h-screen bg-[#050505] text-white px-5 pt-3 pb-6">
@@ -76,7 +110,11 @@ const ProfilePage = () => {
           </button>
         </div>
 
+        {/* ============================
+            TICKET / WINNER STATS
+        ============================ */}
         <div className="mt-5 h-[88px] rounded-2xl border border-[#373737] bg-black/40 flex items-center overflow-hidden">
+          {/* TOTAL TICKETS */}
           <div className="flex-1 flex items-center gap-3 px-5">
             <div className="w-12 h-12 rounded-full bg-[#211b0b] flex items-center justify-center flex-shrink-0">
               <Ticket size={28} fill="#f5c542" className="text-[#f5c542]" />
@@ -84,14 +122,20 @@ const ProfilePage = () => {
 
             <div>
               <p className="text-[#c6c6c6] text-[15px]">कुल टिकट</p>
+
               <p className="text-white text-[27px] font-extrabold leading-none mt-1">
-                8
+                {myEntriesLoading ? (
+                  <Loader2 size={24} className="text-[#f5c542] animate-spin" />
+                ) : (
+                  totalTickets
+                )}
               </p>
             </div>
           </div>
 
           <div className="h-[60px] w-px bg-[#363636]" />
 
+          {/* TOTAL WINNERS */}
           <div className="flex-1 flex items-center gap-3 px-5">
             <div className="w-12 h-12 rounded-full bg-[#211b0b] flex items-center justify-center flex-shrink-0">
               <Trophy size={29} fill="#f5c542" className="text-[#f5c542]" />
@@ -99,6 +143,7 @@ const ProfilePage = () => {
 
             <div>
               <p className="text-[#c6c6c6] text-[15px]">कुल विजेता</p>
+
               <p className="text-white text-[27px] font-extrabold leading-none mt-1">
                 0
               </p>
@@ -121,8 +166,9 @@ const ProfilePage = () => {
 
           <div>
             <p className="text-[#d2d2d2] text-[16px]">वॉलेट बैलेंस</p>
+
             <p className="text-[#f5c542] text-[27px] font-extrabold mt-0.5">
-              ₹{user?.wallet}
+              ₹{formattedWalletBalance}
             </p>
           </div>
         </div>
@@ -243,31 +289,37 @@ const LotusDecoration = () => (
       stroke="#f5c542"
       strokeWidth="2"
     />
+
     <path
       d="M165 70C117 77 90 101 81 142C116 142 144 125 165 70Z"
       stroke="#f5c542"
       strokeWidth="2"
     />
+
     <path
       d="M165 70C213 77 240 101 249 142C214 142 186 125 165 70Z"
       stroke="#f5c542"
       strokeWidth="2"
     />
+
     <path
       d="M82 142C65 171 68 201 92 225C117 206 123 177 82 142Z"
       stroke="#f5c542"
       strokeWidth="2"
     />
+
     <path
       d="M248 142C265 171 262 201 238 225C213 206 207 177 248 142Z"
       stroke="#f5c542"
       strokeWidth="2"
     />
+
     <path
       d="M165 138C125 145 104 169 104 204C132 200 155 181 165 138Z"
       stroke="#f5c542"
       strokeWidth="2"
     />
+
     <path
       d="M165 138C205 145 226 169 226 204C198 200 175 181 165 138Z"
       stroke="#f5c542"
@@ -279,8 +331,11 @@ const LotusDecoration = () => (
 const LotusSmall = () => (
   <svg width="46" height="30" viewBox="0 0 46 30" fill="none">
     <path d="M23 2C19 7 19 12 23 16C27 12 27 7 23 2Z" fill="#f5c542" />
+
     <path d="M23 13C15 13 9 17 6 23C13 24 19 21 23 13Z" fill="#f5c542" />
+
     <path d="M23 13C31 13 37 17 40 23C33 24 27 21 23 13Z" fill="#f5c542" />
+
     <path d="M23 13C20 19 20 24 23 28C26 24 26 19 23 13Z" fill="#f5c542" />
   </svg>
 );
