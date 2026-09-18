@@ -20,6 +20,8 @@ import AdminLogin from "./admin/adminPages/AdminLogin";
 import Amount from "./admin/adminPages/Amount";
 import Dashboard from "./admin/adminPages/Dashboard";
 import Results from "./admin/adminPages/Results";
+import Users from "./admin/adminPages/Users";
+import LotteryConfig from "./admin/adminPages/LotteryConfig";
 
 function App() {
   return (
@@ -57,18 +59,37 @@ function App() {
       ===================================================== */}
 
       <Route element={<AdminPrivateRoute />}>
+
         <Route element={<AdminLayout />}>
+
           {/* Dashboard */}
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route
+            path="/dashboard"
+            element={<Dashboard />}
+          />
 
           {/* Users */}
-          <Route path="/users" element={<Users />} />
+          <Route
+            path="/users"
+            element={<Users />}
+          />
 
-          <Route path="/amount" element={<Amount />} />
-          <Route path="/results" element={<Results />} />
+          <Route
+            path="/amount"
+            element={<Amount />}
+          />
+          <Route
+            path="/results"
+            element={<Results />}
+          />
+          <Route
+            path="/lottery-config"
+            element={<LotteryConfig />}
+          />
+
         </Route>
-      </Route>
 
+      </Route>
       {/* =====================================================
           DEFAULT
       ===================================================== */}
