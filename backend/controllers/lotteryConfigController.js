@@ -175,13 +175,22 @@ const validateYear = (year) => {
 
 const createLotteryConfig = async (req, res) => {
   try {
-    const { marketName, month, year } = req.body;
+    const {
+      marketName,
+      month,
+      year,
+      prizes,
+    } = req.body;
 
     // ==========================================
     // MARKET NAME
     // ==========================================
 
-    if (!marketName || typeof marketName !== "string" || !marketName.trim()) {
+    if (
+      !marketName ||
+      typeof marketName !== "string" ||
+      !marketName.trim()
+    ) {
       return res.status(400).json({
         success: false,
         message: "Market name is required",
@@ -194,15 +203,22 @@ const createLotteryConfig = async (req, res) => {
 
     const current = getCurrentMonthYear();
 
-    const selectedMonth = month !== undefined ? Number(month) : current.month;
+    const selectedMonth =
+      month !== undefined
+        ? Number(month)
+        : current.month;
 
-    const selectedYear = year !== undefined ? Number(year) : current.year;
+    const selectedYear =
+      year !== undefined
+        ? Number(year)
+        : current.year;
 
     // ==========================================
     // VALIDATE MONTH
     // ==========================================
 
-    const monthValidation = validateMonth(selectedMonth);
+    const monthValidation =
+      validateMonth(selectedMonth);
 
     if (!monthValidation.valid) {
       return res.status(400).json({
@@ -215,7 +231,8 @@ const createLotteryConfig = async (req, res) => {
     // VALIDATE YEAR
     // ==========================================
 
-    const yearValidation = validateYear(selectedYear);
+    const yearValidation =
+      validateYear(selectedYear);
 
     if (!yearValidation.valid) {
       return res.status(400).json({
@@ -225,19 +242,66 @@ const createLotteryConfig = async (req, res) => {
     }
 
     // ==========================================
+    // VALIDATE PRIZES
+    // ==========================================
+
+    if (!prizes || typeof prizes !== "object") {
+      return res.status(400).json({
+        success: false,
+        message: "Prize amounts are required",
+      });
+    }
+
+    const firstPrize = Number(prizes.first);
+    const secondPrize = Number(prizes.second);
+    const thirdPrize = Number(prizes.third);
+
+    if (
+      !Number.isFinite(firstPrize) ||
+      firstPrize < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid first prize amount is required",
+      });
+    }
+
+    if (
+      !Number.isFinite(secondPrize) ||
+      secondPrize < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid second prize amount is required",
+      });
+    }
+
+    if (
+      !Number.isFinite(thirdPrize) ||
+      thirdPrize < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid third prize amount is required",
+      });
+    }
+
+    // ==========================================
     // CHECK EXISTING MARKET
     // ==========================================
 
-    const existingConfig = await LotteryConfig.findOne({
-      marketName: marketName.trim(),
-      month: selectedMonth,
-      year: selectedYear,
-    });
+    const existingConfig =
+      await LotteryConfig.findOne({
+        marketName: marketName.trim(),
+        month: selectedMonth,
+        year: selectedYear,
+      });
 
     if (existingConfig) {
       return res.status(409).json({
         success: false,
-        message: "Lottery configuration already exists",
+        message:
+          "Lottery configuration already exists",
         data: existingConfig,
       });
     }
@@ -246,30 +310,49 @@ const createLotteryConfig = async (req, res) => {
     // CREATE MARKET
     // ==========================================
 
-    const config = await LotteryConfig.create({
-      marketName: marketName.trim(),
+    const config =
+      await LotteryConfig.create({
+        marketName: marketName.trim(),
 
-      month: selectedMonth,
+        month: selectedMonth,
 
-      year: selectedYear,
+        year: selectedYear,
 
-      users: [],
+        // ADMIN ENTERED PRIZES
+        prizes: {
+          first: firstPrize,
+          second: secondPrize,
+          third: thirdPrize,
+        },
 
-      isActive: false,
-    });
+        users: [],
+
+        isActive: false,
+      });
+
+    // ==========================================
+    // RESPONSE
+    // ==========================================
 
     return res.status(201).json({
       success: true,
-      message: "Lottery configuration created successfully",
+
+      message:
+        "Lottery configuration created successfully",
+
       data: config,
     });
   } catch (error) {
-    console.error("Create lottery config error:", error);
+    console.error(
+      "Create lottery config error:",
+      error
+    );
 
     if (error.code === 11000) {
       return res.status(409).json({
         success: false,
-        message: "Lottery configuration already exists",
+        message:
+          "Lottery configuration already exists",
       });
     }
 

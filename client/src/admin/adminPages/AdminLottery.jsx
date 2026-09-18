@@ -35,11 +35,21 @@ const AdminLottery = () => {
   // FORM STATE
   // =====================================================
 
-  const [formData, setFormData] = useState({
+  const getInitialFormData = () => ({
     marketName: "",
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
+
+    prizes: {
+      first: "",
+      second: "",
+      third: "",
+    },
   });
+
+  const [formData, setFormData] = useState(
+    getInitialFormData()
+  );
 
   const [formError, setFormError] = useState("");
 
@@ -76,6 +86,47 @@ const AdminLottery = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
+    // Prize inputs
+    if (name === "firstPrize") {
+      setFormData((prev) => ({
+        ...prev,
+        prizes: {
+          ...prev.prizes,
+          first: value,
+        },
+      }));
+
+      setFormError("");
+      return;
+    }
+
+    if (name === "secondPrize") {
+      setFormData((prev) => ({
+        ...prev,
+        prizes: {
+          ...prev.prizes,
+          second: value,
+        },
+      }));
+
+      setFormError("");
+      return;
+    }
+
+    if (name === "thirdPrize") {
+      setFormData((prev) => ({
+        ...prev,
+        prizes: {
+          ...prev.prizes,
+          third: value,
+        },
+      }));
+
+      setFormError("");
+      return;
+    }
+
+    // Normal inputs
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -93,37 +144,76 @@ const AdminLottery = () => {
 
     setFormError("");
 
+    // Market name
     if (!formData.marketName.trim()) {
       setFormError("Market name is required");
       return;
     }
 
+    // Month
     if (!formData.month) {
       setFormError("Month is required");
       return;
     }
 
+    // Year
     if (!formData.year) {
       setFormError("Year is required");
       return;
     }
 
+    // First prize
+    if (
+      formData.prizes.first === "" ||
+      formData.prizes.first === null ||
+      Number(formData.prizes.first) < 0
+    ) {
+      setFormError("First prize amount is required");
+      return;
+    }
+
+    // Second prize
+    if (
+      formData.prizes.second === "" ||
+      formData.prizes.second === null ||
+      Number(formData.prizes.second) < 0
+    ) {
+      setFormError("Second prize amount is required");
+      return;
+    }
+
+    // Third prize
+    if (
+      formData.prizes.third === "" ||
+      formData.prizes.third === null ||
+      Number(formData.prizes.third) < 0
+    ) {
+      setFormError("Third prize amount is required");
+      return;
+    }
+
+    const payload = {
+      marketName: formData.marketName.trim(),
+
+      month: Number(formData.month),
+
+      year: Number(formData.year),
+
+      prizes: {
+        first: Number(formData.prizes.first),
+        second: Number(formData.prizes.second),
+        third: Number(formData.prizes.third),
+      },
+    };
+
     const result = await dispatch(
-      createLotteryConfig({
-        marketName: formData.marketName.trim(),
-        month: Number(formData.month),
-        year: Number(formData.year),
-      })
+      createLotteryConfig(payload)
     );
 
     if (createLotteryConfig.fulfilled.match(result)) {
-      setFormData({
-        marketName: "",
-        month: new Date().getMonth() + 1,
-        year: new Date().getFullYear(),
-      });
+      setFormData(getInitialFormData());
 
-      dispatch(getAllLotteryConfigs());
+      await dispatch(getAllLotteryConfigs());
     }
   };
 
@@ -148,7 +238,11 @@ const AdminLottery = () => {
   // =====================================================
 
   const handleActivate = async (id) => {
-    if (!window.confirm("Are you sure you want to activate this market?")) {
+    if (
+      !window.confirm(
+        "Are you sure you want to activate this market?"
+      )
+    ) {
       return;
     }
 
@@ -157,7 +251,7 @@ const AdminLottery = () => {
     );
 
     if (activateLotteryConfig.fulfilled.match(result)) {
-      dispatch(getAllLotteryConfigs());
+      await dispatch(getAllLotteryConfigs());
     }
   };
 
@@ -178,8 +272,10 @@ const AdminLottery = () => {
       deactivateLotteryConfig(id)
     );
 
-    if (deactivateLotteryConfig.fulfilled.match(result)) {
-      dispatch(getAllLotteryConfigs());
+    if (
+      deactivateLotteryConfig.fulfilled.match(result)
+    ) {
+      await dispatch(getAllLotteryConfigs());
     }
   };
 
@@ -201,7 +297,7 @@ const AdminLottery = () => {
     );
 
     if (deleteLotteryConfig.fulfilled.match(result)) {
-      dispatch(getAllLotteryConfigs());
+      await dispatch(getAllLotteryConfigs());
     }
   };
 
@@ -214,7 +310,11 @@ const AdminLottery = () => {
 
     setEditData({
       number: entry.number || "",
-      amount: entry.amount ?? "",
+      amount:
+        entry.amount !== undefined &&
+        entry.amount !== null
+          ? entry.amount
+          : "",
       status: entry.status || "pending",
       entryDate: entry.entryDate || "",
     });
@@ -248,10 +348,26 @@ const AdminLottery = () => {
       return;
     }
 
+    if (
+      !editData.number ||
+      String(editData.number).length !== 6
+    ) {
+      return;
+    }
+
+    if (
+      editData.amount === "" ||
+      Number(editData.amount) < 0
+    ) {
+      return;
+    }
+
     const result = await dispatch(
       updateUserLotteryEntry({
         id: lottery._id,
+
         userEntryId: editingEntry._id,
+
         data: {
           number: editData.number,
           amount: Number(editData.amount),
@@ -261,15 +377,14 @@ const AdminLottery = () => {
       })
     );
 
-    if (updateUserLotteryEntry.fulfilled.match(result)) {
-      setEditingEntry(null);
+    if (
+      updateUserLotteryEntry.fulfilled.match(result)
+    ) {
+      closeEditModal();
 
-      setEditData({
-        number: "",
-        amount: "",
-        status: "pending",
-        entryDate: "",
-      });
+      await dispatch(
+        getLotteryConfigById(lottery._id)
+      );
 
       dispatch(getAllLotteryConfigs());
     }
@@ -279,7 +394,10 @@ const AdminLottery = () => {
   // DELETE USER ENTRY
   // =====================================================
 
-  const handleDeleteEntry = async (configId, entryId) => {
+  const handleDeleteEntry = async (
+    configId,
+    entryId
+  ) => {
     if (
       !window.confirm(
         "Are you sure you want to delete this user entry?"
@@ -295,7 +413,9 @@ const AdminLottery = () => {
       })
     );
 
-    if (deleteUserLotteryEntry.fulfilled.match(result)) {
+    if (
+      deleteUserLotteryEntry.fulfilled.match(result)
+    ) {
       await dispatch(
         getLotteryConfigById(configId)
       );
@@ -332,9 +452,17 @@ const AdminLottery = () => {
   // =====================================================
 
   const formatDate = (date) => {
-    if (!date) return "-";
+    if (!date) {
+      return "-";
+    }
 
-    return new Date(date).toLocaleDateString("en-IN", {
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "-";
+    }
+
+    return parsedDate.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -418,6 +546,7 @@ const AdminLottery = () => {
         {activeLottery && (
           <div className="mb-8 rounded-xl border border-green-200 bg-green-50 p-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-green-600">
                   Active Market
@@ -431,6 +560,33 @@ const AdminLottery = () => {
                   {getMonthName(activeLottery.month)}{" "}
                   {activeLottery.year}
                 </p>
+
+                {/* Active Prize Amounts */}
+
+                {activeLottery.prizes && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm">
+                      1st: ₹
+                      {Number(
+                        activeLottery.prizes.first || 0
+                      ).toLocaleString("en-IN")}
+                    </span>
+
+                    <span className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm">
+                      2nd: ₹
+                      {Number(
+                        activeLottery.prizes.second || 0
+                      ).toLocaleString("en-IN")}
+                    </span>
+
+                    <span className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm">
+                      3rd: ₹
+                      {Number(
+                        activeLottery.prizes.third || 0
+                      ).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <span className="inline-flex w-fit rounded-full bg-green-600 px-4 py-1.5 text-xs font-semibold text-white">
@@ -445,13 +601,14 @@ const AdminLottery = () => {
         ================================================= */}
 
         <div className="mb-8 rounded-xl border border-gray-200 bg-white shadow-sm">
+
           <div className="border-b border-gray-200 px-5 py-4">
             <h2 className="text-lg font-semibold text-gray-900">
               Create Market
             </h2>
 
             <p className="mt-1 text-sm text-gray-500">
-              Create a lottery market for a specific month and year.
+              Create a lottery market and set prize amounts.
             </p>
           </div>
 
@@ -532,6 +689,138 @@ const AdminLottery = () => {
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
+
+              {/* =================================================
+                  FIRST PRIZE
+              ================================================= */}
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  1st Prize Amount
+                </label>
+
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
+                    ₹
+                  </span>
+
+                  <input
+                    type="number"
+                    name="firstPrize"
+                    value={formData.prizes.first}
+                    onChange={handleChange}
+                    min="0"
+                    step="1"
+                    placeholder="Enter 1st prize"
+                    className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+              </div>
+
+              {/* =================================================
+                  SECOND PRIZE
+              ================================================= */}
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  2nd Prize Amount
+                </label>
+
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
+                    ₹
+                  </span>
+
+                  <input
+                    type="number"
+                    name="secondPrize"
+                    value={formData.prizes.second}
+                    onChange={handleChange}
+                    min="0"
+                    step="1"
+                    placeholder="Enter 2nd prize"
+                    className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+              </div>
+
+              {/* =================================================
+                  THIRD PRIZE
+              ================================================= */}
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  3rd Prize Amount
+                </label>
+
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
+                    ₹
+                  </span>
+
+                  <input
+                    type="number"
+                    name="thirdPrize"
+                    value={formData.prizes.third}
+                    onChange={handleChange}
+                    min="0"
+                    step="1"
+                    placeholder="Enter 3rd prize"
+                    className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Prize Preview */}
+
+            <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4">
+              <p className="mb-3 text-sm font-semibold text-gray-800">
+                Prize Summary
+              </p>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+
+                <div className="rounded-lg bg-white p-3">
+                  <p className="text-xs text-gray-500">
+                    1st Prize
+                  </p>
+
+                  <p className="mt-1 text-lg font-bold text-gray-900">
+                    ₹
+                    {Number(
+                      formData.prizes.first || 0
+                    ).toLocaleString("en-IN")}
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-white p-3">
+                  <p className="text-xs text-gray-500">
+                    2nd Prize
+                  </p>
+
+                  <p className="mt-1 text-lg font-bold text-gray-900">
+                    ₹
+                    {Number(
+                      formData.prizes.second || 0
+                    ).toLocaleString("en-IN")}
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-white p-3">
+                  <p className="text-xs text-gray-500">
+                    3rd Prize
+                  </p>
+
+                  <p className="mt-1 text-lg font-bold text-gray-900">
+                    ₹
+                    {Number(
+                      formData.prizes.third || 0
+                    ).toLocaleString("en-IN")}
+                  </p>
+                </div>
+
+              </div>
             </div>
 
             {/* Submit */}
@@ -556,7 +845,9 @@ const AdminLottery = () => {
 
         {lottery && (
           <div className="mb-8 rounded-xl border border-blue-200 bg-blue-50 shadow-sm">
+
             <div className="flex flex-col gap-3 border-b border-blue-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
+
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">
                   {lottery.marketName}
@@ -567,12 +858,41 @@ const AdminLottery = () => {
                   {lottery.year} •{" "}
                   {lottery.users?.length || 0} Users
                 </p>
+
+                {/* Selected Market Prize */}
+
+                {lottery.prizes && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">
+                      1st: ₹
+                      {Number(
+                        lottery.prizes.first || 0
+                      ).toLocaleString("en-IN")}
+                    </span>
+
+                    <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">
+                      2nd: ₹
+                      {Number(
+                        lottery.prizes.second || 0
+                      ).toLocaleString("en-IN")}
+                    </span>
+
+                    <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">
+                      3rd: ₹
+                      {Number(
+                        lottery.prizes.third || 0
+                      ).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <button
                 type="button"
                 onClick={() =>
-                  dispatch(getLotteryConfigById(lottery._id))
+                  dispatch(
+                    getLotteryConfigById(lottery._id)
+                  )
                 }
                 disabled={loading}
                 className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
@@ -584,10 +904,13 @@ const AdminLottery = () => {
             {/* User Entries */}
 
             <div className="overflow-x-auto">
+
               {lottery.users?.length > 0 ? (
                 <table className="min-w-full">
+
                   <thead className="bg-white">
                     <tr>
+
                       <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-gray-500">
                         #
                       </th>
@@ -605,6 +928,10 @@ const AdminLottery = () => {
                       </th>
 
                       <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                        Prize
+                      </th>
+
+                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-gray-500">
                         Date
                       </th>
 
@@ -615,22 +942,25 @@ const AdminLottery = () => {
                       <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-gray-500">
                         Actions
                       </th>
+
                     </tr>
                   </thead>
 
                   <tbody className="divide-y divide-gray-200">
+
                     {lottery.users.map(
                       (entry, index) => (
                         <tr
                           key={entry._id}
                           className="bg-white hover:bg-gray-50"
                         >
+
                           <td className="px-5 py-4 text-sm text-gray-500">
                             {index + 1}
                           </td>
 
                           <td className="px-5 py-4 text-sm text-gray-700">
-                            <span className="max-w-[180px] truncate block">
+                            <span className="block max-w-[180px] truncate">
                               {entry.userId}
                             </span>
                           </td>
@@ -640,7 +970,36 @@ const AdminLottery = () => {
                           </td>
 
                           <td className="px-5 py-4 text-sm text-gray-700">
-                            ₹{entry.amount}
+                            ₹
+                            {Number(
+                              entry.amount || 0
+                            ).toLocaleString("en-IN")}
+                          </td>
+
+                          <td className="px-5 py-4 text-sm font-semibold text-gray-700">
+                            {entry.status === "win" ? (
+                              <div>
+                                <span className="text-green-600">
+                                  {entry.prizeType || "Winner"}
+                                </span>
+
+                                {entry.prize && (
+                                  <div className="mt-1 text-xs text-gray-500">
+                                    ₹
+                                    {Number(
+                                      entry.prize.first ||
+                                      entry.prize.second ||
+                                      entry.prize.third ||
+                                      0
+                                    ).toLocaleString(
+                                      "en-IN"
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              "-"
+                            )}
                           </td>
 
                           <td className="px-5 py-4 text-sm text-gray-500">
@@ -648,6 +1007,7 @@ const AdminLottery = () => {
                           </td>
 
                           <td className="px-5 py-4">
+
                             {entry.status === "win" ? (
                               <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
                                 Win
@@ -661,15 +1021,19 @@ const AdminLottery = () => {
                                 Pending
                               </span>
                             )}
+
                           </td>
 
                           <td className="px-5 py-4">
+
                             <div className="flex flex-wrap gap-2">
 
                               <button
                                 type="button"
                                 onClick={() =>
-                                  handleEditEntry(entry)
+                                  handleEditEntry(
+                                    entry
+                                  )
                                 }
                                 className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                               >
@@ -687,21 +1051,28 @@ const AdminLottery = () => {
                                 disabled={deleteLoading}
                                 className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
                               >
-                                Delete
+                                {deleteLoading
+                                  ? "..."
+                                  : "Delete"}
                               </button>
 
                             </div>
+
                           </td>
+
                         </tr>
                       )
                     )}
+
                   </tbody>
+
                 </table>
               ) : (
                 <div className="p-8 text-center text-sm text-gray-500">
                   No user entries found.
                 </div>
               )}
+
             </div>
           </div>
         )}
@@ -712,9 +1083,8 @@ const AdminLottery = () => {
 
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
 
-          {/* Header */}
-
           <div className="flex flex-col gap-3 border-b border-gray-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
+
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
                 All Markets
@@ -738,9 +1108,8 @@ const AdminLottery = () => {
                 ? "Loading..."
                 : "Refresh"}
             </button>
-          </div>
 
-          {/* Loading */}
+          </div>
 
           {loading ? (
             <div className="flex min-h-[200px] items-center justify-center">
@@ -751,6 +1120,7 @@ const AdminLottery = () => {
           ) : lotteries?.length === 0 ? (
             <div className="flex min-h-[250px] items-center justify-center px-5">
               <div className="text-center">
+
                 <h3 className="text-base font-semibold text-gray-700">
                   No markets found
                 </h3>
@@ -758,14 +1128,17 @@ const AdminLottery = () => {
                 <p className="mt-1 text-sm text-gray-500">
                   Create your first lottery market above.
                 </p>
+
               </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
+
               <table className="min-w-full">
 
                 <thead className="bg-gray-50">
                   <tr>
+
                     <th className="whitespace-nowrap px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                       #
                     </th>
@@ -783,6 +1156,10 @@ const AdminLottery = () => {
                     </th>
 
                     <th className="whitespace-nowrap px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Prize Amounts
+                    </th>
+
+                    <th className="whitespace-nowrap px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                       Users
                     </th>
 
@@ -797,6 +1174,7 @@ const AdminLottery = () => {
                     <th className="whitespace-nowrap px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                       Actions
                     </th>
+
                   </tr>
                 </thead>
 
@@ -809,15 +1187,12 @@ const AdminLottery = () => {
                         className="transition hover:bg-gray-50"
                       >
 
-                        {/* Number */}
-
                         <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-500">
                           {index + 1}
                         </td>
 
-                        {/* Market */}
-
                         <td className="whitespace-nowrap px-5 py-4">
+
                           <div className="font-medium text-gray-900">
                             {lotteryItem.marketName}
                           </div>
@@ -825,9 +1200,8 @@ const AdminLottery = () => {
                           <div className="mt-1 text-xs text-gray-400">
                             ID: {lotteryItem._id}
                           </div>
-                        </td>
 
-                        {/* Month */}
+                        </td>
 
                         <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-700">
                           {getMonthName(
@@ -835,21 +1209,62 @@ const AdminLottery = () => {
                           )}
                         </td>
 
-                        {/* Year */}
-
                         <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-700">
                           {lotteryItem.year}
                         </td>
 
-                        {/* Users */}
+                        {/* Prize Amounts */}
+
+                        <td className="px-5 py-4">
+
+                          {lotteryItem.prizes ? (
+                            <div className="flex min-w-[220px] flex-wrap gap-1.5">
+
+                              <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+                                1st ₹
+                                {Number(
+                                  lotteryItem.prizes.first ||
+                                  0
+                                ).toLocaleString(
+                                  "en-IN"
+                                )}
+                              </span>
+
+                              <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+                                2nd ₹
+                                {Number(
+                                  lotteryItem.prizes.second ||
+                                  0
+                                ).toLocaleString(
+                                  "en-IN"
+                                )}
+                              </span>
+
+                              <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+                                3rd ₹
+                                {Number(
+                                  lotteryItem.prizes.third ||
+                                  0
+                                ).toLocaleString(
+                                  "en-IN"
+                                )}
+                              </span>
+
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">
+                              Not configured
+                            </span>
+                          )}
+
+                        </td>
 
                         <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-700">
                           {lotteryItem.users?.length || 0}
                         </td>
 
-                        {/* Status */}
-
                         <td className="whitespace-nowrap px-5 py-4">
+
                           {lotteryItem.isActive ? (
                             <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
                               Active
@@ -859,9 +1274,8 @@ const AdminLottery = () => {
                               Inactive
                             </span>
                           )}
-                        </td>
 
-                        {/* Created */}
+                        </td>
 
                         <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-500">
                           {formatDate(
@@ -869,9 +1283,8 @@ const AdminLottery = () => {
                           )}
                         </td>
 
-                        {/* Actions */}
-
                         <td className="px-5 py-4">
+
                           <div className="flex min-w-[250px] flex-wrap gap-2">
 
                             {/* View */}
@@ -945,13 +1358,17 @@ const AdminLottery = () => {
                             </button>
 
                           </div>
+
                         </td>
+
                       </tr>
                     )
                   )}
 
                 </tbody>
+
               </table>
+
             </div>
           )}
         </div>
@@ -969,6 +1386,7 @@ const AdminLottery = () => {
             {/* Modal Header */}
 
             <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">
                   Edit User Entry
@@ -986,6 +1404,7 @@ const AdminLottery = () => {
               >
                 ×
               </button>
+
             </div>
 
             {/* Form */}
@@ -998,6 +1417,7 @@ const AdminLottery = () => {
               {/* Number */}
 
               <div className="mb-4">
+
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Lottery Number
                 </label>
@@ -1011,13 +1431,15 @@ const AdminLottery = () => {
                   placeholder="123456"
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
+
               </div>
 
               {/* Amount */}
 
               <div className="mb-4">
+
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Amount
+                  Entry Amount
                 </label>
 
                 <input
@@ -1029,11 +1451,13 @@ const AdminLottery = () => {
                   placeholder="100"
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
+
               </div>
 
               {/* Status */}
 
               <div className="mb-4">
+
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Status
                 </label>
@@ -1042,8 +1466,9 @@ const AdminLottery = () => {
                   name="status"
                   value={editData.status}
                   onChange={handleEditChange}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none"
                 >
+
                   <option value="pending">
                     Pending
                   </option>
@@ -1055,12 +1480,15 @@ const AdminLottery = () => {
                   <option value="lost">
                     Lost
                   </option>
+
                 </select>
+
               </div>
 
               {/* Entry Date */}
 
               <div className="mb-5">
+
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Entry Date
                 </label>
@@ -1072,6 +1500,7 @@ const AdminLottery = () => {
                   onChange={handleEditChange}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
+
               </div>
 
               {/* Buttons */}
@@ -1097,6 +1526,7 @@ const AdminLottery = () => {
                 </button>
 
               </div>
+
             </form>
           </div>
         </div>

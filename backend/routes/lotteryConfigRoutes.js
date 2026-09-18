@@ -35,7 +35,7 @@ router.post(
 // ADMIN
 router.post("/", authMiddleware, createLotteryConfig);
 
-router.get("/", authMiddleware, getAllLotteryConfigs);
+router.get("/all", authMiddleware, getAllLotteryConfigs);
 
 router.get(
   "/active",

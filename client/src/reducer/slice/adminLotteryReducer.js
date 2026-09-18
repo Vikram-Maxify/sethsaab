@@ -31,7 +31,7 @@ export const getAllLotteryConfigs = createAsyncThunk(
   "adminLottery/getAllLotteryConfigs",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await api.get("/lottery");
+      const response = await api.get("/lottery/all");
 
       return response.data;
     } catch (error) {
