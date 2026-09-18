@@ -458,6 +458,88 @@ const addUserLotteryEntry = async (req, res) => {
   }
 };
 
+
+
+const getMyLotteryEntries = async (req, res) => {
+  try {
+    // ==========================================
+    // USER ID FROM JWT
+    // ==========================================
+
+    const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User ID not found in token",
+      });
+    }
+
+    // ==========================================
+    // FIND ACTIVE LOTTERY
+    // ==========================================
+
+    const config = await LotteryConfig.findOne({
+      isActive: true,
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "No active lottery market found",
+      });
+    }
+
+    // ==========================================
+    // FILTER USER ENTRIES
+    // ==========================================
+
+    const userEntries = config.users
+      .filter(
+        (entry) =>
+          String(entry.userId) === String(userId)
+      )
+      .sort((a, b) => {
+        return (
+          new Date(b.entryDate) -
+          new Date(a.entryDate)
+        );
+      });
+
+    // ==========================================
+    // RESPONSE
+    // ==========================================
+
+    return res.status(200).json({
+      success: true,
+      message: "User lottery entries fetched successfully",
+
+      data: {
+        lotteryId: config._id,
+        marketName: config.marketName,
+        month: config.month,
+        year: config.year,
+        isActive: config.isActive,
+
+        totalEntries: userEntries.length,
+
+        entries: userEntries,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Get my lottery entries error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 // =====================================================
 // GET ALL LOTTERY CONFIGS
 // =====================================================
@@ -1009,4 +1091,5 @@ module.exports = {
   deleteUserLotteryEntry,
 
   deleteLotteryConfig,
+  getMyLotteryEntries
 };
