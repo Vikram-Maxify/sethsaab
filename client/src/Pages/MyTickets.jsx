@@ -46,8 +46,7 @@ const MyTickets = () => {
   const filteredTickets =
     activeTab === "all"
       ? tickets
-      : tickets.filter((item) => item.status === activeTab);
-
+      : tickets.filter((t) => t.status === activeTab);
   const copyId = async (id) => {
     try {
       await navigator.clipboard.writeText(id);
@@ -55,237 +54,98 @@ const MyTickets = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#030404] text-white">
-      <main className="w-full max-w-[680px] mx-auto px-[18px] pt-[28px] pb-[35px]">
-        {/* =====================================================
-            PAGE HEADER
-        ===================================================== */}
-        <div className="relative flex items-center justify-between">
-          {/* Left title */}
-          <div className="flex items-center gap-[15px] min-w-0">
-            <div className="relative shrink-0">
-              <Ticket
-                size={58}
-                strokeWidth={1.8}
-                className="
-                  text-[#f5c542]
-                  rotate-[-18deg]
-                  drop-shadow-[0_0_12px_rgba(245,197,66,0.38)]
-                "
-              />
-
-              <div className="absolute inset-0 blur-[9px] bg-[#f5c542]/10 -z-10" />
-            </div>
-
+    <div className="w-full bg-[#030404] text-white">
+      <main className="w-full max-w-[680px] mx-auto px-[12px] sm:px-[18px] pt-[22px] pb-[35px]">
+        <div className="relative flex items-center justify-between gap-[10px]">
+          <div className="flex items-center gap-[10px] min-w-0">
+            <Ticket
+              size={42}
+              strokeWidth={1.8}
+              className="text-[#f5c542] rotate-[-18deg] drop-shadow-[0_0_10px_rgba(245,197,66,0.35)] shrink-0"
+            />
             <div className="min-w-0">
-              <h1
-                className="
-                  text-[39px]
-                  leading-[0.95]
-                  font-extrabold
-                  tracking-tight
-                  text-white
-                "
-              >
+              <h1 className="text-[25px] sm:text-[30px] leading-none font-extrabold tracking-tight">
                 मेरे टिकट
               </h1>
-
-              <p
-                className="
-                  mt-[9px]
-                  text-[13px]
-                  leading-[1.15]
-                  text-[#d1d1d1]
-                  max-w-[360px]
-                "
-              >
+              <p className="mt-[5px] text-[13px] leading-[1.15] text-[#d1d1d1]">
                 आपके द्वारा खरीदे गए सभी टिकट यहाँ दिखेंगे
               </p>
             </div>
           </div>
-
-          {/* Dropdown */}
           <button
             type="button"
-            className="
-              shrink-0
-              w-[145px]
-              h-[58px]
-              rounded-[13px]
-              border
-              border-[#a38b35]
-              bg-[#080a09]
-              px-[15px]
-              flex
-              items-center
-              justify-between
-              text-white
-              shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]
-            "
+            className="shrink-0 w-[112px] sm:w-[135px] h-[45px] rounded-[11px] border border-[#a38b35] bg-[#080a09] px-[11px] flex items-center justify-between text-white"
           >
-            <span className="text-[17px] font-medium">सभी टिकट</span>
-
-            <ChevronDown size={23} strokeWidth={2.3} className="text-white" />
+            <span className="text-[13px] font-medium">सभी टिकट</span>
+            <ChevronDown size={19} strokeWidth={2.3} />
           </button>
         </div>
 
-        {/* =====================================================
-            FILTER TABS
-        ===================================================== */}
-        <div className="grid grid-cols-4 gap-[10px] mt-[30px]">
+        <div className="grid grid-cols-4 gap-[6px] mt-[22px]">
           {tabs.map((tab) => {
             const active = activeTab === tab.key;
-
             return (
               <button
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`
-                  h-[60px]
-                  rounded-[13px]
-                  border
-                  flex
-                  items-center
-                  justify-center
-                  whitespace-nowrap
-                  transition-all
-                  ${
-                    active
-                      ? `
-                        border-[#ffe27a]
-                        text-black
-                        font-extrabold
-                        bg-gradient-to-b
-                        from-[#ffe77b]
-                        via-[#f5c542]
-                        to-[#e9b528]
-                        shadow-[0_4px_16px_rgba(245,197,66,0.25)]
-                      `
-                      : `
-                        border-[#353938]
-                        bg-[#101212]
-                        text-[#eeeeee]
-                        font-semibold
-                      `
-                  }
-                `}
+                className={`h-[47px] rounded-[10px] border flex items-center justify-center whitespace-nowrap transition-all ${active ? "border-[#ffe27a] text-black font-extrabold bg-gradient-to-b from-[#ffe77b] via-[#f5c542] to-[#e9b528] shadow-[0_3px_12px_rgba(245,197,66,0.22)]" : "border-[#353938] bg-[#101212] text-[#eeeeee] font-semibold"}`}
               >
-                <span className="text-[16px]">{tab.label}</span>
-
-                <span className="text-[16px] ml-[3px]">({tab.count})</span>
+                <span className="text-[12px] sm:text-[14px]">
+                  {tab.label} ({tab.count})
+                </span>
               </button>
             );
           })}
         </div>
 
-        {/* =====================================================
-            TICKET LIST
-        ===================================================== */}
-        <div className="mt-[34px] space-y-[30px]">
-          {filteredTickets.map((ticket) => (
-            <LotteryTicket key={ticket.id} ticket={ticket} copyId={copyId} />
-          ))}
+        <div className="mt-[25px] space-y-[22px]">
+          {filteredTickets.length ? (
+            filteredTickets.map((ticket) => (
+              <LotteryTicket key={ticket.id} ticket={ticket} copyId={copyId} />
+            ))
+          ) : (
+            <div className="h-[160px] rounded-[16px] border border-[#282b29] bg-[#090b0b] flex flex-col items-center justify-center">
+              <Ticket size={40} className="text-[#f5c542]" />
+              <p className="mt-3 text-[13px] text-white/60">
+                इस श्रेणी में कोई टिकट नहीं है
+              </p>
+            </div>
+          )}
         </div>
       </main>
     </div>
   );
 };
 
-/* =============================================================
-   LOTTERY TICKET
-============================================================= */
-
 const LotteryTicket = ({ ticket, copyId }) => {
   const pending = ticket.status === "pending";
 
   return (
-    <div
-      className="
-        relative
-        w-full
-        h-[418px]
-        rounded-[20px]
-        overflow-hidden
-        bg-[#f4dda0]
-        border-[1.5px]
-        border-[#d2a83b]
-        shadow-[0_7px_30px_rgba(0,0,0,0.45)]
-      "
-    >
-      {/* =======================================================
-          GOLD INNER BORDER
-      ======================================================= */}
-      <div
-        className="
-          absolute
-          inset-[5px]
-          rounded-[16px]
-          border
-          border-[#f1d276]/70
-          pointer-events-none
-          z-[30]
-        "
-      />
+    <div className="relative w-full h-[236px] rounded-[15px] overflow-hidden bg-[#f4dda0] shadow-[0_5px_22px_rgba(0,0,0,0.4)]">
+      <div className="absolute inset-[4px] rounded-[12px] border border-[#f1d276]/70 pointer-events-none z-[30]" />
 
-      {/* =======================================================
-          LEFT RED PANEL
-      ======================================================= */}
-      <div
-        className="
-          absolute
-          left-0
-          top-0
-          bottom-0
-          w-[24%]
-          flex
-          flex-col
-          items-center
-          text-center
-          px-[12px]
-          py-[30px]
-          overflow-hidden
-          bg-gradient-to-b
-          from-[#d82b2d]
-          via-[#b8171b]
-          to-[#820b10]
-          border-r
-          border-[#e4b844]
-        "
-      >
-        {/* Crown */}
+      <div className="absolute left-0 top-0 bottom-0 w-[24%] flex flex-col items-center text-center px-[6px] py-[17px] overflow-hidden bg-gradient-to-b from-[#d82b2d] via-[#b8171b] to-[#820b10] border-r border-[#e4b844]">
         <Crown
-          size={66}
+          size={43}
           strokeWidth={1.5}
           fill="#f7d24d"
-          className="
-            text-[#f7d24d]
-            drop-shadow-[0_2px_7px_rgba(0,0,0,0.4)]
-          "
+          className="text-[#f7d24d] drop-shadow-[0_2px_6px_rgba(0,0,0,0.4)]"
         />
-
-        {/* Kuber Ticket */}
-        <h2 className="mt-[10px] text-[27px] leading-[0.95] font-extrabold text-white">
+        <h2 className="mt-[6px] text-[17px] leading-none font-extrabold text-white">
           Kuber
         </h2>
-
-        <h2 className="mt-[5px] text-[27px] leading-[0.95] font-extrabold text-white">
+        <h2 className="mt-[3px] text-[17px] leading-none font-extrabold text-white">
           Ticket
         </h2>
-
-        {/* Separator */}
-        <div className="w-[65%] h-px bg-[#f5c542]/60 mt-[25px]" />
-
-        {/* Main message */}
-        <p className="mt-[27px] text-[17px] leading-[1.45] font-semibold text-white">
+        <div className="w-[65%] h-px bg-[#f5c542]/60 mt-[15px]" />
+        <p className="mt-[16px] text-[11px] leading-[1.35] font-semibold text-white">
           {ticket.message}
         </p>
-
-        {/* Lotus */}
         <div className="mt-auto">
           <svg
-            width="52"
-            height="45"
+            width="38"
+            height="34"
             viewBox="0 0 52 45"
             fill="none"
             stroke="#f7d24d"
@@ -297,101 +157,49 @@ const LotteryTicket = ({ ticket, copyId }) => {
             <path d="M26 37C22 28 23 19 26 11C29 19 30 28 26 37Z" />
           </svg>
         </div>
-
-        <p className="mt-[8px] text-[15px] font-semibold text-white">
+        <p className="mt-[3px] text-[10px] font-semibold text-white">
           खेलो विश्वास
         </p>
-
-        <p className="text-[15px] font-semibold text-white">के साथ</p>
+        <p className="text-[10px] font-semibold text-white">के साथ</p>
       </div>
 
-      {/* =======================================================
-          CENTER PANEL
-      ======================================================= */}
-      <div
-        className="
-          absolute
-          left-[24%]
-          right-[24%]
-          top-0
-          bottom-0
-          px-[14px]
-          py-[25px]
-          text-[#19140c]
-          bg-gradient-to-b
-          from-[#fff1c4]
-          via-[#f8e4ad]
-          to-[#efd394]
-        "
-      >
-        {/* Decorative top */}
-        <div className="flex items-center justify-center gap-[7px]">
-          <span className="text-[#c49a3d] text-[15px]">❧</span>
-
-          <div
-            className="
-              px-[15px]
-              py-[7px]
-              rounded-full
-              border
-              border-[#d1ad55]
-              bg-[#f9e9b9]
-              shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]
-            "
-          >
-            <p className="text-[17px] font-extrabold whitespace-nowrap">
+      <div className="absolute left-[24%] right-[24%] top-0 bottom-0 px-[8px] py-[13px] text-[#19140c] bg-gradient-to-b from-[#fff1c4] via-[#f8e4ad] to-[#efd394]">
+        <div className="flex items-center justify-center gap-[4px]">
+          <span className="text-[#c49a3d] text-[10px]">❧</span>
+          <div className="px-[8px] py-[4px] rounded-full border border-[#d1ad55] bg-[#f9e9b9]">
+            <p className="text-[11px] font-extrabold whitespace-nowrap">
               भारत की भरोसेमंद लॉटरी
             </p>
           </div>
-
-          <span className="text-[#c49a3d] text-[15px]">❧</span>
+          <span className="text-[#c49a3d] text-[10px]">❧</span>
         </div>
 
-        {/* Selected number title */}
-        <p className="text-center text-[18px] font-semibold mt-[23px]">
+        <p className="text-center text-[12px] font-semibold mt-[11px]">
           आपका चुना हुआ नंबर
         </p>
 
-        {/* =====================================================
-            NUMBER BOXES
-        ===================================================== */}
-        <div className="grid grid-cols-6 gap-[6px] mt-[15px]">
+        <div className="grid grid-cols-6 gap-[3px] mt-[7px]">
           {ticket.number.map((digit, index) => (
             <div
               key={index}
-              className="
-                h-[58px]
-                rounded-[10px]
-                border
-                border-[#bd8b2d]
-                bg-[#fff0c3]
-                flex
-                items-center
-                justify-center
-                shadow-[inset_0_1px_3px_rgba(120,80,10,0.08)]
-              "
+              className="h-[37px] rounded-[6px] border border-[#bd8b2d] bg-[#fff0c3] flex items-center justify-center"
             >
-              <span className="text-[29px] font-extrabold">{digit}</span>
+              <span className="text-[19px] font-extrabold">{digit}</span>
             </div>
           ))}
         </div>
 
-        {/* =====================================================
-            PRIZES
-        ===================================================== */}
-        <div className="grid grid-cols-3 gap-[7px] mt-[24px]">
+        <div className="grid grid-cols-3 gap-[4px] mt-[11px]">
           <MiniPrize
             title="प्रथम पुरस्कार"
             amount="₹5 करोड़"
             subtitle="(6 अंक मिलने पर)"
           />
-
           <MiniPrize
             title="द्वितीय पुरस्कार"
             amount="₹3 करोड़"
             subtitle="(5 अंक मिलने पर)"
           />
-
           <MiniPrize
             title="तृतीय पुरस्कार"
             amount="₹2 करोड़"
@@ -399,193 +207,147 @@ const LotteryTicket = ({ ticket, copyId }) => {
           />
         </div>
 
-        {/* Divider */}
-        <div className="h-px bg-[#c9a85c] mt-[22px]" />
-
-        {/* Bottom slogan */}
-        <div className="flex items-center justify-center gap-[6px] mt-[17px]">
-          <span className="text-[#c09232] text-[17px]">✧</span>
-
-          <p className="text-[15px] font-semibold text-center leading-[1.3]">
+        <div className="h-px bg-[#c9a85c] mt-[10px]" />
+        <div className="flex items-center justify-center gap-[3px] mt-[6px]">
+          <span className="text-[#c09232] text-[9px]">✧</span>
+          <p className="text-[9px] font-semibold text-center leading-[1.15]">
             छोटी सी राशि, बड़ी खुशियों की शुरुआत
           </p>
-
-          <span className="text-[#c09232] text-[17px]">✧</span>
+          <span className="text-[#c09232] text-[9px]">✧</span>
         </div>
       </div>
 
-      {/* =======================================================
-          RIGHT PANEL
-      ======================================================= */}
-      <div
-        className="
-          absolute
-          right-0
-          top-0
-          bottom-0
-          w-[24%]
-          px-[10px]
-          py-[18px]
-          text-[#21180d]
-          bg-gradient-to-b
-          from-[#fff1c7]
-          via-[#f7e2a8]
-          to-[#edd28f]
-          border-l
-          border-[#c39b43]
-        "
-      >
-        {/* Status */}
+      <div className="absolute right-0 top-0 bottom-0 w-[24%] px-[7px] py-[11px] text-[#21180d] bg-gradient-to-b from-[#fff1c7] via-[#f7e2a8] to-[#edd28f] border-l border-[#c39b43]">
         <div
-          className={`
-            w-full
-            h-[43px]
-            rounded-[13px]
-            flex
-            items-center
-            justify-center
-            gap-[5px]
-            text-white
-            font-bold
-            ${
-              pending
-                ? "bg-gradient-to-b from-[#ed4d4a] to-[#c82729]"
-                : "bg-gradient-to-b from-[#42c45b] to-[#209d3c]"
-            }
-          `}
+          className={`w-full h-[30px] rounded-[8px] flex items-center justify-center gap-[3px] text-white font-bold ${pending ? "bg-gradient-to-b from-[#ed4d4a] to-[#c82729]" : "bg-gradient-to-b from-[#42c45b] to-[#209d3c]"}`}
         >
           {pending ? (
-            <Clock3 size={20} strokeWidth={2} />
+            <Clock3 size={14} strokeWidth={2} />
           ) : (
-            <CheckCircle2 size={20} strokeWidth={2} />
+            <CheckCircle2 size={14} strokeWidth={2} />
           )}
-
-          <span className="text-[14px]">{ticket.statusText}</span>
+          <span className="text-[10px]">{ticket.statusText}</span>
         </div>
 
-        {/* Draw Date */}
         <SideInfo
           label="ड्रॉ दिनांक"
           value={
             <>
-              <span>11</span>
-              <span>अक्टूबर</span>
-              <br />
-              <span>2026</span>
+              <span>11</span> <span>अक्टूबर</span> <span>2026</span>
             </>
           }
         />
-
-        {/* Price */}
         <SideInfo
           label="टिकट मूल्य"
           value={ticket.price}
-          valueClass="text-[#9d2020] text-[20px] font-extrabold"
+          valueClass="text-[#9d2020] text-[15px] font-extrabold"
         />
 
-        {/* Purchase */}
-        <div className="mt-[24px]">
-          <p className="text-[12px] text-[#6a5533]">खरीद की तारीख</p>
-
-          <p className="text-[13px] font-bold leading-[1.35] mt-[6px]">
+        <div className="mt-[12px]">
+          <p className="text-[9px] text-[#6a5533]">खरीद की तारीख</p>
+          <p className="text-[10px] font-bold leading-[1.2] mt-[3px]">
             {ticket.purchaseDate}
           </p>
-
-          <p className="text-[12px] mt-[3px]">{ticket.purchaseTime}</p>
+          <p className="text-[9px] mt-[2px]">{ticket.purchaseTime}</p>
         </div>
 
-        {/* Ticket ID */}
-        <div className="mt-[25px]">
-          <p className="text-[12px] text-[#6a5533]">टिकट आईडी</p>
-
-          <div className="flex items-start gap-[5px] mt-[6px]">
-            <span className="text-[12px] font-bold break-all leading-[1.2]">
+        <div className="mt-[12px]">
+          <p className="text-[9px] text-[#6a5533]">टिकट आईडी</p>
+          <div className="flex items-start gap-[3px] mt-[3px]">
+            <span className="text-[9px] font-bold break-all leading-[1.1]">
               {ticket.id}
             </span>
-
             <button
               type="button"
               onClick={() => copyId(ticket.id)}
-              className="shrink-0 mt-[1px]"
+              className="shrink-0"
             >
-              <Copy size={17} strokeWidth={1.8} />
+              <Copy size={12} strokeWidth={1.8} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* =======================================================
-          TICKET DECORATIVE NOTCHES
-      ======================================================= */}
       <TicketNotches />
     </div>
   );
 };
 
-/* =============================================================
-   SIDE INFO
-============================================================= */
-
 const SideInfo = ({ label, value, valueClass = "" }) => (
-  <div className="mt-[21px]">
-    <p className="text-[12px] text-[#6a5533]">{label}</p>
-
+  <div className="mt-[10px]">
+    <p className="text-[9px] text-[#6a5533]">{label}</p>
     <div
-      className={`
-        text-[14px]
-        font-semibold
-        leading-[1.3]
-        mt-[6px]
-        ${valueClass}
-      `}
+      className={`text-[11px] font-semibold leading-[1.2] mt-[3px] ${valueClass}`}
     >
       {value}
     </div>
   </div>
 );
 
-/* =============================================================
-   MINI PRIZE
-============================================================= */
-
 const MiniPrize = ({ title, amount, subtitle }) => (
-  <div
-    className="
-      min-w-0
-      rounded-[11px]
-      border
-      border-[#c79b3d]
-      bg-[#f8e8b4]
-      py-[11px]
-      px-[3px]
-      text-center
-      shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]
-    "
-  >
-    <p className="text-[11px] font-bold leading-[1.25]">{title}</p>
-
-    <p className="mt-[7px] text-[13px] leading-none font-extrabold text-[#9e2922] whitespace-nowrap">
+  <div className="min-w-0 rounded-[7px] border border-[#c79b3d] bg-[#f8e8b4] py-[5px] px-[1px] text-center">
+    <p className="text-[7px] font-bold leading-[1.1]">{title}</p>
+    <p className="mt-[4px] text-[12px] leading-none font-extrabold text-[#9e2922] whitespace-nowrap">
       {amount}
     </p>
-
-    <p className="mt-[6px] text-[9px] leading-[1.2]">{subtitle}</p>
+    <p className="mt-[3px] text-[6px] leading-[1.1]">{subtitle}</p>
   </div>
 );
 
-/* =============================================================
-   TICKET NOTCHES
-============================================================= */
+const TicketNotches = () => {
+  const positions = [
+    "top-[8px]",
+    "top-[29px]",
+    "top-[50px]",
+    "top-[71px]",
+    "top-[92px]",
+    "top-[113px]",
+    "top-[134px]",
+    "top-[155px]",
+    "top-[176px]",
+    "top-[197px]",
+    "top-[218px]",
+  ];
 
-const TicketNotches = () => (
-  <>
-    <div className="absolute left-[-7px] top-[54px] w-[14px] h-[14px] rounded-full bg-[#030404] z-40" />
-    <div className="absolute left-[-7px] top-[calc(50%-7px)] w-[14px] h-[14px] rounded-full bg-[#030404] z-40" />
-    <div className="absolute left-[-7px] bottom-[54px] w-[14px] h-[14px] rounded-full bg-[#030404] z-40" />
+  return (
+    <>
+      {/* LEFT CUTOUTS */}
+      {positions.map((position, index) => (
+        <span
+          key={`left-notch-${index}`}
+          className={`
+            absolute
+            left-[-7px]
+            ${position}
+            w-[14px]
+            h-[14px]
+            rounded-full
+            bg-[#030404]
+            z-[50]
+            pointer-events-none
+          `}
+        />
+      ))}
 
-    <div className="absolute right-[-7px] top-[54px] w-[14px] h-[14px] rounded-full bg-[#030404] z-40" />
-    <div className="absolute right-[-7px] top-[calc(50%-7px)] w-[14px] h-[14px] rounded-full bg-[#030404] z-40" />
-    <div className="absolute right-[-7px] bottom-[54px] w-[14px] h-[14px] rounded-full bg-[#030404] z-40" />
-  </>
-);
+      {/* RIGHT CUTOUTS */}
+      {positions.map((position, index) => (
+        <span
+          key={`right-notch-${index}`}
+          className={`
+            absolute
+            right-[-7px]
+            ${position}
+            w-[14px]
+            h-[14px]
+            rounded-full
+            bg-[#030404]
+            z-[50]
+            pointer-events-none
+          `}
+        />
+      ))}
+    </>
+  );
+};
 
 export default MyTickets;
