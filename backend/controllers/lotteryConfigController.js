@@ -27,13 +27,7 @@ const getCurrentMonthYear = () => {
   };
 };
 
-// =====================================================
-// GET CURRENT DATE
-// =====================================================
-// Returns YYYY-MM-DD
-//
-// Server date is used automatically.
-// =====================================================
+
 
 const getCurrentDate = () => {
   const now = new Date();
