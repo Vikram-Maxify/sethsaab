@@ -15,44 +15,115 @@ import Register from "./Pages/Register";
 // ================= ADMIN =================
 import AdminLayout from "./admin/adminComponents/AdminLayout";
 import AdminPrivateRoute from "./admin/adminComponents/PrivateRoute";
+
 import Dashboard from "./admin/adminPages/Dashboard";
+import AdminLogin from "./admin/adminPages/AdminLogin";
+import Users from "./admin/adminPages/Users";
+import Amount from "./admin/adminPages/Amount";
+import Results from "./admin/adminPages/Results";
+
 
 function App() {
   return (
     <Routes>
+
       {/* =====================================================
           CLIENT ROUTES
       ===================================================== */}
 
       <Route element={<PhoneLayout />}>
+
         {/* Client Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route
+          path="/login"
+          element={<Login />}
+        />
+
+        <Route
+          path="/register"
+          element={<Register />}
+        />
 
         {/* Client Private Routes */}
         <Route element={<PrivateRoute />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/buy-ticket" element={<BuyTicket />} />
-          <Route path="/my-tickets" element={<MyTickets />} />
+
+          <Route
+            path="/"
+            element={<HomePage />}
+          />
+
+          <Route
+            path="/profile"
+            element={<ProfilePage />}
+          />
+
+          <Route
+            path="/buy-ticket"
+            element={<BuyTicket />}
+          />
+
+          <Route
+            path="/my-tickets"
+            element={<MyTickets />}
+          />
+
         </Route>
       </Route>
 
+
       {/* =====================================================
-          ADMIN ROUTES
+          ADMIN PUBLIC ROUTES
+      ===================================================== */}
+
+      <Route
+        path="/admin/login"
+        element={<AdminLogin />}
+      />
+
+
+      {/* =====================================================
+          ADMIN PRIVATE ROUTES
       ===================================================== */}
 
       <Route element={<AdminPrivateRoute />}>
+
         <Route element={<AdminLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
+
+          {/* Dashboard */}
+          <Route
+            path="/dashboard"
+            element={<Dashboard />}
+          />
+
+          {/* Users */}
+          <Route
+            path="/users"
+            element={<Users />}
+          />
+
+          <Route
+            path="/amount"
+            element={<Amount />}
+          />
+          <Route
+            path="/results"
+            element={<Results />}
+          />
+
         </Route>
+
       </Route>
+
 
       {/* =====================================================
           DEFAULT
       ===================================================== */}
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route
+        path="*"
+        element={<Navigate to="/" replace />}
+      />
+
     </Routes>
   );
 }

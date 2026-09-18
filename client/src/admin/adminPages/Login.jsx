@@ -11,7 +11,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-import { adminLogin } from "../redux/reducers/adminAuthReducer";
+import { adminLogin } from "../../reducer/slice/adminAuthReducer";
 
 const Login = () => {
   const dispatch = useDispatch();
