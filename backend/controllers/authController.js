@@ -163,6 +163,7 @@ const getProfile = async (req, res) => {
         uuid: user.uuid,
         name: user.name,
         mobile: user.mobile,
+        wallet:user.wallet,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
