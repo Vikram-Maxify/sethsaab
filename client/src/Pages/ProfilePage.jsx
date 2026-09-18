@@ -1,6 +1,7 @@
 import {
   ChevronRight,
   Edit3,
+  HandCoins,
   Headphones,
   Loader2,
   LogOut,
@@ -128,7 +129,7 @@ const ProfilePage = () => {
 
         <button
           type="button"
-          className="rounded-xl px-5 py-4 text-black text-[17px] font-extrabold whitespace-nowrap"
+          className="rounded-xl px-5 py-4 text-black text-[17px] font-extrabold whitespace-nowrap flex items-center gap-2"
           style={{
             background:
               "linear-gradient(180deg, #FFD966 0%, #f5c542 50%, #d4a017 100%)",
@@ -136,8 +137,8 @@ const ProfilePage = () => {
               "0 4px 18px rgba(245,197,66,0.25), inset 0 1px 0 rgba(255,255,255,0.45)",
           }}
         >
-          <span className="text-[22px] mr-1">+</span>
-          पैसे जोड़ें
+          <HandCoins size={22} strokeWidth={2.5} />
+          पैसे निकालें
         </button>
       </div>
 
