@@ -122,7 +122,7 @@ const ProfilePage = () => {
           <div>
             <p className="text-[#d2d2d2] text-[16px]">वॉलेट बैलेंस</p>
             <p className="text-[#f5c542] text-[27px] font-extrabold mt-0.5">
-              ₹0
+              ₹{user?.wallet}
             </p>
           </div>
         </div>
