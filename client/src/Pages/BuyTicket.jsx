@@ -598,15 +598,15 @@ const SmallFeature = ({ icon, text }) => (
 // TIME BOX
 // =====================================================
 
-const TimeBox = ({ value, label }) => (
-  <div className="text-center">
-    <div className="h-[42px] min-w-[53px] rounded-[8px] bg-[#181c1e] border border-[#24282a] flex items-center justify-center">
-      <span className="text-[20px] font-bold">{value}</span>
-    </div>
+// const TimeBox = ({ value, label }) => (
+//   <div className="text-center">
+//     <div className="h-[42px] min-w-[53px] rounded-[8px] bg-[#181c1e] border border-[#24282a] flex items-center justify-center">
+//       <span className="text-[20px] font-bold">{value}</span>
+//     </div>
 
-    <span className="text-[9px] text-white/60 mt-1 block">{label}</span>
-  </div>
-);
+//     <span className="text-[9px] text-white/60 mt-1 block">{label}</span>
+//   </div>
+// );
 
 // =====================================================
 // ICONS
