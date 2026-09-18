@@ -11,7 +11,6 @@ const register = async (req, res) => {
   try {
     const { name, mobile, password } = req.body;
 
-    // Validation
     if (!name || !mobile || !password) {
       return res.status(400).json({
         success: false,
@@ -26,7 +25,6 @@ const register = async (req, res) => {
       });
     }
 
-    // Check existing mobile
     const existingUser = await User.findOne({ mobile });
 
     if (existingUser) {
@@ -36,10 +34,8 @@ const register = async (req, res) => {
       });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
     const user = await User.create({
       uuid: uuidv4(),
       name,
@@ -59,7 +55,6 @@ const register = async (req, res) => {
   } catch (error) {
     console.error("Register Error:", error);
 
-    // Duplicate key error
     if (error.code === 11000) {
       return res.status(409).json({
         success: false,
@@ -81,7 +76,6 @@ const login = async (req, res) => {
   try {
     const { mobile, password } = req.body;
 
-    // Validation
     if (!mobile || !password) {
       return res.status(400).json({
         success: false,
@@ -89,7 +83,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Get user + password
     const user = await User.findOne({ mobile }).select("+password");
 
     if (!user) {
@@ -99,7 +92,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Compare password
     const isPasswordCorrect = await bcrypt.compare(
       password,
       user.password
@@ -112,7 +104,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Create JWT
     const token = jwt.sign(
       {
         uuid: user.uuid,
@@ -123,7 +114,6 @@ const login = async (req, res) => {
       }
     );
 
-    // Save token in cookie
     res.cookie("usertoken", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -188,6 +178,128 @@ const getProfile = async (req, res) => {
 };
 
 // =======================
+// UPDATE PROFILE
+// =======================
+const updateProfile = async (req, res) => {
+  try {
+    const { name, mobile, password } = req.body;
+
+    // Logged-in user
+    const user = await User.findOne({
+      uuid: req.user.uuid,
+    }).select("+password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Update name
+    if (name !== undefined) {
+      if (!name.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Name cannot be empty",
+        });
+      }
+
+      user.name = name.trim();
+    }
+
+    // Update mobile
+    if (mobile !== undefined) {
+      if (!mobile.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Mobile cannot be empty",
+        });
+      }
+
+      // Check if mobile belongs to another user
+      const existingUser = await User.findOne({
+        mobile: mobile.trim(),
+        uuid: { $ne: req.user.uuid },
+      });
+
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          message: "Mobile number already registered",
+        });
+      }
+
+      user.mobile = mobile.trim();
+    }
+
+    // Update password
+    if (password !== undefined) {
+      if (password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be at least 6 characters",
+        });
+      }
+
+      user.password = await bcrypt.hash(password, 12);
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: {
+        uuid: user.uuid,
+        name: user.name,
+        mobile: user.mobile,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Update Profile Error:", error);
+
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Mobile number already exists",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// =======================
+// GET ALL USERS
+// =======================
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find()
+      .select("-password")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Users fetched successfully",
+      count: users.length,
+      data: users,
+    });
+  } catch (error) {
+    console.error("Get All Users Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// =======================
 // LOGOUT
 // =======================
 const logout = async (req, res) => {
@@ -216,5 +328,7 @@ module.exports = {
   register,
   login,
   getProfile,
+  updateProfile,
+  getAllUsers,
   logout,
 };

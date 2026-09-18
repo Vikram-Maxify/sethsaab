@@ -1,5 +1,4 @@
 import { useState } from "react";
-
 import {
   useDispatch,
   useSelector,
@@ -11,9 +10,9 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-import { adminLogin } from "../redux/reducers/adminAuthReducer";
+import { adminLogin } from "../../reducer/slice/adminAuthReducer";
 
-const Login = () => {
+const AdminLogin = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,6 +30,7 @@ const Login = () => {
     password: "",
   });
 
+  // Already logged in
   if (isAuthenticated) {
     return (
       <Navigate
@@ -40,6 +40,7 @@ const Login = () => {
     );
   }
 
+  // Input change
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -47,6 +48,7 @@ const Login = () => {
     });
   };
 
+  // Login submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -67,15 +69,12 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
-
       <div className="w-full max-w-md">
 
         {/* Card */}
-
         <div className="bg-white rounded-2xl shadow-xl p-8">
 
           {/* Header */}
-
           <div className="text-center mb-8">
 
             <div className="mx-auto mb-4 h-14 w-14 rounded-xl bg-slate-900 flex items-center justify-center">
@@ -95,7 +94,6 @@ const Login = () => {
           </div>
 
           {/* Error */}
-
           {error && (
             <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
               {error}
@@ -103,16 +101,13 @@ const Login = () => {
           )}
 
           {/* Form */}
-
           <form
             onSubmit={handleSubmit}
             className="space-y-5"
           >
 
             {/* Mobile */}
-
             <div>
-
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Mobile Number
               </label>
@@ -127,13 +122,10 @@ const Login = () => {
                 required
                 className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
               />
-
             </div>
 
             {/* Password */}
-
             <div>
-
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Password
               </label>
@@ -148,11 +140,9 @@ const Login = () => {
                 required
                 className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
               />
-
             </div>
 
             {/* Button */}
-
             <button
               type="submit"
               disabled={loading}
@@ -164,17 +154,17 @@ const Login = () => {
             </button>
 
           </form>
-
         </div>
 
+        {/* Footer */}
         <p className="mt-6 text-center text-xs text-slate-400">
           Admin Panel
         </p>
 
       </div>
-
     </div>
   );
 };
 
-export default Login;
+export default AdminLogin;
+
