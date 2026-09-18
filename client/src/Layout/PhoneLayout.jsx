@@ -4,7 +4,7 @@ import BottomNavbar from "./BottomNavbar";
 
 const PhoneLayout = () => {
   return (
-    <div className="min-h-screen w-full bg-neutral-950 flex justify-center">
+    <div className="min-h-screen w-full bg-gray-300 flex justify-center">
       {/* Phone Frame */}
       <div className="w-full max-w-[490px] min-h-screen bg-neutral-950 relative shadow-2xl shadow-black/60 phone-scroll overflow-y-auto">
         {/* Header */}
