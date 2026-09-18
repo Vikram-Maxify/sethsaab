@@ -6,47 +6,151 @@ import {
   Crown,
   Ticket,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  clearLotteryConfigError,
+  getMyLotteryEntries,
+} from "../reducer/slice/createLotteryConfigSlice";
 
 const MyTickets = () => {
+  const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState("all");
 
-  const tickets = [
-    {
-      id: "KT251005248197",
-      number: ["2", "4", "8", "1", "9", "7"],
-      status: "pending",
-      statusText: "पेंडिंग",
-      drawDate: "11 अक्टूबर 2026",
-      price: "₹111",
-      purchaseDate: "05 अक्टूबर 2026",
-      purchaseTime: "रात 10:24",
-      message: "भाग्य का नया अवसर",
-    },
-    {
-      id: "KT251004750361",
-      number: ["7", "5", "0", "3", "6", "1"],
-      status: "active",
-      statusText: "सक्रिय",
-      drawDate: "11 अक्टूबर 2026",
-      price: "₹111",
-      purchaseDate: "04 अक्टूबर 2026",
-      purchaseTime: "शाम 06:17",
-      message: "किस्मत जगाओ जीत पाओ",
-    },
-  ];
+  const {
+    myEntries = [],
+    totalEntries = 0,
+    myEntriesLoading = false,
+    error = null,
+    activeConfig = null,
+  } = useSelector((state) => state.createLotteryConfig || {});
+
+  useEffect(() => {
+    dispatch(getMyLotteryEntries());
+
+    return () => {
+      dispatch(clearLotteryConfigError());
+    };
+  }, [dispatch]);
+
+  const marketName = useMemo(() => {
+    const configMarketName =
+      activeConfig?.marketName || myEntries?.[0]?.marketName || "Market";
+
+    return String(configMarketName)
+      .trim()
+      .replace(/\\s+/g, " ")
+      .replace(/\\b\\w/g, (char) => char.toUpperCase());
+  }, [activeConfig, myEntries]);
+
+  const formatDate = (value) => {
+    if (!value) return "—";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+
+    return date.toLocaleDateString("hi-IN", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const formatTime = (value) => {
+    if (!value) return "—";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+
+    return date.toLocaleTimeString("hi-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const formatAmount = (value) => {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return "₹0";
+
+    return `₹${amount.toLocaleString("en-IN", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  const normalizeStatus = (status) => {
+    const value = String(status || "")
+      .toLowerCase()
+      .trim();
+
+    if (value === "win" || value === "winner" || value === "won") {
+      return "active";
+    }
+
+    if (value === "lost" || value === "loss") {
+      return "lost";
+    }
+
+    return "pending";
+  };
+
+  const tickets = useMemo(() => {
+    const entries = Array.isArray(myEntries) ? myEntries : [];
+
+    return entries.map((entry, index) => {
+      const number = String(entry?.number ?? "").padStart(6, "0");
+      const status = normalizeStatus(entry?.status);
+      const dateValue = entry?.entryDate || entry?.createdAt;
+
+      return {
+        id: entry?._id || entry?.id || `ticket-${index}`,
+        number: number.slice(0, 6).split(""),
+        status,
+        statusText:
+          status === "active"
+            ? "विजेता"
+            : status === "lost"
+              ? "हार गया"
+              : "पेंडिंग",
+        drawDate: "11 अक्टूबर 2026",
+        price: formatAmount(entry?.amount),
+        purchaseDate: formatDate(dateValue),
+        purchaseTime: formatTime(entry?.createdAt || dateValue),
+        message:
+          status === "active"
+            ? "बधाई हो! आपका टिकट विजेता है"
+            : status === "lost"
+              ? "अगली बार किस्मत आजमाएं"
+              : "भाग्य का नया अवसर",
+      };
+    });
+  }, [myEntries]);
 
   const tabs = [
-    { key: "all", label: "सभी", count: 3 },
-    { key: "pending", label: "पेंडिंग", count: 2 },
-    { key: "active", label: "विजेता", count: 0 },
-    { key: "lost", label: "हार गए", count: 1 },
+    { key: "all", label: "सभी", count: tickets.length },
+    {
+      key: "pending",
+      label: "पेंडिंग",
+      count: tickets.filter((t) => t.status === "pending").length,
+    },
+    {
+      key: "active",
+      label: "विजेता",
+      count: tickets.filter((t) => t.status === "active").length,
+    },
+    {
+      key: "lost",
+      label: "हार गए",
+      count: tickets.filter((t) => t.status === "lost").length,
+    },
   ];
 
   const filteredTickets =
     activeTab === "all"
       ? tickets
       : tickets.filter((t) => t.status === activeTab);
+
   const copyId = async (id) => {
     try {
       await navigator.clipboard.writeText(id);
@@ -99,10 +203,28 @@ const MyTickets = () => {
           })}
         </div>
 
+        {myEntriesLoading ? (
+          <div className="h-[160px] rounded-[16px] border border-[#282b29] bg-[#090b0b] flex flex-col items-center justify-center">
+            <Ticket size={40} className="text-[#f5c542] animate-pulse" />
+            <p className="mt-3 text-[13px] text-white/60">
+              आपके टिकट लोड हो रहे हैं...
+            </p>
+          </div>
+        ) : error && !tickets.length ? (
+          <div className="h-[160px] rounded-[16px] border border-red-500/30 bg-[#090b0b] flex flex-col items-center justify-center px-4 text-center">
+            <p className="text-[13px] text-red-300">{error}</p>
+          </div>
+        ) : null}
+
         <div className="mt-[25px] space-y-[22px]">
           {filteredTickets.length ? (
             filteredTickets.map((ticket) => (
-              <LotteryTicket key={ticket.id} ticket={ticket} copyId={copyId} />
+              <LotteryTicket
+                key={ticket.id}
+                ticket={ticket}
+                copyId={copyId}
+                marketName={marketName}
+              />
             ))
           ) : (
             <div className="h-[160px] rounded-[16px] border border-[#282b29] bg-[#090b0b] flex flex-col items-center justify-center">
@@ -118,7 +240,7 @@ const MyTickets = () => {
   );
 };
 
-const LotteryTicket = ({ ticket, copyId }) => {
+const LotteryTicket = ({ ticket, copyId, marketName }) => {
   const pending = ticket.status === "pending";
 
   return (
@@ -133,7 +255,7 @@ const LotteryTicket = ({ ticket, copyId }) => {
           className="text-[#f7d24d] drop-shadow-[0_2px_6px_rgba(0,0,0,0.4)]"
         />
         <h2 className="mt-[6px] text-[17px] leading-none font-extrabold text-white">
-          Kuber
+          {marketName}
         </h2>
         <h2 className="mt-[3px] text-[17px] leading-none font-extrabold text-white">
           Ticket
