@@ -7,8 +7,10 @@ import {
   Ticket,
   Users,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const HomeLotterySection = () => {
+  const navigate = useNavigate();
   return (
     <section className="w-full px-[10px] pt-2 pb-3 bg-[#050505]">
       {/* =========================
@@ -106,9 +108,28 @@ const HomeLotterySection = () => {
       {/* =========================
           BUY TICKET BUTTON
       ========================= */}
+      {/* =========================
+    BUY TICKET BUTTON
+========================= */}
       <button
         type="button"
-        className="relative mt-[16px] w-full h-[70px] rounded-[13px] flex items-center justify-center gap-[12px] text-black overflow-hidden active:scale-[0.99] transition-transform"
+        onClick={() => navigate("/buy-ticket")}
+        className="
+    relative
+    mt-[16px]
+    w-full
+    h-[70px]
+    rounded-[13px]
+    flex
+    items-center
+    justify-center
+    gap-[12px]
+    text-black
+    overflow-hidden
+    active:scale-[0.99]
+    transition-transform
+    cursor-pointer
+  "
         style={{
           background:
             "linear-gradient(180deg, #ffe477 0%, #f5c542 52%, #e4ae16 100%)",
@@ -120,18 +141,20 @@ const HomeLotterySection = () => {
         {/* Shine */}
         <div className="absolute top-0 left-[12%] right-[12%] h-[1px] bg-white/80" />
 
+        {/* Ticket Icon */}
         <Ticket
-          size={34}
-          strokeWidth={2.8}
-          className="rotate-[-17deg]"
-          fill="#090909"
+          size={35}
+          strokeWidth={2.5}
+          className="text-[#090909] rotate-[-17deg] shrink-0"
         />
 
+        {/* Text */}
         <span className="text-[24px] font-extrabold tracking-tight">
           अभी टिकट खरीदें
         </span>
 
-        <ArrowRight size={30} strokeWidth={3} />
+        {/* Arrow */}
+        <ArrowRight size={30} strokeWidth={3} className="shrink-0" />
       </button>
 
       {/* =========================
