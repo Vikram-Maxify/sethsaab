@@ -7,11 +7,7 @@ const LotteryConfig = require("../models/LotteryConfig");
 // =====================================================
 
 const getUserId = (req) => {
-  return (
-    req.user?.uuid ||
-    req.user?.id ||
-    req.user?._id
-  );
+  return req.user?.uuid || req.user?.id || req.user?._id;
 };
 
 // =====================================================
@@ -40,13 +36,9 @@ const getCurrentDate = () => {
 
   const year = now.getFullYear();
 
-  const month = String(
-    now.getMonth() + 1
-  ).padStart(2, "0");
+  const month = String(now.getMonth() + 1).padStart(2, "0");
 
-  const day = String(
-    now.getDate()
-  ).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 };
@@ -56,11 +48,7 @@ const getCurrentDate = () => {
 // =====================================================
 
 const validateNumber = (number) => {
-  if (
-    number === undefined ||
-    number === null ||
-    number === ""
-  ) {
+  if (number === undefined || number === null || number === "") {
     return {
       valid: false,
       message: "6 digit lottery number is required",
@@ -72,8 +60,7 @@ const validateNumber = (number) => {
   if (!/^\d{6}$/.test(value)) {
     return {
       valid: false,
-      message:
-        "Lottery number must be exactly 6 digits",
+      message: "Lottery number must be exactly 6 digits",
     };
   }
 
@@ -120,17 +107,12 @@ const validateAmount = (amount) => {
 // =====================================================
 
 const validateStatus = (status) => {
-  const allowedStatuses = [
-    "pending",
-    "win",
-    "lost",
-  ];
+  const allowedStatuses = ["pending", "win", "lost"];
 
   if (!allowedStatuses.includes(status)) {
     return {
       valid: false,
-      message:
-        "Status must be pending, win or lost",
+      message: "Status must be pending, win or lost",
     };
   }
 
@@ -147,11 +129,7 @@ const validateStatus = (status) => {
 const validateMonth = (month) => {
   const value = Number(month);
 
-  if (
-    !Number.isInteger(value) ||
-    value < 1 ||
-    value > 12
-  ) {
+  if (!Number.isInteger(value) || value < 1 || value > 12) {
     return {
       valid: false,
       message: "Month must be between 1 and 12",
@@ -171,10 +149,7 @@ const validateMonth = (month) => {
 const validateYear = (year) => {
   const value = Number(year);
 
-  if (
-    !Number.isInteger(value) ||
-    value < 2000
-  ) {
+  if (!Number.isInteger(value) || value < 2000) {
     return {
       valid: false,
       message: "Valid year is required",
@@ -206,21 +181,13 @@ const validateYear = (year) => {
 
 const createLotteryConfig = async (req, res) => {
   try {
-    const {
-      marketName,
-      month,
-      year,
-    } = req.body;
+    const { marketName, month, year } = req.body;
 
     // ==========================================
     // MARKET NAME
     // ==========================================
 
-    if (
-      !marketName ||
-      typeof marketName !== "string" ||
-      !marketName.trim()
-    ) {
+    if (!marketName || typeof marketName !== "string" || !marketName.trim()) {
       return res.status(400).json({
         success: false,
         message: "Market name is required",
@@ -233,22 +200,15 @@ const createLotteryConfig = async (req, res) => {
 
     const current = getCurrentMonthYear();
 
-    const selectedMonth =
-      month !== undefined
-        ? Number(month)
-        : current.month;
+    const selectedMonth = month !== undefined ? Number(month) : current.month;
 
-    const selectedYear =
-      year !== undefined
-        ? Number(year)
-        : current.year;
+    const selectedYear = year !== undefined ? Number(year) : current.year;
 
     // ==========================================
     // VALIDATE MONTH
     // ==========================================
 
-    const monthValidation =
-      validateMonth(selectedMonth);
+    const monthValidation = validateMonth(selectedMonth);
 
     if (!monthValidation.valid) {
       return res.status(400).json({
@@ -261,8 +221,7 @@ const createLotteryConfig = async (req, res) => {
     // VALIDATE YEAR
     // ==========================================
 
-    const yearValidation =
-      validateYear(selectedYear);
+    const yearValidation = validateYear(selectedYear);
 
     if (!yearValidation.valid) {
       return res.status(400).json({
@@ -275,18 +234,16 @@ const createLotteryConfig = async (req, res) => {
     // CHECK EXISTING MARKET
     // ==========================================
 
-    const existingConfig =
-      await LotteryConfig.findOne({
-        marketName: marketName.trim(),
-        month: selectedMonth,
-        year: selectedYear,
-      });
+    const existingConfig = await LotteryConfig.findOne({
+      marketName: marketName.trim(),
+      month: selectedMonth,
+      year: selectedYear,
+    });
 
     if (existingConfig) {
       return res.status(409).json({
         success: false,
-        message:
-          "Lottery configuration already exists",
+        message: "Lottery configuration already exists",
         data: existingConfig,
       });
     }
@@ -295,36 +252,30 @@ const createLotteryConfig = async (req, res) => {
     // CREATE MARKET
     // ==========================================
 
-    const config =
-      await LotteryConfig.create({
-        marketName: marketName.trim(),
+    const config = await LotteryConfig.create({
+      marketName: marketName.trim(),
 
-        month: selectedMonth,
+      month: selectedMonth,
 
-        year: selectedYear,
+      year: selectedYear,
 
-        users: [],
+      users: [],
 
-        isActive: false,
-      });
+      isActive: false,
+    });
 
     return res.status(201).json({
       success: true,
-      message:
-        "Lottery configuration created successfully",
+      message: "Lottery configuration created successfully",
       data: config,
     });
   } catch (error) {
-    console.error(
-      "Create lottery config error:",
-      error
-    );
+    console.error("Create lottery config error:", error);
 
     if (error.code === 11000) {
       return res.status(409).json({
         success: false,
-        message:
-          "Lottery configuration already exists",
+        message: "Lottery configuration already exists",
       });
     }
 
@@ -357,10 +308,7 @@ const createLotteryConfig = async (req, res) => {
 
 const addUserLotteryEntry = async (req, res) => {
   try {
-    const {
-      number,
-      amount,
-    } = req.body;
+    const { number, amount } = req.body;
 
     // ==========================================
     // USER ID
@@ -371,8 +319,7 @@ const addUserLotteryEntry = async (req, res) => {
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message:
-          "User ID not found in token",
+        message: "User ID not found in token",
       });
     }
 
@@ -380,14 +327,12 @@ const addUserLotteryEntry = async (req, res) => {
     // VALIDATE NUMBER
     // ==========================================
 
-    const numberValidation =
-      validateNumber(number);
+    const numberValidation = validateNumber(number);
 
     if (!numberValidation.valid) {
       return res.status(400).json({
         success: false,
-        message:
-          numberValidation.message,
+        message: numberValidation.message,
       });
     }
 
@@ -395,14 +340,12 @@ const addUserLotteryEntry = async (req, res) => {
     // VALIDATE AMOUNT
     // ==========================================
 
-    const amountValidation =
-      validateAmount(amount);
+    const amountValidation = validateAmount(amount);
 
     if (!amountValidation.valid) {
       return res.status(400).json({
         success: false,
-        message:
-          amountValidation.message,
+        message: amountValidation.message,
       });
     }
 
@@ -410,65 +353,26 @@ const addUserLotteryEntry = async (req, res) => {
     // CURRENT MONTH + YEAR
     // ==========================================
 
-    const {
-      month,
-      year,
-    } = getCurrentMonthYear();
-
-    // ==========================================
-    // CURRENT DATE
-    // ==========================================
-
     const entryDate = getCurrentDate();
 
     // ==========================================
-    // CURRENT MARKET
+    // FIND ACTIVE LOTTERY
     // ==========================================
 
-    const marketName = "Delhi Market";
+    const config = await LotteryConfig.findOne({
+      isActive: true,
+    });
 
-    // ==========================================
-    // FIND CURRENT MONTH MARKET
-    // ==========================================
-
-    let config =
-      await LotteryConfig.findOne({
-        marketName,
-        month,
-        year,
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "No active lottery market found",
       });
+    }
 
     // ==========================================
     // AUTO CREATE MARKET
     // ==========================================
-
-    if (!config) {
-      try {
-        config =
-          await LotteryConfig.create({
-            marketName,
-
-            month,
-
-            year,
-
-            users: [],
-
-            isActive: true,
-          });
-      } catch (createError) {
-        if (createError.code === 11000) {
-          config =
-            await LotteryConfig.findOne({
-              marketName,
-              month,
-              year,
-            });
-        } else {
-          throw createError;
-        }
-      }
-    }
 
     // ==========================================
     // SAFETY CHECK
@@ -477,8 +381,7 @@ const addUserLotteryEntry = async (req, res) => {
     if (!config) {
       return res.status(500).json({
         success: false,
-        message:
-          "Unable to create or find lottery market",
+        message: "Unable to create or find lottery market",
       });
     }
 
@@ -486,19 +389,15 @@ const addUserLotteryEntry = async (req, res) => {
     // CHECK SAME USER + SAME DATE
     // ==========================================
 
-    const existingUser =
-      config.users.find(
-        (user) =>
-          String(user.userId) ===
-            String(userId) &&
-          user.entryDate === entryDate
-      );
+    const existingUser = config.users.find(
+      (user) =>
+        String(user.userId) === String(userId) && user.entryDate === entryDate,
+    );
 
     if (existingUser) {
       return res.status(409).json({
         success: false,
-        message:
-          "You already have a lottery entry for today",
+        message: "You already have a lottery entry for today",
         data: existingUser,
       });
     }
@@ -512,11 +411,9 @@ const addUserLotteryEntry = async (req, res) => {
 
       entryDate,
 
-      amount:
-        amountValidation.amount,
+      amount: amountValidation.amount,
 
-      number:
-        numberValidation.number,
+      number: numberValidation.number,
 
       status: "pending",
     });
@@ -531,10 +428,7 @@ const addUserLotteryEntry = async (req, res) => {
     // GET NEW ENTRY
     // ==========================================
 
-    const newEntry =
-      config.users[
-        config.users.length - 1
-      ];
+    const newEntry = config.users[config.users.length - 1];
 
     // ==========================================
     // RESPONSE
@@ -543,20 +437,16 @@ const addUserLotteryEntry = async (req, res) => {
     return res.status(201).json({
       success: true,
 
-      message:
-        "Lottery entry submitted successfully",
+      message: "Lottery entry submitted successfully",
 
       data: {
         lotteryId: config._id,
 
-        marketName:
-          config.marketName,
+        marketName: config.marketName,
 
-        month:
-          config.month,
+        month: config.month,
 
-        year:
-          config.year,
+        year: config.year,
 
         entryDate,
 
@@ -564,10 +454,7 @@ const addUserLotteryEntry = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(
-      "Add user lottery entry error:",
-      error
-    );
+    console.error("Add user lottery entry error:", error);
 
     return res.status(500).json({
       success: false,
@@ -588,13 +475,11 @@ const addUserLotteryEntry = async (req, res) => {
 
 const getAllLotteryConfigs = async (req, res) => {
   try {
-    const configs =
-      await LotteryConfig.find()
-        .sort({
-          year: -1,
-          month: -1,
-          marketName: 1,
-        });
+    const configs = await LotteryConfig.find().sort({
+      year: -1,
+      month: -1,
+      marketName: 1,
+    });
 
     return res.status(200).json({
       success: true,
@@ -602,10 +487,7 @@ const getAllLotteryConfigs = async (req, res) => {
       data: configs,
     });
   } catch (error) {
-    console.error(
-      "Get all lottery configs error:",
-      error
-    );
+    console.error("Get all lottery configs error:", error);
 
     return res.status(500).json({
       success: false,
@@ -625,16 +507,14 @@ const getAllLotteryConfigs = async (req, res) => {
 
 const getActiveLotteryConfig = async (req, res) => {
   try {
-    const config =
-      await LotteryConfig.findOne({
-        isActive: true,
-      });
+    const config = await LotteryConfig.findOne({
+      isActive: true,
+    });
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message:
-          "No active lottery configuration found",
+        message: "No active lottery configuration found",
       });
     }
 
@@ -643,10 +523,7 @@ const getActiveLotteryConfig = async (req, res) => {
       data: config,
     });
   } catch (error) {
-    console.error(
-      "Get active lottery config error:",
-      error
-    );
+    console.error("Get active lottery config error:", error);
 
     return res.status(500).json({
       success: false,
@@ -668,24 +545,19 @@ const getLotteryConfigById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (
-      !mongoose.Types.ObjectId.isValid(id)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid configuration ID",
+        message: "Invalid configuration ID",
       });
     }
 
-    const config =
-      await LotteryConfig.findById(id);
+    const config = await LotteryConfig.findById(id);
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message:
-          "Lottery configuration not found",
+        message: "Lottery configuration not found",
       });
     }
 
@@ -694,10 +566,7 @@ const getLotteryConfigById = async (req, res) => {
       data: config,
     });
   } catch (error) {
-    console.error(
-      "Get lottery config by ID error:",
-      error
-    );
+    console.error("Get lottery config by ID error:", error);
 
     return res.status(500).json({
       success: false,
@@ -719,24 +588,19 @@ const activateLotteryConfig = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (
-      !mongoose.Types.ObjectId.isValid(id)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid configuration ID",
+        message: "Invalid configuration ID",
       });
     }
 
-    const config =
-      await LotteryConfig.findById(id);
+    const config = await LotteryConfig.findById(id);
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message:
-          "Lottery configuration not found",
+        message: "Lottery configuration not found",
       });
     }
 
@@ -756,7 +620,7 @@ const activateLotteryConfig = async (req, res) => {
         $set: {
           isActive: false,
         },
-      }
+      },
     );
 
     // ==========================================
@@ -769,15 +633,11 @@ const activateLotteryConfig = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message:
-        "Lottery configuration activated successfully",
+      message: "Lottery configuration activated successfully",
       data: config,
     });
   } catch (error) {
-    console.error(
-      "Activate lottery config error:",
-      error
-    );
+    console.error("Activate lottery config error:", error);
 
     return res.status(500).json({
       success: false,
@@ -795,31 +655,23 @@ const activateLotteryConfig = async (req, res) => {
 //
 // =====================================================
 
-const deactivateLotteryConfig = async (
-  req,
-  res
-) => {
+const deactivateLotteryConfig = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (
-      !mongoose.Types.ObjectId.isValid(id)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid configuration ID",
+        message: "Invalid configuration ID",
       });
     }
 
-    const config =
-      await LotteryConfig.findById(id);
+    const config = await LotteryConfig.findById(id);
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message:
-          "Lottery configuration not found",
+        message: "Lottery configuration not found",
       });
     }
 
@@ -829,15 +681,11 @@ const deactivateLotteryConfig = async (
 
     return res.status(200).json({
       success: true,
-      message:
-        "Lottery configuration deactivated successfully",
+      message: "Lottery configuration deactivated successfully",
       data: config,
     });
   } catch (error) {
-    console.error(
-      "Deactivate lottery config error:",
-      error
-    );
+    console.error("Deactivate lottery config error:", error);
 
     return res.status(500).json({
       success: false,
@@ -864,34 +712,20 @@ const deactivateLotteryConfig = async (
 //
 // =====================================================
 
-const updateUserLotteryEntry = async (
-  req,
-  res
-) => {
+const updateUserLotteryEntry = async (req, res) => {
   try {
-    const {
-      id,
-      userEntryId,
-    } = req.params;
+    const { id, userEntryId } = req.params;
 
-    const {
-      number,
-      amount,
-      status,
-      entryDate,
-    } = req.body;
+    const { number, amount, status, entryDate } = req.body;
 
     // ==========================================
     // VALIDATE CONFIG ID
     // ==========================================
 
-    if (
-      !mongoose.Types.ObjectId.isValid(id)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid configuration ID",
+        message: "Invalid configuration ID",
       });
     }
 
@@ -899,15 +733,10 @@ const updateUserLotteryEntry = async (
     // VALIDATE ENTRY ID
     // ==========================================
 
-    if (
-      !mongoose.Types.ObjectId.isValid(
-        userEntryId
-      )
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(userEntryId)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid user lottery entry ID",
+        message: "Invalid user lottery entry ID",
       });
     }
 
@@ -915,14 +744,12 @@ const updateUserLotteryEntry = async (
     // FIND CONFIG
     // ==========================================
 
-    const config =
-      await LotteryConfig.findById(id);
+    const config = await LotteryConfig.findById(id);
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message:
-          "Lottery configuration not found",
+        message: "Lottery configuration not found",
       });
     }
 
@@ -930,14 +757,12 @@ const updateUserLotteryEntry = async (
     // FIND ENTRY
     // ==========================================
 
-    const userEntry =
-      config.users.id(userEntryId);
+    const userEntry = config.users.id(userEntryId);
 
     if (!userEntry) {
       return res.status(404).json({
         success: false,
-        message:
-          "User lottery entry not found",
+        message: "User lottery entry not found",
       });
     }
 
@@ -946,19 +771,16 @@ const updateUserLotteryEntry = async (
     // ==========================================
 
     if (number !== undefined) {
-      const validation =
-        validateNumber(number);
+      const validation = validateNumber(number);
 
       if (!validation.valid) {
         return res.status(400).json({
           success: false,
-          message:
-            validation.message,
+          message: validation.message,
         });
       }
 
-      userEntry.number =
-        validation.number;
+      userEntry.number = validation.number;
     }
 
     // ==========================================
@@ -966,19 +788,16 @@ const updateUserLotteryEntry = async (
     // ==========================================
 
     if (amount !== undefined) {
-      const validation =
-        validateAmount(amount);
+      const validation = validateAmount(amount);
 
       if (!validation.valid) {
         return res.status(400).json({
           success: false,
-          message:
-            validation.message,
+          message: validation.message,
         });
       }
 
-      userEntry.amount =
-        validation.amount;
+      userEntry.amount = validation.amount;
     }
 
     // ==========================================
@@ -986,19 +805,16 @@ const updateUserLotteryEntry = async (
     // ==========================================
 
     if (status !== undefined) {
-      const validation =
-        validateStatus(status);
+      const validation = validateStatus(status);
 
       if (!validation.valid) {
         return res.status(400).json({
           success: false,
-          message:
-            validation.message,
+          message: validation.message,
         });
       }
 
-      userEntry.status =
-        validation.status;
+      userEntry.status = validation.status;
     }
 
     // ==========================================
@@ -1013,19 +829,15 @@ const updateUserLotteryEntry = async (
     if (entryDate !== undefined) {
       if (
         typeof entryDate !== "string" ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(
-          entryDate
-        )
+        !/^\d{4}-\d{2}-\d{2}$/.test(entryDate)
       ) {
         return res.status(400).json({
           success: false,
-          message:
-            "Entry date must be in YYYY-MM-DD format",
+          message: "Entry date must be in YYYY-MM-DD format",
         });
       }
 
-      userEntry.entryDate =
-        entryDate;
+      userEntry.entryDate = entryDate;
     }
 
     // ==========================================
@@ -1036,15 +848,11 @@ const updateUserLotteryEntry = async (
 
     return res.status(200).json({
       success: true,
-      message:
-        "User lottery entry updated successfully",
+      message: "User lottery entry updated successfully",
       data: config,
     });
   } catch (error) {
-    console.error(
-      "Update user lottery entry error:",
-      error
-    );
+    console.error("Update user lottery entry error:", error);
 
     return res.status(500).json({
       success: false,
@@ -1062,27 +870,18 @@ const updateUserLotteryEntry = async (
 //
 // =====================================================
 
-const deleteUserLotteryEntry = async (
-  req,
-  res
-) => {
+const deleteUserLotteryEntry = async (req, res) => {
   try {
-    const {
-      id,
-      userEntryId,
-    } = req.params;
+    const { id, userEntryId } = req.params;
 
     // ==========================================
     // VALIDATE CONFIG ID
     // ==========================================
 
-    if (
-      !mongoose.Types.ObjectId.isValid(id)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid configuration ID",
+        message: "Invalid configuration ID",
       });
     }
 
@@ -1090,15 +889,10 @@ const deleteUserLotteryEntry = async (
     // VALIDATE ENTRY ID
     // ==========================================
 
-    if (
-      !mongoose.Types.ObjectId.isValid(
-        userEntryId
-      )
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(userEntryId)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid user lottery entry ID",
+        message: "Invalid user lottery entry ID",
       });
     }
 
@@ -1106,14 +900,12 @@ const deleteUserLotteryEntry = async (
     // FIND CONFIG
     // ==========================================
 
-    const config =
-      await LotteryConfig.findById(id);
+    const config = await LotteryConfig.findById(id);
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message:
-          "Lottery configuration not found",
+        message: "Lottery configuration not found",
       });
     }
 
@@ -1121,14 +913,12 @@ const deleteUserLotteryEntry = async (
     // FIND ENTRY
     // ==========================================
 
-    const userEntry =
-      config.users.id(userEntryId);
+    const userEntry = config.users.id(userEntryId);
 
     if (!userEntry) {
       return res.status(404).json({
         success: false,
-        message:
-          "User lottery entry not found",
+        message: "User lottery entry not found",
       });
     }
 
@@ -1142,15 +932,11 @@ const deleteUserLotteryEntry = async (
 
     return res.status(200).json({
       success: true,
-      message:
-        "User lottery entry deleted successfully",
+      message: "User lottery entry deleted successfully",
       data: config,
     });
   } catch (error) {
-    console.error(
-      "Delete user lottery entry error:",
-      error
-    );
+    console.error("Delete user lottery entry error:", error);
 
     return res.status(500).json({
       success: false,
@@ -1168,31 +954,23 @@ const deleteUserLotteryEntry = async (
 //
 // =====================================================
 
-const deleteLotteryConfig = async (
-  req,
-  res
-) => {
+const deleteLotteryConfig = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (
-      !mongoose.Types.ObjectId.isValid(id)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid configuration ID",
+        message: "Invalid configuration ID",
       });
     }
 
-    const config =
-      await LotteryConfig.findById(id);
+    const config = await LotteryConfig.findById(id);
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message:
-          "Lottery configuration not found",
+        message: "Lottery configuration not found",
       });
     }
 
@@ -1200,14 +978,10 @@ const deleteLotteryConfig = async (
 
     return res.status(200).json({
       success: true,
-      message:
-        "Lottery configuration deleted successfully",
+      message: "Lottery configuration deleted successfully",
     });
   } catch (error) {
-    console.error(
-      "Delete lottery config error:",
-      error
-    );
+    console.error("Delete lottery config error:", error);
 
     return res.status(500).json({
       success: false,
