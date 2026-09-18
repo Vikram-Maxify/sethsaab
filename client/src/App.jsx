@@ -21,6 +21,7 @@ import AdminLogin from "./admin/adminPages/AdminLogin";
 import Users from "./admin/adminPages/Users";
 import Amount from "./admin/adminPages/Amount";
 import Results from "./admin/adminPages/Results";
+import LotteryConfig from "./admin/adminPages/LotteryConfig";
 
 
 function App() {
@@ -108,6 +109,10 @@ function App() {
           <Route
             path="/results"
             element={<Results />}
+          />
+          <Route
+            path="/lottery-config"
+            element={<LotteryConfig/>}
           />
 
         </Route>
