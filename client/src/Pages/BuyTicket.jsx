@@ -1,5 +1,9 @@
+import { Ticket } from "lucide-react";
 import { useState } from "react";
+import firstPrize from "../assets/1trophy.png";
+import secondPrize from "../assets/2trophy.png";
 import kuberBanner from "../assets/3ban.png";
+import thirdPrize from "../assets/3trophy.png";
 
 const BuyTicket = () => {
   const [numbers, setNumbers] = useState(["0", "0", "0", "0", "0", "0"]);
@@ -95,21 +99,21 @@ const BuyTicket = () => {
               title="प्रथम पुरस्कार"
               amount="₹5 करोड़"
               condition="(6 अंक मिलने पर)"
-              type="gold"
+              image={firstPrize}
             />
 
             <PrizeCard
               title="द्वितीय पुरस्कार"
               amount="₹3 करोड़"
               condition="(5 अंक मिलने पर)"
-              type="silver"
+              image={secondPrize}
             />
 
             <PrizeCard
               title="तृतीय पुरस्कार"
               amount="₹2 करोड़"
               condition="(4 अंक मिलने पर)"
-              type="bronze"
+              image={thirdPrize}
             />
           </div>
         </section>
@@ -217,7 +221,11 @@ const BuyTicket = () => {
               transition-transform
             "
           >
-            <CardIcon />
+            <Ticket
+              size={35}
+              strokeWidth={2.5}
+              className="text-[#090909] rotate-[-17deg] shrink-0"
+            />
 
             <span>अभी खरीदें - ₹111</span>
 
@@ -271,61 +279,77 @@ const TimeBox = ({ value, label }) => (
    PRIZE CARD
 ============================================================ */
 
-const PrizeCard = ({ title, amount, condition, type }) => {
-  const styles = {
-    gold: {
-      border: "border-[#e4c13c]",
-      text: "text-[#f5d45c]",
-      icon: "text-[#f5d45c]",
-    },
-    silver: {
-      border: "border-[#858585]",
-      text: "text-[#dddddd]",
-      icon: "text-[#dddddd]",
-    },
-    bronze: {
-      border: "border-[#b55e27]",
-      text: "text-[#eaa66b]",
-      icon: "text-[#eaa66b]",
-    },
-  };
-
-  const style = styles[type];
-
+const PrizeCard = ({ title, amount, condition, image }) => {
   return (
     <div
-      className={`
-        min-h-[194px]
+      className="
+        relative
+        w-full
+        h-[194px]
         rounded-[13px]
+        overflow-hidden
         border
-        ${style.border}
-        bg-[#111314]
+        border-[#d7b544]
         flex
         flex-col
         items-center
-        justify-center
         text-center
         px-1
-      `}
+      "
+      style={{
+        backgroundImage: `url(${image})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
     >
-      <p className="text-[12px] text-white/90">{title}</p>
+      {/* Very subtle dark overlay only for text readability */}
+      <div className="absolute inset-0 bg-black/[0.06] pointer-events-none" />
 
-      <p
-        className={`
-          text-[25px]
-          font-extrabold
-          ${style.text}
-          mt-3
-          whitespace-nowrap
-        `}
-      >
-        {amount}
-      </p>
+      {/* Content */}
+      <div className="relative z-10 w-full flex flex-col items-center">
+        {/* Title */}
+        <p
+          className="
+            mt-[15px]
+            text-[12px]
+            text-white
+            font-semibold
+            leading-none
+            drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)]
+          "
+        >
+          {title}
+        </p>
 
-      <p className="text-[10px] text-white/75 mt-1">{condition}</p>
+        {/* Amount */}
+        <p
+          className="
+            mt-[13px]
+            text-[25px]
+            font-extrabold
+            text-[#fff0a3]
+            leading-none
+            whitespace-nowrap
+            drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]
+          "
+        >
+          {amount}
+        </p>
 
-      <div className={`mt-3 ${style.icon}`}>
-        <TrophyLargeIcon />
+        {/* Condition */}
+        <p
+          className="
+            mt-[9px]
+            text-[10px]
+            text-white
+            font-medium
+            leading-none
+            drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)]
+          "
+        >
+          {condition}
+        </p>
       </div>
     </div>
   );
@@ -346,16 +370,6 @@ const SmallFeature = ({ icon, text }) => (
 /* ============================================================
    ICONS
 ============================================================ */
-
-const CrownIcon = () => (
-  <svg width="48" height="32" viewBox="0 0 48 32" fill="none">
-    <path
-      d="M4 8L12 15L20 4L24 15L31 4L37 15L45 8L41 27H8L4 8Z"
-      fill="currentColor"
-    />
-    <path d="M9 29H40" stroke="currentColor" strokeWidth="2" />
-  </svg>
-);
 
 const CalendarIcon = () => (
   <svg
@@ -399,22 +413,6 @@ const TrophyIcon = () => (
   >
     <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z" />
     <path d="M7 6H3v2a4 4 0 004 4M17 6h4v2a4 4 0 01-4 4" />
-  </svg>
-);
-
-const TrophyLargeIcon = () => (
-  <svg
-    width="48"
-    height="42"
-    viewBox="0 0 48 42"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-  >
-    <path d="M14 5h20v11a10 10 0 01-20 0V5z" />
-    <path d="M14 9H7v4a7 7 0 007 7M34 9h7v4a7 7 0 01-7 7" />
-    <path d="M24 26v9M17 40h14" />
-    <path d="M19 10h10" />
   </svg>
 );
 
@@ -548,64 +546,6 @@ const SupportIcon = () => (
     <path d="M4 13a8 8 0 0116 0" />
     <path d="M4 13v4a2 2 0 002 2h2v-6H4zM20 13v4a2 2 0 01-2 2h-2v-6h4z" />
     <path d="M8 19c1 2 3 3 5 3h2" />
-  </svg>
-);
-
-/* ================= BOTTOM NAV ICONS ================= */
-
-const HomeIcon = () => (
-  <svg
-    width="30"
-    height="30"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-  >
-    <path d="M3 11l9-8 9 8" />
-    <path d="M5 10v10h14V10" />
-    <path d="M9 20v-6h6v6" />
-  </svg>
-);
-
-const ReceiptIcon = () => (
-  <svg
-    width="30"
-    height="30"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-  >
-    <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" />
-    <path d="M9 8h6M9 12h6M9 16h4" />
-  </svg>
-);
-
-const ResultIcon = () => (
-  <svg
-    width="30"
-    height="30"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-  >
-    <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
-  </svg>
-);
-
-const ProfileIcon = () => (
-  <svg
-    width="30"
-    height="30"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-  >
-    <circle cx="12" cy="7" r="4" />
-    <path d="M4 21c0-4 3-7 8-7s8 3 8 7" />
   </svg>
 );
 

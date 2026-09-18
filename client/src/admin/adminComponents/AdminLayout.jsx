@@ -1,42 +1,23 @@
-import {
-  NavLink,
-  Outlet,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import {
-  useDispatch,
-  useSelector,
-} from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 
-import {
-  adminLogout,
-} from "../../reducer/slice/adminAuthReducer";
+import { adminLogout } from "../../reducer/slice/adminAuthReducer";
 
 const AdminLayout = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const {
-    admin,
-    loading,
-  } = useSelector(
-    (state) => state.adminAuth
-  );
+  const { admin, loading } = useSelector((state) => state.adminAuth);
 
   // =========================
   // LOGOUT
   // =========================
   const handleLogout = async () => {
-    const result = await dispatch(
-      adminLogout()
-    );
+    const result = await dispatch(adminLogout());
 
-    if (
-      adminLogout.fulfilled.match(result)
-    ) {
+    if (adminLogout.fulfilled.match(result)) {
       navigate("/admin/login", {
         replace: true,
       });
@@ -91,56 +72,36 @@ const AdminLayout = () => {
 
   return (
     <div className="min-h-screen bg-slate-100">
-
       {/* =========================
           SIDEBAR
       ========================= */}
       <aside className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-slate-950">
-
         {/* LOGO */}
         <div className="flex h-16 items-center border-b border-slate-800 px-6">
-
           <div className="flex items-center gap-3">
-
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white">
-              <span className="font-bold text-slate-950">
-                A
-              </span>
+              <span className="font-bold text-slate-950">A</span>
             </div>
 
-            <span className="text-lg font-bold text-white">
-              Admin Panel
-            </span>
-
+            <span className="text-lg font-bold text-white">Admin Panel</span>
           </div>
-
         </div>
 
         {/* =========================
             NAVIGATION
         ========================= */}
         <nav className="flex-1 space-y-1 px-3 py-6">
-
-          <NavLink
-            to="/dashboard"
-            className={navClass}
-          >
+          <NavLink to="/dashboard" className={navClass}>
             <span>📊</span>
             <span>Dashboard</span>
           </NavLink>
 
-          <NavLink
-            to="/users"
-            className={navClass}
-          >
+          <NavLink to="/users" className={navClass}>
             <span>👥</span>
             <span>Users</span>
           </NavLink>
 
-          <NavLink
-            to="/results"
-            className={navClass}
-          >
+          <NavLink to="/results" className={navClass}>
             <span>📋</span>
             <span>Results</span>
           </NavLink>
@@ -152,39 +113,27 @@ const AdminLayout = () => {
             <span>Config</span>
           </NavLink>
 
-          <NavLink
-            to="/amount"
-            className={navClass}
-          >
+          <NavLink to="/amount" className={navClass}>
             <span>💰</span>
             <span>Amount</span>
           </NavLink>
 
-          <NavLink
-            to="/settings"
-            className={navClass}
-          >
+          <NavLink to="/settings" className={navClass}>
             <span>⚙️</span>
             <span>Settings</span>
           </NavLink>
-
         </nav>
 
         {/* =========================
             ADMIN PROFILE
         ========================= */}
         <div className="border-t border-slate-800 p-4">
-
           <div className="mb-3 flex items-center gap-3 px-2">
-
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm font-bold text-white">
-              {admin?.name
-                ?.charAt(0)
-                ?.toUpperCase() || "A"}
+              {admin?.name?.charAt(0)?.toUpperCase() || "A"}
             </div>
 
             <div className="min-w-0">
-
               <p className="truncate text-sm font-semibold text-white">
                 {admin?.name || "Admin"}
               </p>
@@ -192,9 +141,7 @@ const AdminLayout = () => {
               <p className="truncate text-xs text-slate-500">
                 {admin?.mobile || ""}
               </p>
-
             </div>
-
           </div>
 
           {/* LOGOUT */}
@@ -206,27 +153,19 @@ const AdminLayout = () => {
           >
             <span>↪</span>
 
-            <span>
-              {loading
-                ? "Logging out..."
-                : "Logout"}
-            </span>
+            <span>{loading ? "Logging out..." : "Logout"}</span>
           </button>
-
         </div>
-
       </aside>
 
       {/* =========================
           MAIN
       ========================= */}
       <div className="ml-64">
-
         {/* =========================
             HEADER
         ========================= */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-8">
-
           <div>
             <h2 className="text-lg font-semibold text-slate-900">
               {getPageTitle()}
@@ -235,27 +174,18 @@ const AdminLayout = () => {
 
           {/* ADMIN */}
           <div className="flex items-center gap-3">
-
             <div className="hidden text-right sm:block">
-
               <p className="text-sm font-semibold text-slate-900">
                 {admin?.name || "Admin"}
               </p>
 
-              <p className="text-xs text-slate-500">
-                {admin?.mobile || ""}
-              </p>
-
+              <p className="text-xs text-slate-500">{admin?.mobile || ""}</p>
             </div>
 
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
-              {admin?.name
-                ?.charAt(0)
-                ?.toUpperCase() || "A"}
+              {admin?.name?.charAt(0)?.toUpperCase() || "A"}
             </div>
-
           </div>
-
         </header>
 
         {/* =========================
@@ -264,9 +194,7 @@ const AdminLayout = () => {
         <main className="p-6 lg:p-8">
           <Outlet />
         </main>
-
       </div>
-
     </div>
   );
 };
