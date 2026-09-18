@@ -1,34 +1,165 @@
 import { Ticket } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import firstPrize from "../assets/1trophy.png";
 import secondPrize from "../assets/2trophy.png";
 import kuberBanner from "../assets/3ban.png";
 import thirdPrize from "../assets/3trophy.png";
+import {
+  addUserLotteryEntry,
+  getActiveLotteryConfig,
+} from "../reducer/slice/createLotteryConfigSlice";
+
+const TICKET_PRICE = 111;
 
 const BuyTicket = () => {
-  const [numbers, setNumbers] = useState(["0", "0", "0", "0", "0", "0"]);
+  const dispatch = useDispatch();
+  const {
+    config,
+    activeConfig,
+    activeLoading,
+    purchaseLoading,
+    error,
+    successMessage,
+  } = useSelector((state) => state.createLotteryConfig || {});
+
+  const lotteryConfig = config || activeConfig;
+  const [numbers, setNumbers] = useState(["", "", "", "", "", ""]);
+  const [localError, setLocalError] = useState("");
+  const [localSuccess, setLocalSuccess] = useState("");
+
+  useEffect(() => {
+    dispatch(getActiveLotteryConfig());
+  }, [dispatch]);
+
+  const targetDate = useMemo(() => {
+    const dates = Array.isArray(lotteryConfig?.dates)
+      ? [...lotteryConfig.dates]
+      : [];
+    if (!dates.length) return null;
+
+    const preferred = dates.find((d) => {
+      const x = new Date(d.date);
+      return (
+        x.getFullYear() === 2026 && x.getMonth() === 9 && x.getDate() === 11
+      );
+    });
+    if (preferred) return preferred;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return (
+      dates
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .find((d) => {
+          const x = new Date(d.date);
+          x.setHours(0, 0, 0, 0);
+          return x >= today;
+        }) || dates[0]
+    );
+  }, [lotteryConfig]);
+
+  const drawDateText = useMemo(() => {
+    if (!targetDate?.date) return "ड्रॉ जल्द घोषित होगा";
+    return new Intl.DateTimeFormat("hi-IN", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(new Date(targetDate.date));
+  }, [targetDate]);
+
+  const countdown = useMemo(() => {
+    if (!targetDate?.date) return { days: "--", hours: "--", minutes: "--" };
+    const diff = Math.max(0, new Date(targetDate.date).getTime() - Date.now());
+    const mins = Math.floor(diff / 60000);
+    return {
+      days: String(Math.floor(mins / 1440)).padStart(2, "0"),
+      hours: String(Math.floor((mins % 1440) / 60)).padStart(2, "0"),
+      minutes: String(mins % 60).padStart(2, "0"),
+    };
+  }, [targetDate]);
 
   const handleNumberChange = (index, value) => {
-    if (!/^\d?$/.test(value)) return;
-
-    const updated = [...numbers];
-    updated[index] = value || "0";
-    setNumbers(updated);
+    if (!/^\d{0,2}$/.test(value)) return;
+    const next = [...numbers];
+    next[index] = value;
+    setNumbers(next);
+    setLocalError("");
+    setLocalSuccess("");
   };
 
   const generateRandom = () => {
-    const randomNumbers = Array.from({ length: 6 }, () =>
-      Math.floor(Math.random() * 10).toString(),
-    );
-
-    setNumbers(randomNumbers);
+    const result = [];
+    while (result.length < 6) {
+      const n = String(Math.floor(Math.random() * 99) + 1);
+      if (!result.includes(n)) result.push(n);
+    }
+    setNumbers(result);
+    setLocalError("");
+    setLocalSuccess("");
   };
+
+  const clearNumbers = () => {
+    setNumbers(["", "", "", "", "", ""]);
+    setLocalError("");
+    setLocalSuccess("");
+  };
+
+  const handlePurchase = async () => {
+    setLocalError("");
+    setLocalSuccess("");
+
+    if (numbers.some((n) => n === "")) {
+      setLocalError("कृपया सभी 6 नंबर दर्ज करें");
+      return;
+    }
+
+    const selected = numbers.map(Number);
+
+    if (selected.some((n) => !Number.isInteger(n) || n < 1 || n > 99)) {
+      setLocalError("हर नंबर 1 से 99 के बीच होना चाहिए");
+      return;
+    }
+
+    if (new Set(selected).size !== 6) {
+      setLocalError("सभी 6 नंबर अलग-अलग होने चाहिए");
+      return;
+    }
+
+    if (!lotteryConfig?._id) {
+      setLocalError("Active lottery configuration नहीं मिली");
+      return;
+    }
+
+    if (!targetDate?._id) {
+      setLocalError("Lottery draw date नहीं मिली");
+      return;
+    }
+
+    try {
+      const result = await dispatch(
+        addUserLotteryEntry({
+          id: lotteryConfig._id,
+          dateId: targetDate._id,
+          numbers: selected,
+          amount: TICKET_PRICE,
+        }),
+      ).unwrap();
+
+      setLocalSuccess(result?.message || "आपका टिकट सफलतापूर्वक बुक हो गया");
+    } catch (e) {
+      setLocalError(
+        typeof e === "string" ? e : e?.message || "टिकट खरीदने में समस्या हुई",
+      );
+    }
+  };
+
+  const displayError = localError || error;
+  const displaySuccess = localSuccess || successMessage;
 
   return (
     <div className="min-h-screen bg-[#050606] text-white pb-28">
-      {/* =====================================================
-          HERO
-      ===================================================== */}
       <section className="w-full">
         <img
           src={kuberBanner}
@@ -37,63 +168,39 @@ const BuyTicket = () => {
         />
       </section>
 
-      {/* =====================================================
-          MAIN CONTENT
-      ===================================================== */}
       <main className="px-[21px] pt-3">
-        {/* ===================================================
-            DRAW INFORMATION
-        =================================================== */}
         <section className="rounded-[18px] border border-[#d7b838] bg-[#070909] overflow-hidden">
           <div className="grid grid-cols-2 min-h-[124px]">
-            {/* Next Draw */}
             <div className="flex items-center gap-4 px-4 border-r border-[#292929]">
-              <div className="shrink-0">
-                <CalendarIcon />
-              </div>
-
+              <CalendarIcon />
               <div>
-                <p className="text-[14px] text-white font-medium">
-                  अगला ड्रॉ (लकी ड्रॉ)
-                </p>
-
+                <p className="text-[14px] font-medium">अगला ड्रॉ (लकी ड्रॉ)</p>
                 <p className="text-[18px] font-extrabold text-[#f5ce54] mt-2 whitespace-nowrap">
-                  11 अक्टूबर 2026
+                  {activeLoading ? "लोड हो रहा है..." : drawDateText}
                 </p>
               </div>
             </div>
-
-            {/* Countdown */}
             <div className="flex flex-col justify-center px-4">
               <div className="flex items-center gap-2">
                 <ClockIcon />
-
-                <span className="text-[13px] text-white">
-                  ड्रॉ शुरू होने में
-                </span>
+                <span className="text-[13px]">ड्रॉ शुरू होने में</span>
               </div>
-
               <div className="grid grid-cols-3 gap-2 mt-3">
-                <TimeBox value="12" label="दिन" />
-                <TimeBox value="14" label="घंटे" />
-                <TimeBox value="32" label="मिनट" />
+                <TimeBox value={countdown.days} label="दिन" />
+                <TimeBox value={countdown.hours} label="घंटे" />
+                <TimeBox value={countdown.minutes} label="मिनट" />
               </div>
             </div>
           </div>
         </section>
 
-        {/* ===================================================
-            PRIZE DETAILS
-        =================================================== */}
         <section className="mt-3">
           <div className="flex items-center justify-center gap-2 mb-2">
             <TrophyIcon />
-
             <h2 className="text-[23px] font-extrabold text-[#f5ce54]">
               इनाम विवरण
             </h2>
           </div>
-
           <div className="grid grid-cols-3 gap-[8px]">
             <PrizeCard
               title="प्रथम पुरस्कार"
@@ -101,14 +208,12 @@ const BuyTicket = () => {
               condition="(6 अंक मिलने पर)"
               image={firstPrize}
             />
-
             <PrizeCard
               title="द्वितीय पुरस्कार"
               amount="₹3 करोड़"
               condition="(5 अंक मिलने पर)"
               image={secondPrize}
             />
-
             <PrizeCard
               title="तृतीय पुरस्कार"
               amount="₹2 करोड़"
@@ -118,82 +223,77 @@ const BuyTicket = () => {
           </div>
         </section>
 
-        {/* ===================================================
-            NUMBER SELECTION
-        =================================================== */}
         <section className="mt-3 rounded-[18px] border border-[#353535] bg-[#080a0a] p-3">
-          {/* Heading */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TargetIcon />
-
               <h2 className="text-[18px] font-bold">अपना लकी नंबर चुनें</h2>
             </div>
-
             <button
+              type="button"
               onClick={generateRandom}
-              className="flex items-center gap-2 bg-[#171a1b] border border-[#252828] rounded-lg px-3 py-2"
+              disabled={purchaseLoading}
+              className="flex items-center gap-2 bg-[#171a1b] border border-[#252828] rounded-lg px-3 py-2 disabled:opacity-50"
             >
               <ShuffleIcon />
-
               <span className="text-[11px] text-white/70">रैंडम नंबर</span>
             </button>
           </div>
 
-          {/* Number Boxes */}
           <div className="grid grid-cols-6 gap-[7px] mt-4">
             {numbers.map((number, index) => (
               <input
                 key={index}
                 value={number}
-                maxLength={1}
+                maxLength={2}
                 inputMode="numeric"
+                placeholder="--"
                 onChange={(e) => handleNumberChange(index, e.target.value)}
-                className="
-                  w-full
-                  h-[62px]
-                  rounded-[10px]
-                  border
-                  border-[#e2c540]
-                  bg-[#101416]
-                  text-center
-                  text-[31px]
-                  font-bold
-                  text-[#d7dadd]
-                  outline-none
-                  focus:border-[#ffd94f]
-                  focus:shadow-[0_0_12px_rgba(245,197,66,0.18)]
-                "
+                disabled={purchaseLoading}
+                className="w-full h-[62px] rounded-[10px] border border-[#e2c540] bg-[#101416] text-center text-[25px] font-bold text-[#d7dadd] outline-none placeholder:text-white/20 focus:border-[#ffd94f] focus:shadow-[0_0_12px_rgba(245,197,66,0.18)] disabled:opacity-60"
               />
             ))}
           </div>
 
-          {/* Hint */}
           <div className="flex items-center justify-center gap-2 mt-4">
             <InfoIcon />
-
-            <p className="text-[12px] text-white/55">
-              कृपया 6 अंकों का नंबर दर्ज करें (000000 – 999999)
+            <p className="text-[12px] text-white/55 text-center">
+              6 अलग-अलग नंबर चुनें (1 – 99)
             </p>
           </div>
+          <div className="flex justify-center mt-2">
+            <button
+              type="button"
+              onClick={clearNumbers}
+              disabled={purchaseLoading}
+              className="text-[11px] text-white/45 underline underline-offset-2"
+            >
+              नंबर साफ करें
+            </button>
+          </div>
 
-          {/* Divider */}
+          {displayError && (
+            <div className="mt-3 rounded-[10px] border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-[12px] text-red-300">
+              {displayError}
+            </div>
+          )}
+          {displaySuccess && !displayError && (
+            <div className="mt-3 rounded-[10px] border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-center text-[12px] text-emerald-300">
+              {displaySuccess}
+            </div>
+          )}
+
           <div className="h-px bg-[#393939] my-4" />
-
-          {/* Price */}
           <div className="grid grid-cols-2 items-center">
             <div className="flex items-center gap-3 px-2">
               <TicketIcon />
-
               <div>
                 <p className="text-[13px] text-white/80">टिकट की कीमत</p>
-
                 <p className="text-[31px] leading-none font-extrabold text-[#f5ce54] mt-1">
                   ₹111
                 </p>
               </div>
             </div>
-
             <div className="border-l border-[#3a3a3a] pl-5">
               <p className="text-[14px] text-[#f5ce54] font-semibold">
                 ✨ एक टिकट, लाखों सपने
@@ -201,58 +301,43 @@ const BuyTicket = () => {
             </div>
           </div>
 
-          {/* Buy Button */}
           <button
-            className="
-              w-full
-              h-[60px]
-              mt-4
-              rounded-[14px]
-              bg-gradient-to-b from-[#ffe16b] via-[#f8ca42] to-[#eab52c]
-              text-black
-              text-[20px]
-              font-extrabold
-              flex
-              items-center
-              justify-center
-              gap-3
-              shadow-[0_4px_16px_rgba(245,197,66,0.18)]
-              active:scale-[0.99]
-              transition-transform
-            "
+            type="button"
+            onClick={handlePurchase}
+            disabled={
+              purchaseLoading ||
+              activeLoading ||
+              !lotteryConfig?._id ||
+              !targetDate?._id
+            }
+            className="w-full h-[60px] mt-4 rounded-[14px] bg-gradient-to-b from-[#ffe16b] via-[#f8ca42] to-[#eab52c] text-black text-[20px] font-extrabold flex items-center justify-center gap-3 shadow-[0_4px_16px_rgba(245,197,66,0.18)] active:scale-[0.99] transition-transform disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Ticket
               size={35}
               strokeWidth={2.5}
               className="text-[#090909] rotate-[-17deg] shrink-0"
             />
-
-            <span>अभी खरीदें - ₹111</span>
-
-            <span className="text-[28px] leading-none">→</span>
+            <span>
+              {purchaseLoading ? "खरीदा जा रहा है..." : "अभी खरीदें - ₹111"}
+            </span>
+            {!purchaseLoading && (
+              <span className="text-[28px] leading-none">→</span>
+            )}
           </button>
 
-          {/* Secure */}
           <div className="flex items-center justify-center gap-2 mt-3">
             <LockIcon />
-
             <span className="text-[12px] text-white/50">
               सुरक्षित भुगतान | 100% सुरक्षित
             </span>
           </div>
         </section>
 
-        {/* ===================================================
-            FEATURES
-        =================================================== */}
         <section className="mt-3 rounded-[18px] border border-[#282828] bg-[#080a0a] py-4">
           <div className="grid grid-cols-4">
             <SmallFeature icon={<ShieldIcon />} text="100% सुरक्षित" />
-
             <SmallFeature icon={<ZapIcon />} text="तुरंत और आसान" />
-
             <SmallFeature icon={<UsersIcon />} text="लाखों लोग पहले से जुड़े" />
-
             <SmallFeature icon={<SupportIcon />} text="24/7 सहायता" />
           </div>
         </section>
@@ -261,115 +346,46 @@ const BuyTicket = () => {
   );
 };
 
-/* ============================================================
-   TIME BOX
-============================================================ */
-
 const TimeBox = ({ value, label }) => (
   <div className="text-center">
     <div className="h-[42px] min-w-[53px] rounded-[8px] bg-[#181c1e] border border-[#24282a] flex items-center justify-center">
-      <span className="text-[20px] font-bold text-white">{value}</span>
+      <span className="text-[20px] font-bold">{value}</span>
     </div>
-
     <span className="text-[9px] text-white/60 mt-1 block">{label}</span>
   </div>
 );
 
-/* ============================================================
-   PRIZE CARD
-============================================================ */
-
-const PrizeCard = ({ title, amount, condition, image }) => {
-  return (
-    <div
-      className="
-        relative
-        w-full
-        h-[194px]
-        rounded-[13px]
-        overflow-hidden
-        border
-        border-[#d7b544]
-        flex
-        flex-col
-        items-center
-        text-center
-        px-1
-      "
-      style={{
-        backgroundImage: `url(${image})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      {/* Very subtle dark overlay only for text readability */}
-      <div className="absolute inset-0 bg-black/[0.06] pointer-events-none" />
-
-      {/* Content */}
-      <div className="relative z-10 w-full flex flex-col items-center">
-        {/* Title */}
-        <p
-          className="
-            mt-[15px]
-            text-[12px]
-            text-white
-            font-semibold
-            leading-none
-            drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)]
-          "
-        >
-          {title}
-        </p>
-
-        {/* Amount */}
-        <p
-          className="
-            mt-[13px]
-            text-[25px]
-            font-extrabold
-            text-[#fff0a3]
-            leading-none
-            whitespace-nowrap
-            drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]
-          "
-        >
-          {amount}
-        </p>
-
-        {/* Condition */}
-        <p
-          className="
-            mt-[9px]
-            text-[10px]
-            text-white
-            font-medium
-            leading-none
-            drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)]
-          "
-        >
-          {condition}
-        </p>
-      </div>
+const PrizeCard = ({ title, amount, condition, image }) => (
+  <div
+    className="relative w-full h-[194px] rounded-[13px] overflow-hidden border border-[#d7b544] flex flex-col items-center text-center px-1"
+    style={{
+      backgroundImage: `url(${image})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+    }}
+  >
+    <div className="absolute inset-0 bg-black/[0.06] pointer-events-none" />
+    <div className="relative z-10 w-full flex flex-col items-center">
+      <p className="mt-[15px] text-[12px] text-white font-semibold leading-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)]">
+        {title}
+      </p>
+      <p className="mt-[13px] text-[25px] font-extrabold text-[#fff0a3] leading-none whitespace-nowrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+        {amount}
+      </p>
+      <p className="mt-[9px] text-[10px] text-white font-medium leading-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)]">
+        {condition}
+      </p>
     </div>
-  );
-};
-
-/* ============================================================
-   SMALL FEATURE
-============================================================ */
+  </div>
+);
 
 const SmallFeature = ({ icon, text }) => (
   <div className="flex flex-col items-center justify-center px-1 text-center">
     <div className="mb-2">{icon}</div>
-
     <span className="text-[10px] leading-tight text-white/80">{text}</span>
   </div>
 );
-
-/* ============================================================
-   ICONS
-============================================================ */
 
 const CalendarIcon = () => (
   <svg
@@ -387,7 +403,6 @@ const CalendarIcon = () => (
     <path d="M7 14h2M11 14h2M15 14h2M7 18h2M11 18h2M15 18h2" />
   </svg>
 );
-
 const ClockIcon = () => (
   <svg
     width="25"
@@ -401,7 +416,6 @@ const ClockIcon = () => (
     <path d="M12 7v5l3 2" />
   </svg>
 );
-
 const TrophyIcon = () => (
   <svg
     width="28"
@@ -415,7 +429,6 @@ const TrophyIcon = () => (
     <path d="M7 6H3v2a4 4 0 004 4M17 6h4v2a4 4 0 01-4 4" />
   </svg>
 );
-
 const TargetIcon = () => (
   <svg
     width="29"
@@ -431,7 +444,6 @@ const TargetIcon = () => (
     <path d="M16 8l5-5M18 3h3v3" />
   </svg>
 );
-
 const ShuffleIcon = () => (
   <svg
     width="18"
@@ -448,7 +460,6 @@ const ShuffleIcon = () => (
     <path d="M13 7c1 0 2 0 3 0h5" />
   </svg>
 );
-
 const InfoIcon = () => (
   <svg
     width="17"
@@ -457,13 +468,12 @@ const InfoIcon = () => (
     fill="none"
     stroke="currentColor"
     strokeWidth="2"
-    className="text-white/50"
+    className="text-white/50 shrink-0"
   >
     <circle cx="12" cy="12" r="9" />
     <path d="M12 11v5M12 8h.01" />
   </svg>
 );
-
 const TicketIcon = () => (
   <svg
     width="42"
@@ -477,22 +487,6 @@ const TicketIcon = () => (
     <path d="M13 6v2M13 10v2M13 14v2M13 18v1" />
   </svg>
 );
-
-const CardIcon = () => (
-  <svg
-    width="27"
-    height="27"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-  >
-    <rect x="3" y="5" width="18" height="14" rx="2" />
-    <path d="M3 10h18" />
-    <path d="M7 15h3" />
-  </svg>
-);
-
 const LockIcon = () => (
   <svg
     width="15"
@@ -504,7 +498,6 @@ const LockIcon = () => (
     <path d="M17 9V7a5 5 0 00-10 0v2H5v12h14V9h-2zm-8 0V7a3 3 0 016 0v2H9z" />
   </svg>
 );
-
 const ShieldIcon = () => (
   <svg
     width="29"
@@ -518,13 +511,11 @@ const ShieldIcon = () => (
     <path d="M8.5 12l2.2 2.2L16 9" />
   </svg>
 );
-
 const ZapIcon = () => (
   <svg width="29" height="29" viewBox="0 0 24 24" fill="#f5ce54">
     <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" />
   </svg>
 );
-
 const UsersIcon = () => (
   <svg width="29" height="29" viewBox="0 0 24 24" fill="#f5ce54">
     <circle cx="9" cy="8" r="3" />
@@ -533,7 +524,6 @@ const UsersIcon = () => (
     <path d="M16 15c2.5 0 5 1.5 5 4v1h-4" opacity=".8" />
   </svg>
 );
-
 const SupportIcon = () => (
   <svg
     width="29"
