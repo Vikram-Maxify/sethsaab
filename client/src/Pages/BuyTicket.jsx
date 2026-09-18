@@ -9,8 +9,7 @@ import {
   addUserLotteryEntry,
   getActiveLotteryConfig,
 } from "../reducer/slice/createLotteryConfigSlice";
-
-const TICKET_PRICE = 111;
+import { getAmount } from "../reducer/slice/amountReducer"; // ✅ adjust path as needed
 
 const BuyTicket = () => {
   const dispatch = useDispatch();
@@ -23,6 +22,13 @@ const BuyTicket = () => {
     successMessage,
   } = useSelector((state) => state.createLotteryConfig || {});
 
+  // ✅ amount state from amountSlice
+  const { amount: ticketPriceFromApi, loading: amountLoading } = useSelector(
+    (state) => state.amount || {}
+  );
+
+  const TICKET_PRICE = Number(ticketPriceFromApi) || 111;
+
   const lotteryConfig = config || activeConfig;
   const [numbers, setNumbers] = useState(["", "", "", "", "", ""]);
   const [localError, setLocalError] = useState("");
@@ -30,6 +36,7 @@ const BuyTicket = () => {
 
   useEffect(() => {
     dispatch(getActiveLotteryConfig());
+    dispatch(getAmount()); // ✅ fetch amount on mount
   }, [dispatch]);
 
   const drawDateText = useMemo(() => {
@@ -83,7 +90,7 @@ const BuyTicket = () => {
     // Backend expects ONE 6-digit number.
     const lotteryNumber = numbers.join("");
 
-    if (!/^\\d{6}$/.test(lotteryNumber)) {
+    if (!/^\d{6}$/.test(lotteryNumber)) {
       setLocalError("लॉटरी नंबर ठीक 6 अंकों का होना चाहिए");
       return;
     }
@@ -98,7 +105,7 @@ const BuyTicket = () => {
         addUserLotteryEntry({
           number: lotteryNumber,
           amount: TICKET_PRICE,
-        }),
+        })
       ).unwrap();
 
       setLocalSuccess(result?.message || "आपका टिकट सफलतापूर्वक बुक हो गया");
@@ -107,7 +114,7 @@ const BuyTicket = () => {
       setNumbers(["", "", "", "", "", ""]);
     } catch (e) {
       setLocalError(
-        typeof e === "string" ? e : e?.message || "टिकट खरीदने में समस्या हुई",
+        typeof e === "string" ? e : e?.message || "टिकट खरीदने में समस्या हुई"
       );
     }
   };
@@ -247,7 +254,7 @@ const BuyTicket = () => {
               <div>
                 <p className="text-[13px] text-white/80">टिकट की कीमत</p>
                 <p className="text-[31px] leading-none font-extrabold text-[#f5ce54] mt-1">
-                  ₹111
+                  {amountLoading ? "..." : `₹${TICKET_PRICE}`}
                 </p>
               </div>
             </div>
@@ -264,6 +271,7 @@ const BuyTicket = () => {
             disabled={
               purchaseLoading ||
               activeLoading ||
+              amountLoading ||
               !lotteryConfig?._id ||
               numbers.some((n) => n === "")
             }
@@ -275,7 +283,9 @@ const BuyTicket = () => {
               className="text-[#090909] rotate-[-17deg] shrink-0"
             />
             <span>
-              {purchaseLoading ? "खरीदा जा रहा है..." : "अभी खरीदें - ₹111"}
+              {purchaseLoading
+                ? "खरीदा जा रहा है..."
+                : `अभी खरीदें - ₹${TICKET_PRICE}`}
             </span>
             {!purchaseLoading && (
               <span className="text-[28px] leading-none">→</span>
