@@ -32,53 +32,18 @@ const BuyTicket = () => {
     dispatch(getActiveLotteryConfig());
   }, [dispatch]);
 
-  const targetDate = useMemo(() => {
-    const dates = Array.isArray(lotteryConfig?.dates)
-      ? [...lotteryConfig.dates]
-      : [];
-    if (!dates.length) return null;
-
-    const preferred = dates.find((d) => {
-      const x = new Date(d.date);
-      return (
-        x.getFullYear() === 2026 && x.getMonth() === 9 && x.getDate() === 11
-      );
-    });
-    if (preferred) return preferred;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    return (
-      dates
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
-        .find((d) => {
-          const x = new Date(d.date);
-          x.setHours(0, 0, 0, 0);
-          return x >= today;
-        }) || dates[0]
-    );
-  }, [lotteryConfig]);
-
   const drawDateText = useMemo(() => {
-    if (!targetDate?.date) return "ड्रॉ जल्द घोषित होगा";
+    if (!lotteryConfig?.month || !lotteryConfig?.year) {
+      return "ड्रॉ जल्द घोषित होगा";
+    }
+
+    const date = new Date(lotteryConfig.year, lotteryConfig.month - 1, 1);
+
     return new Intl.DateTimeFormat("hi-IN", {
-      day: "numeric",
       month: "long",
       year: "numeric",
-    }).format(new Date(targetDate.date));
-  }, [targetDate]);
-
-  const countdown = useMemo(() => {
-    if (!targetDate?.date) return { days: "--", hours: "--", minutes: "--" };
-    const diff = Math.max(0, new Date(targetDate.date).getTime() - Date.now());
-    const mins = Math.floor(diff / 60000);
-    return {
-      days: String(Math.floor(mins / 1440)).padStart(2, "0"),
-      hours: String(Math.floor((mins % 1440) / 60)).padStart(2, "0"),
-      minutes: String(mins % 60).padStart(2, "0"),
-    };
-  }, [targetDate]);
+    }).format(date);
+  }, [lotteryConfig]);
 
   const handleNumberChange = (index, value) => {
     if (!/^\d{0,2}$/.test(value)) return;
@@ -115,15 +80,11 @@ const BuyTicket = () => {
       return;
     }
 
-    const selected = numbers.map(Number);
+    // Backend expects ONE 6-digit number.
+    const lotteryNumber = numbers.join("");
 
-    if (selected.some((n) => !Number.isInteger(n) || n < 1 || n > 99)) {
-      setLocalError("हर नंबर 1 से 99 के बीच होना चाहिए");
-      return;
-    }
-
-    if (new Set(selected).size !== 6) {
-      setLocalError("सभी 6 नंबर अलग-अलग होने चाहिए");
+    if (!/^\\d{6}$/.test(lotteryNumber)) {
+      setLocalError("लॉटरी नंबर ठीक 6 अंकों का होना चाहिए");
       return;
     }
 
@@ -132,22 +93,18 @@ const BuyTicket = () => {
       return;
     }
 
-    if (!targetDate?._id) {
-      setLocalError("Lottery draw date नहीं मिली");
-      return;
-    }
-
     try {
       const result = await dispatch(
         addUserLotteryEntry({
-          id: lotteryConfig._id,
-          dateId: targetDate._id,
-          numbers: selected,
+          number: lotteryNumber,
           amount: TICKET_PRICE,
         }),
       ).unwrap();
 
       setLocalSuccess(result?.message || "आपका टिकट सफलतापूर्वक बुक हो गया");
+
+      // Clear selected number after successful purchase.
+      setNumbers(["", "", "", "", "", ""]);
     } catch (e) {
       setLocalError(
         typeof e === "string" ? e : e?.message || "टिकट खरीदने में समस्या हुई",
@@ -183,12 +140,12 @@ const BuyTicket = () => {
             <div className="flex flex-col justify-center px-4">
               <div className="flex items-center gap-2">
                 <ClockIcon />
-                <span className="text-[13px]">ड्रॉ शुरू होने में</span>
+                <span className="text-[13px]">लकी ड्रॉ</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 mt-3">
-                <TimeBox value={countdown.days} label="दिन" />
-                <TimeBox value={countdown.hours} label="घंटे" />
-                <TimeBox value={countdown.minutes} label="मिनट" />
+              <div className="mt-3">
+                <p className="text-[20px] font-bold text-[#f5ce54]">
+                  {lotteryConfig?.isActive ? "ACTIVE" : "INACTIVE"}
+                </p>
               </div>
             </div>
           </div>
@@ -245,7 +202,7 @@ const BuyTicket = () => {
               <input
                 key={index}
                 value={number}
-                maxLength={2}
+                maxLength={1}
                 inputMode="numeric"
                 placeholder="--"
                 onChange={(e) => handleNumberChange(index, e.target.value)}
@@ -258,7 +215,7 @@ const BuyTicket = () => {
           <div className="flex items-center justify-center gap-2 mt-4">
             <InfoIcon />
             <p className="text-[12px] text-white/55 text-center">
-              6 अलग-अलग नंबर चुनें (1 – 99)
+              6 अंकों का लकी नंबर चुनें (000000 – 999999)
             </p>
           </div>
           <div className="flex justify-center mt-2">
@@ -308,7 +265,7 @@ const BuyTicket = () => {
               purchaseLoading ||
               activeLoading ||
               !lotteryConfig?._id ||
-              !targetDate?._id
+              numbers.some((n) => n === "")
             }
             className="w-full h-[60px] mt-4 rounded-[14px] bg-gradient-to-b from-[#ffe16b] via-[#f8ca42] to-[#eab52c] text-black text-[20px] font-extrabold flex items-center justify-center gap-3 shadow-[0_4px_16px_rgba(245,197,66,0.18)] active:scale-[0.99] transition-transform disabled:cursor-not-allowed disabled:opacity-60"
           >
