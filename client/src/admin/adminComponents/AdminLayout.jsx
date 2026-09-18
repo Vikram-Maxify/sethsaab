@@ -67,6 +67,10 @@ const AdminLayout = () => {
       return "Config"
     }
 
+    if (path ==='/admin/lottery'){
+      return "Admin_config"
+    }
+
     return "Admin Panel";
   };
 
@@ -106,7 +110,7 @@ const AdminLayout = () => {
             <span>Results</span>
           </NavLink>
           <NavLink
-            to="/lottery-config"
+            to="/admin/lottery"
             className={navClass}
           >
             <span>⚙️</span>

@@ -22,6 +22,7 @@ import Dashboard from "./admin/adminPages/Dashboard";
 import Results from "./admin/adminPages/Results";
 import Users from "./admin/adminPages/Users";
 import LotteryConfig from "./admin/adminPages/LotteryConfig";
+import AdminLottery from "./admin/adminPages/AdminLottery";
 
 function App() {
   return (
@@ -85,6 +86,10 @@ function App() {
           <Route
             path="/lottery-config"
             element={<LotteryConfig />}
+          />
+          <Route
+            path="/admin/lottery"
+            element={<AdminLottery />}
           />
 
         </Route>
