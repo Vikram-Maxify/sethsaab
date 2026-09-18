@@ -13,6 +13,8 @@ const PrivateRoute = () => {
     (state) => state.auth,
   );
 
+  console.log(user, isAuthenticated, profileLoading, profileError)
+
   useEffect(() => {
     if (user || isAuthenticated) return;
     if (profileRequested.current) return;
