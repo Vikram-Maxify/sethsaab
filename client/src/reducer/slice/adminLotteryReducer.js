@@ -44,29 +44,9 @@ export const getAllLotteryConfigs = createAsyncThunk(
 );
 
 // =====================================================
-// GET LOTTERY CONFIG BY ID
-// GET /api/lottery/:id
-// =====================================================
-
-export const getLotteryConfigById = createAsyncThunk(
-  "adminLottery/getLotteryConfigById",
-  async (id, { rejectWithValue }) => {
-    try {
-      const response = await api.get(`/lottery/${id}`);
-
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.message ||
-          "Failed to fetch lottery configuration"
-      );
-    }
-  }
-);
-
-// =====================================================
 // GET ACTIVE LOTTERY CONFIG
 // GET /api/lottery/active
+// IMPORTANT: Keep this BEFORE /:id in backend routes
 // =====================================================
 
 export const getActiveLotteryConfig = createAsyncThunk(
@@ -86,6 +66,31 @@ export const getActiveLotteryConfig = createAsyncThunk(
 );
 
 // =====================================================
+// GET LOTTERY CONFIG BY ID
+// GET /api/lottery/:id
+// =====================================================
+
+export const getLotteryConfigById = createAsyncThunk(
+  "adminLottery/getLotteryConfigById",
+  async (id, { rejectWithValue }) => {
+    try {
+      if (!id) {
+        return rejectWithValue("Lottery configuration ID is required");
+      }
+
+      const response = await api.get(`/lottery/${id}`);
+
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message ||
+          "Failed to fetch lottery configuration"
+      );
+    }
+  }
+);
+
+// =====================================================
 // ACTIVATE LOTTERY CONFIG
 // PUT /api/lottery/:id/activate
 // =====================================================
@@ -94,6 +99,10 @@ export const activateLotteryConfig = createAsyncThunk(
   "adminLottery/activateLotteryConfig",
   async (id, { rejectWithValue }) => {
     try {
+      if (!id) {
+        return rejectWithValue("Lottery configuration ID is required");
+      }
+
       const response = await api.put(
         `/lottery/${id}/activate`
       );
@@ -117,6 +126,10 @@ export const deactivateLotteryConfig = createAsyncThunk(
   "adminLottery/deactivateLotteryConfig",
   async (id, { rejectWithValue }) => {
     try {
+      if (!id) {
+        return rejectWithValue("Lottery configuration ID is required");
+      }
+
       const response = await api.put(
         `/lottery/${id}/deactivate`
       );
@@ -139,10 +152,26 @@ export const deactivateLotteryConfig = createAsyncThunk(
 export const updateUserLotteryEntry = createAsyncThunk(
   "adminLottery/updateUserLotteryEntry",
   async (
-    { id, userEntryId, data },
+    {
+      id,
+      userEntryId,
+      data,
+    },
     { rejectWithValue }
   ) => {
     try {
+      if (!id) {
+        return rejectWithValue(
+          "Lottery configuration ID is required"
+        );
+      }
+
+      if (!userEntryId) {
+        return rejectWithValue(
+          "User lottery entry ID is required"
+        );
+      }
+
       const response = await api.put(
         `/lottery/${id}/user/${userEntryId}`,
         data
@@ -166,10 +195,25 @@ export const updateUserLotteryEntry = createAsyncThunk(
 export const deleteUserLotteryEntry = createAsyncThunk(
   "adminLottery/deleteUserLotteryEntry",
   async (
-    { id, userEntryId },
+    {
+      id,
+      userEntryId,
+    },
     { rejectWithValue }
   ) => {
     try {
+      if (!id) {
+        return rejectWithValue(
+          "Lottery configuration ID is required"
+        );
+      }
+
+      if (!userEntryId) {
+        return rejectWithValue(
+          "User lottery entry ID is required"
+        );
+      }
+
       const response = await api.delete(
         `/lottery/${id}/user/${userEntryId}`
       );
@@ -193,6 +237,12 @@ export const deleteLotteryConfig = createAsyncThunk(
   "adminLottery/deleteLotteryConfig",
   async (id, { rejectWithValue }) => {
     try {
+      if (!id) {
+        return rejectWithValue(
+          "Lottery configuration ID is required"
+        );
+      }
+
       const response = await api.delete(
         `/lottery/${id}`
       );
@@ -212,16 +262,23 @@ export const deleteLotteryConfig = createAsyncThunk(
 // =====================================================
 
 const initialState = {
+  // All markets
   lotteries: [],
+
+  // Selected market
   lottery: null,
+
+  // Active market
   activeLottery: null,
 
+  // Loading states
   loading: false,
   createLoading: false,
   updateLoading: false,
   deleteLoading: false,
   actionLoading: false,
 
+  // Request status
   error: null,
   success: false,
   message: "",
@@ -233,41 +290,70 @@ const initialState = {
 
 const adminLotterySlice = createSlice({
   name: "adminLottery",
+
   initialState,
 
   reducers: {
+    // =================================================
+    // CLEAR ERROR
+    // =================================================
+
     clearLotteryError: (state) => {
       state.error = null;
     },
+
+    // =================================================
+    // CLEAR MESSAGE
+    // =================================================
 
     clearLotteryMessage: (state) => {
       state.message = "";
       state.success = false;
     },
 
+    // =================================================
+    // CLEAR SELECTED LOTTERY
+    // =================================================
+
     clearLottery: (state) => {
       state.lottery = null;
     },
+
+    // =================================================
+    // CLEAR ACTIVE LOTTERY
+    // =================================================
 
     clearActiveLottery: (state) => {
       state.activeLottery = null;
     },
 
+    // =================================================
+    // RESET COMPLETE STATE
+    // =================================================
+
     resetLotteryState: () => initialState,
   },
 
+  // ===================================================
+  // EXTRA REDUCERS
+  // ===================================================
+
   extraReducers: (builder) => {
     // =================================================
-    // CREATE
+    // CREATE LOTTERY
     // =================================================
 
     builder
-      .addCase(createLotteryConfig.pending, (state) => {
-        state.createLoading = true;
-        state.loading = true;
-        state.error = null;
-        state.success = false;
-      })
+
+      .addCase(
+        createLotteryConfig.pending,
+        (state) => {
+          state.createLoading = true;
+          state.loading = true;
+          state.error = null;
+          state.success = false;
+        }
+      )
 
       .addCase(
         createLotteryConfig.fulfilled,
@@ -280,9 +366,12 @@ const adminLotterySlice = createSlice({
             action.payload?.message ||
             "Lottery configuration created successfully";
 
-          if (action.payload?.data) {
+          const newLottery =
+            action.payload?.data;
+
+          if (newLottery) {
             state.lotteries.unshift(
-              action.payload.data
+              newLottery
             );
           }
         }
@@ -293,6 +382,7 @@ const adminLotterySlice = createSlice({
         (state, action) => {
           state.createLoading = false;
           state.loading = false;
+
           state.error =
             action.payload ||
             "Failed to create lottery configuration";
@@ -300,14 +390,18 @@ const adminLotterySlice = createSlice({
       );
 
     // =================================================
-    // GET ALL
+    // GET ALL LOTTERIES
     // =================================================
 
     builder
-      .addCase(getAllLotteryConfigs.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+
+      .addCase(
+        getAllLotteryConfigs.pending,
+        (state) => {
+          state.loading = true;
+          state.error = null;
+        }
+      )
 
       .addCase(
         getAllLotteryConfigs.fulfilled,
@@ -316,6 +410,8 @@ const adminLotterySlice = createSlice({
 
           state.lotteries =
             action.payload?.data || [];
+
+          state.error = null;
         }
       )
 
@@ -323,6 +419,7 @@ const adminLotterySlice = createSlice({
         getAllLotteryConfigs.rejected,
         (state, action) => {
           state.loading = false;
+
           state.error =
             action.payload ||
             "Failed to fetch lottery configurations";
@@ -330,43 +427,18 @@ const adminLotterySlice = createSlice({
       );
 
     // =================================================
-    // GET BY ID
+    // GET ACTIVE LOTTERY
     // =================================================
 
     builder
-      .addCase(getLotteryConfigById.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
 
       .addCase(
-        getLotteryConfigById.fulfilled,
-        (state, action) => {
-          state.loading = false;
-          state.lottery =
-            action.payload?.data || null;
+        getActiveLotteryConfig.pending,
+        (state) => {
+          state.loading = true;
+          state.error = null;
         }
       )
-
-      .addCase(
-        getLotteryConfigById.rejected,
-        (state, action) => {
-          state.loading = false;
-          state.error =
-            action.payload ||
-            "Failed to fetch lottery configuration";
-        }
-      );
-
-    // =================================================
-    // GET ACTIVE
-    // =================================================
-
-    builder
-      .addCase(getActiveLotteryConfig.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
 
       .addCase(
         getActiveLotteryConfig.fulfilled,
@@ -375,6 +447,8 @@ const adminLotterySlice = createSlice({
 
           state.activeLottery =
             action.payload?.data || null;
+
+          state.error = null;
         }
       )
 
@@ -382,6 +456,9 @@ const adminLotterySlice = createSlice({
         getActiveLotteryConfig.rejected,
         (state, action) => {
           state.loading = false;
+
+          state.activeLottery = null;
+
           state.error =
             action.payload ||
             "Failed to fetch active lottery";
@@ -389,14 +466,56 @@ const adminLotterySlice = createSlice({
       );
 
     // =================================================
-    // ACTIVATE
+    // GET LOTTERY BY ID
     // =================================================
 
     builder
-      .addCase(activateLotteryConfig.pending, (state) => {
-        state.actionLoading = true;
-        state.error = null;
-      })
+
+      .addCase(
+        getLotteryConfigById.pending,
+        (state) => {
+          state.loading = true;
+          state.error = null;
+        }
+      )
+
+      .addCase(
+        getLotteryConfigById.fulfilled,
+        (state, action) => {
+          state.loading = false;
+
+          state.lottery =
+            action.payload?.data || null;
+
+          state.error = null;
+        }
+      )
+
+      .addCase(
+        getLotteryConfigById.rejected,
+        (state, action) => {
+          state.loading = false;
+
+          state.error =
+            action.payload ||
+            "Failed to fetch lottery configuration";
+        }
+      );
+
+    // =================================================
+    // ACTIVATE LOTTERY
+    // =================================================
+
+    builder
+
+      .addCase(
+        activateLotteryConfig.pending,
+        (state) => {
+          state.actionLoading = true;
+          state.error = null;
+          state.success = false;
+        }
+      )
 
       .addCase(
         activateLotteryConfig.fulfilled,
@@ -411,23 +530,35 @@ const adminLotterySlice = createSlice({
           const updatedLottery =
             action.payload?.data;
 
-          if (updatedLottery) {
-            state.lottery = updatedLottery;
-
-            state.lotteries =
-              state.lotteries.map((item) =>
-                String(item._id) ===
-                String(updatedLottery._id)
-                  ? updatedLottery
-                  : {
-                      ...item,
-                      isActive: false,
-                    }
-              );
-
-            state.activeLottery =
-              updatedLottery;
+          if (!updatedLottery) {
+            return;
           }
+
+          // Selected lottery
+          state.lottery =
+            updatedLottery;
+
+          // Update all lotteries
+          state.lotteries =
+            state.lotteries.map(
+              (item) => {
+                if (
+                  String(item._id) ===
+                  String(updatedLottery._id)
+                ) {
+                  return updatedLottery;
+                }
+
+                return {
+                  ...item,
+                  isActive: false,
+                };
+              }
+            );
+
+          // Active lottery
+          state.activeLottery =
+            updatedLottery;
         }
       )
 
@@ -435,6 +566,7 @@ const adminLotterySlice = createSlice({
         activateLotteryConfig.rejected,
         (state, action) => {
           state.actionLoading = false;
+
           state.error =
             action.payload ||
             "Failed to activate lottery";
@@ -442,15 +574,17 @@ const adminLotterySlice = createSlice({
       );
 
     // =================================================
-    // DEACTIVATE
+    // DEACTIVATE LOTTERY
     // =================================================
 
     builder
+
       .addCase(
         deactivateLotteryConfig.pending,
         (state) => {
           state.actionLoading = true;
           state.error = null;
+          state.success = false;
         }
       )
 
@@ -467,24 +601,33 @@ const adminLotterySlice = createSlice({
           const updatedLottery =
             action.payload?.data;
 
-          if (updatedLottery) {
-            state.lottery = updatedLottery;
+          if (!updatedLottery) {
+            return;
+          }
 
-            state.lotteries =
-              state.lotteries.map((item) =>
+          // Update selected lottery
+          state.lottery =
+            updatedLottery;
+
+          // Update list
+          state.lotteries =
+            state.lotteries.map(
+              (item) =>
                 String(item._id) ===
                 String(updatedLottery._id)
                   ? updatedLottery
                   : item
-              );
+            );
 
-            if (
-              state.activeLottery &&
-              String(state.activeLottery._id) ===
-                String(updatedLottery._id)
-            ) {
-              state.activeLottery = null;
-            }
+          // Remove active lottery
+          if (
+            state.activeLottery &&
+            String(
+              state.activeLottery._id
+            ) ===
+              String(updatedLottery._id)
+          ) {
+            state.activeLottery = null;
           }
         }
       )
@@ -493,6 +636,7 @@ const adminLotterySlice = createSlice({
         deactivateLotteryConfig.rejected,
         (state, action) => {
           state.actionLoading = false;
+
           state.error =
             action.payload ||
             "Failed to deactivate lottery";
@@ -504,11 +648,13 @@ const adminLotterySlice = createSlice({
     // =================================================
 
     builder
+
       .addCase(
         updateUserLotteryEntry.pending,
         (state) => {
           state.updateLoading = true;
           state.error = null;
+          state.success = false;
         }
       )
 
@@ -525,25 +671,34 @@ const adminLotterySlice = createSlice({
           const updatedConfig =
             action.payload?.data;
 
-          if (updatedConfig) {
-            state.lottery = updatedConfig;
+          if (!updatedConfig) {
+            return;
+          }
 
-            state.lotteries =
-              state.lotteries.map((item) =>
+          // Selected lottery
+          state.lottery =
+            updatedConfig;
+
+          // Update list
+          state.lotteries =
+            state.lotteries.map(
+              (item) =>
                 String(item._id) ===
                 String(updatedConfig._id)
                   ? updatedConfig
                   : item
-              );
+            );
 
-            if (
-              state.activeLottery &&
-              String(state.activeLottery._id) ===
-                String(updatedConfig._id)
-            ) {
-              state.activeLottery =
-                updatedConfig;
-            }
+          // Update active lottery
+          if (
+            state.activeLottery &&
+            String(
+              state.activeLottery._id
+            ) ===
+              String(updatedConfig._id)
+          ) {
+            state.activeLottery =
+              updatedConfig;
           }
         }
       )
@@ -552,6 +707,7 @@ const adminLotterySlice = createSlice({
         updateUserLotteryEntry.rejected,
         (state, action) => {
           state.updateLoading = false;
+
           state.error =
             action.payload ||
             "Failed to update user lottery entry";
@@ -563,11 +719,13 @@ const adminLotterySlice = createSlice({
     // =================================================
 
     builder
+
       .addCase(
         deleteUserLotteryEntry.pending,
         (state) => {
           state.deleteLoading = true;
           state.error = null;
+          state.success = false;
         }
       )
 
@@ -584,25 +742,34 @@ const adminLotterySlice = createSlice({
           const updatedConfig =
             action.payload?.data;
 
-          if (updatedConfig) {
-            state.lottery = updatedConfig;
+          if (!updatedConfig) {
+            return;
+          }
 
-            state.lotteries =
-              state.lotteries.map((item) =>
+          // Selected lottery
+          state.lottery =
+            updatedConfig;
+
+          // Update list
+          state.lotteries =
+            state.lotteries.map(
+              (item) =>
                 String(item._id) ===
                 String(updatedConfig._id)
                   ? updatedConfig
                   : item
-              );
+            );
 
-            if (
-              state.activeLottery &&
-              String(state.activeLottery._id) ===
-                String(updatedConfig._id)
-            ) {
-              state.activeLottery =
-                updatedConfig;
-            }
+          // Update active lottery
+          if (
+            state.activeLottery &&
+            String(
+              state.activeLottery._id
+            ) ===
+              String(updatedConfig._id)
+          ) {
+            state.activeLottery =
+              updatedConfig;
           }
         }
       )
@@ -611,6 +778,7 @@ const adminLotterySlice = createSlice({
         deleteUserLotteryEntry.rejected,
         (state, action) => {
           state.deleteLoading = false;
+
           state.error =
             action.payload ||
             "Failed to delete user lottery entry";
@@ -618,14 +786,19 @@ const adminLotterySlice = createSlice({
       );
 
     // =================================================
-    // DELETE CONFIG
+    // DELETE LOTTERY CONFIG
     // =================================================
 
     builder
-      .addCase(deleteLotteryConfig.pending, (state) => {
-        state.deleteLoading = true;
-        state.error = null;
-      })
+
+      .addCase(
+        deleteLotteryConfig.pending,
+        (state) => {
+          state.deleteLoading = true;
+          state.error = null;
+          state.success = false;
+        }
+      )
 
       .addCase(
         deleteLotteryConfig.fulfilled,
@@ -637,9 +810,11 @@ const adminLotterySlice = createSlice({
             action.payload?.message ||
             "Lottery configuration deleted successfully";
 
+          // ID from thunk argument
           const deletedId =
             action.meta.arg;
 
+          // Remove from list
           state.lotteries =
             state.lotteries.filter(
               (item) =>
@@ -647,6 +822,7 @@ const adminLotterySlice = createSlice({
                 String(deletedId)
             );
 
+          // Clear selected lottery
           if (
             state.lottery &&
             String(state.lottery._id) ===
@@ -655,9 +831,12 @@ const adminLotterySlice = createSlice({
             state.lottery = null;
           }
 
+          // Clear active lottery
           if (
             state.activeLottery &&
-            String(state.activeLottery._id) ===
+            String(
+              state.activeLottery._id
+            ) ===
               String(deletedId)
           ) {
             state.activeLottery = null;
@@ -669,6 +848,7 @@ const adminLotterySlice = createSlice({
         deleteLotteryConfig.rejected,
         (state, action) => {
           state.deleteLoading = false;
+
           state.error =
             action.payload ||
             "Failed to delete lottery configuration";
@@ -678,7 +858,7 @@ const adminLotterySlice = createSlice({
 });
 
 // =====================================================
-// EXPORT ACTIONS
+// ACTIONS
 // =====================================================
 
 export const {
@@ -690,7 +870,7 @@ export const {
 } = adminLotterySlice.actions;
 
 // =====================================================
-// EXPORT REDUCER
+// REDUCER
 // =====================================================
 
 export default adminLotterySlice.reducer;

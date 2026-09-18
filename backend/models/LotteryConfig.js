@@ -4,165 +4,104 @@ const mongoose = require("mongoose");
 // USER LOTTERY ENTRY SCHEMA
 // =====================================================
 
-const userLotterySchema = new mongoose.Schema(
-    {
-        // ==========================================
-        // USER ID FROM JWT
-        // ==========================================
-
-        userId: {
-            type: String,
-            required: true,
-            index: true,
-        },
-
-        // ==========================================
-        // USER LOTTERY AMOUNT
-        // ==========================================
-
-        amount: {
-            type: Number,
-            required: true,
-            min: 0,
-        },
-
-        // ==========================================
-        // EXACTLY 6 DIGIT NUMBER
-        // ==========================================
-
-        number: {
-            type: String,
-            required: true,
-
-            validate: {
-                validator: function (value) {
-                    return /^\d{6}$/.test(value);
-                },
-
-                message:
-                    "Lottery number must be exactly 6 digits",
-            },
-        },
-
-        // ==========================================
-        // RESULT STATUS
-        // ==========================================
-
-        status: {
-            type: String,
-
-            enum: [
-                "pending",
-                "win",
-                "lost",
-            ],
-
-            default: "pending",
-        },
+const lotteryUserEntrySchema = new mongoose.Schema(
+  {
+    userId: {
+      type: String,
+      required: true,
+      index: true,
     },
-    {
-        _id: true,
-        timestamps: true,
-    }
+
+    // Exact date on which user submitted entry
+    // Example: 2026-09-18
+    entryDate: {
+      type: String,
+      required: true,
+      match: /^\d{4}-\d{2}-\d{2}$/,
+      index: true,
+    },
+
+    number: {
+      type: String,
+      required: true,
+      match: /^\d{6}$/,
+    },
+
+    amount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    status: {
+      type: String,
+      enum: ["pending", "win", "lost"],
+      default: "pending",
+    },
+  },
+  {
+    timestamps: true,
+  }
 );
 
 // =====================================================
-// MAIN LOTTERY CONFIG SCHEMA
+// LOTTERY CONFIG SCHEMA
 // =====================================================
 
 const lotteryConfigSchema = new mongoose.Schema(
-    {
-        // ==========================================
-        // MARKET NAME
-        // ==========================================
-
-        marketName: {
-            type: String,
-            required: true,
-            trim: true,
-            index: true,
-        },
-
-        // ==========================================
-        // MONTH
-        // ==========================================
-
-        month: {
-            type: Number,
-            required: true,
-            min: 1,
-            max: 12,
-        },
-
-        // ==========================================
-        // YEAR
-        // ==========================================
-
-        year: {
-            type: Number,
-            required: true,
-        },
-
-        // ==========================================
-        // ALL USERS
-        // ==========================================
-
-        users: {
-            type: [userLotterySchema],
-            default: [],
-        },
-
-        // ==========================================
-        // ACTIVE CONFIG
-        // ==========================================
-
-        isActive: {
-            type: Boolean,
-            default: false,
-            index: true,
-        },
+  {
+    marketName: {
+      type: String,
+      required: true,
+      trim: true,
     },
-    {
-        timestamps: true,
-    }
+
+    // 1 - 12
+    month: {
+      type: Number,
+      required: true,
+      min: 1,
+      max: 12,
+    },
+
+    // Example: 2026
+    year: {
+      type: Number,
+      required: true,
+      min: 2000,
+    },
+
+    users: {
+      type: [lotteryUserEntrySchema],
+      default: [],
+    },
+
+    isActive: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  {
+    timestamps: true,
+  }
 );
 
 // =====================================================
-// ONE MARKET PER MONTH + YEAR
+// ONE MARKET PER MONTH
 // =====================================================
 
 lotteryConfigSchema.index(
-    {
-        marketName: 1,
-        month: 1,
-        year: 1,
-    },
-    {
-        unique: true,
-    }
+  {
+    marketName: 1,
+    month: 1,
+    year: 1,
+  },
+  {
+    unique: true,
+  }
 );
-
-// =====================================================
-// ONLY ONE ACTIVE CONFIG
-// =====================================================
-
-lotteryConfigSchema.index(
-    {
-        isActive: 1,
-    },
-    {
-        unique: true,
-        partialFilterExpression: {
-            isActive: true,
-        },
-    }
-);
-
-// =====================================================
-// EXPORT
-// =====================================================
 
 module.exports = mongoose.model(
-    "LotteryConfig",
-    lotteryConfigSchema
+  "LotteryConfig",
+  lotteryConfigSchema
 );
