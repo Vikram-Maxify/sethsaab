@@ -1,16 +1,19 @@
 const mongoose = require("mongoose");
 
 // ==========================================
-// DATE LOTTERY SCHEMA
+// USER LOTTERY ENTRY SCHEMA
 // ==========================================
-const dateLotterySchema = new mongoose.Schema(
+
+const userLotterySchema = new mongoose.Schema(
   {
-    date: {
-      type: Date,
+    // User ID from JWT
+    userId: {
+      type: String,
       required: true,
+      index: true,
     },
 
-    // Exactly 6 lottery numbers
+    // Exactly 6 unique lottery numbers
     numbers: {
       type: [Number],
       required: true,
@@ -21,17 +24,14 @@ const dateLotterySchema = new mongoose.Schema(
             return false;
           }
 
-          // Exactly 6 numbers
           if (numbers.length !== 6) {
             return false;
           }
 
-          // Unique numbers
           if (new Set(numbers).size !== 6) {
             return false;
           }
 
-          // Numbers between 1 and 99
           return numbers.every(
             (number) =>
               Number.isInteger(number) &&
@@ -45,17 +45,43 @@ const dateLotterySchema = new mongoose.Schema(
       },
     },
 
+    // User lottery amount
     amount: {
       type: Number,
       required: true,
       min: 0,
     },
 
-    // pending / win / lost
+    // Lottery result status
     status: {
       type: String,
       enum: ["pending", "win", "lost"],
       default: "pending",
+    },
+  },
+  {
+    _id: true,
+    timestamps: true,
+  }
+);
+
+// ==========================================
+// DATE LOTTERY SCHEMA
+// ==========================================
+
+const dateLotterySchema = new mongoose.Schema(
+  {
+    // Actual lottery date
+    date: {
+      type: Date,
+      required: true,
+      index: true,
+    },
+
+    // All users who played on this date
+    users: {
+      type: [userLotterySchema],
+      default: [],
     },
   },
   {
@@ -66,16 +92,24 @@ const dateLotterySchema = new mongoose.Schema(
 // ==========================================
 // MAIN LOTTERY CONFIG SCHEMA
 // ==========================================
+
 const lotteryConfigSchema = new mongoose.Schema(
   {
     // ==========================================
-    // USER ID FROM JWT
+    // USER ID
     // ==========================================
+    //
+    // This can be the creator/admin ID.
+    //
     userId: {
       type: String,
       required: true,
       index: true,
     },
+
+    // ==========================================
+    // MONTH
+    // ==========================================
 
     month: {
       type: Number,
@@ -84,10 +118,18 @@ const lotteryConfigSchema = new mongoose.Schema(
       max: 12,
     },
 
+    // ==========================================
+    // YEAR
+    // ==========================================
+
     year: {
       type: Number,
       required: true,
     },
+
+    // ==========================================
+    // ALL DATES OF MONTH
+    // ==========================================
 
     dates: {
       type: [dateLotterySchema],
@@ -95,7 +137,11 @@ const lotteryConfigSchema = new mongoose.Schema(
 
       validate: {
         validator: function (dates) {
-          return dates.length >= 28 && dates.length <= 31;
+          return (
+            Array.isArray(dates) &&
+            dates.length >= 28 &&
+            dates.length <= 31
+          );
         },
 
         message:
@@ -103,7 +149,10 @@ const lotteryConfigSchema = new mongoose.Schema(
       },
     },
 
-    // Only one active config globally
+    // ==========================================
+    // ACTIVE CONFIG
+    // ==========================================
+
     isActive: {
       type: Boolean,
       default: false,
@@ -119,6 +168,7 @@ const lotteryConfigSchema = new mongoose.Schema(
 // ==========================================
 // ONE CONFIG PER USER + MONTH + YEAR
 // ==========================================
+
 lotteryConfigSchema.index(
   {
     userId: 1,
@@ -133,6 +183,7 @@ lotteryConfigSchema.index(
 // ==========================================
 // ONLY ONE ACTIVE CONFIG GLOBALLY
 // ==========================================
+
 lotteryConfigSchema.index(
   {
     isActive: 1,
@@ -144,6 +195,10 @@ lotteryConfigSchema.index(
     },
   }
 );
+
+// ==========================================
+// EXPORT
+// ==========================================
 
 module.exports = mongoose.model(
   "LotteryConfig",

@@ -31,11 +31,10 @@ const AdminLayout = () => {
     `
       flex items-center gap-3 rounded-lg px-4 py-3
       text-sm font-medium transition
-      ${
-        isActive
-          ? "bg-white/10 text-white"
-          : "text-slate-400 hover:bg-white/5 hover:text-white"
-      }
+      ${isActive
+      ? "bg-white/10 text-white"
+      : "text-slate-400 hover:bg-white/5 hover:text-white"
+    }
     `;
 
   // =========================
@@ -62,6 +61,10 @@ const AdminLayout = () => {
 
     if (path === "/settings") {
       return "Settings";
+    }
+
+    if (path === '/lottery-config') {
+      return "Config"
     }
 
     return "Admin Panel";
@@ -101,6 +104,13 @@ const AdminLayout = () => {
           <NavLink to="/results" className={navClass}>
             <span>📋</span>
             <span>Results</span>
+          </NavLink>
+          <NavLink
+            to="/lottery-config"
+            className={navClass}
+          >
+            <span>⚙️</span>
+            <span>Config</span>
           </NavLink>
 
           <NavLink to="/amount" className={navClass}>

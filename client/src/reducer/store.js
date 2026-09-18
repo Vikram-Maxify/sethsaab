@@ -4,7 +4,6 @@ import amountReducer from "./slice/amountReducer";
 import authReducer from "./slice/authSlice";
 import lotteryConfigReducer from "./slice/lotteryConfigSlice";
 import lotteryResultReducer from "./slice/lotteryResultReducer";
-
 export const store = configureStore({
   reducer: {
     auth: authReducer,

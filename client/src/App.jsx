@@ -20,7 +20,6 @@ import AdminLogin from "./admin/adminPages/AdminLogin";
 import Amount from "./admin/adminPages/Amount";
 import Dashboard from "./admin/adminPages/Dashboard";
 import Results from "./admin/adminPages/Results";
-import Users from "./admin/adminPages/Users";
 
 function App() {
   return (
