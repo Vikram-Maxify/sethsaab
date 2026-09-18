@@ -1,16 +1,16 @@
 const express = require("express");
 
 const {
-  createLotteryConfig,
-  addUserLotteryEntry,
-  getAllLotteryConfigs,
-  getLotteryConfigById,
-  getActiveLotteryConfig,
-  activateLotteryConfig,
-  deactivateLotteryConfig,
-  updateUserLotteryEntry,
-  deleteUserLotteryEntry,
-  deleteLotteryConfig,
+    createLotteryConfig,
+    addUserLotteryEntry,
+    getAllLotteryConfigs,
+    getLotteryConfigById,
+    getActiveLotteryConfig,
+    activateLotteryConfig,
+    deactivateLotteryConfig,
+    updateUserLotteryEntry,
+    deleteUserLotteryEntry,
+    deleteLotteryConfig,
 } = require("../controllers/lotteryConfigController");
 
 const authMiddleware = require("../middleware/authMiddleware");
@@ -18,125 +18,146 @@ const authMiddleware = require("../middleware/authMiddleware");
 const router = express.Router();
 
 // =====================================================
-// CREATE MONTHLY LOTTERY CONFIG
+// USER LOTTERY ENTRY
 // =====================================================
 
+// User sirf number + amount bhejega
+// Market + month + year automatically create/find hoga
+//
+// POST /api/lottery/entry
+
 router.post(
-  "/create",
-  authMiddleware,
-  createLotteryConfig
+    "/entry",
+    authMiddleware,
+    addUserLotteryEntry
 );
 
 // =====================================================
 // GET ALL LOTTERY CONFIGS
 // =====================================================
 
+// GET /api/lottery
+
 router.get(
-  "/all",
-  authMiddleware,
-  getAllLotteryConfigs
+    "/",
+    authMiddleware,
+    getAllLotteryConfigs
 );
 
 // =====================================================
-// GET ACTIVE LOTTERY CONFIG
+// GET ACTIVE LOTTERY
 // =====================================================
 
+// GET /api/lottery/active
+
 router.get(
-  "/active",
-  authMiddleware,
-  getActiveLotteryConfig
+    "/active",
+    authMiddleware,
+    getActiveLotteryConfig
 );
 
 // =====================================================
-// GET SINGLE LOTTERY CONFIG
+// GET LOTTERY CONFIG BY ID
 // =====================================================
 
+// GET /api/lottery/:id
+
 router.get(
-  "/:id",
-  authMiddleware,
-  getLotteryConfigById
+    "/:id",
+    authMiddleware,
+    getLotteryConfigById
 );
 
 // =====================================================
-// ADD USER ENTRY TO SPECIFIC DATE
+// CREATE LOTTERY CONFIG
 // =====================================================
 //
-// POST
-// /api/lottery/:id/date/:dateId/user
+// Admin manually create kar sakta hai agar zarurat ho.
+//
+// POST /api/lottery
 //
 // Body:
 // {
-//   "numbers": [12,25,31,44,56,78],
-//   "amount": 100
-// }
-//
-// userId JWT se automatically aayega.
-//
+//   "marketName": "Delhi Market",
+//   "month": 9,
+//   "year": 2026
+// =====================================================
 
 router.post(
-  "/:id/date/:dateId/user",
-  authMiddleware,
-  addUserLotteryEntry
+    "/",
+    authMiddleware,
+    createLotteryConfig
 );
 
 // =====================================================
-// UPDATE USER LOTTERY ENTRY
+// ACTIVATE LOTTERY
+// =====================================================
+
+// PATCH /api/lottery/:id/activate
+
+router.patch(
+    "/:id/activate",
+    authMiddleware,
+    activateLotteryConfig
+);
+
+// =====================================================
+// DEACTIVATE LOTTERY
+// =====================================================
+
+// PATCH /api/lottery/:id/deactivate
+
+router.patch(
+    "/:id/deactivate",
+    authMiddleware,
+    deactivateLotteryConfig
+);
+
+// =====================================================
+// UPDATE USER ENTRY
 // =====================================================
 //
-// PATCH
-// /api/lottery/:id/date/:dateId/user/:userEntryId
+// PUT /api/lottery/:id/users/:userEntryId
 //
-// Body can contain:
+// Body:
 // {
-//   "numbers": [1,2,3,4,5,6],
-//   "amount": 200,
-//   "status": "win"
-// }
+//   "number": "123456",
+//   "amount": 100,
+//   "status": "pending"
+// =====================================================
 
-router.patch(
-  "/:id/date/:dateId/user/:userEntryId",
-  authMiddleware,
-  updateUserLotteryEntry
+router.put(
+    "/:id/users/:userEntryId",
+    authMiddleware,
+    updateUserLotteryEntry
 );
 
 // =====================================================
-// DELETE USER LOTTERY ENTRY
+// DELETE USER ENTRY
 // =====================================================
+
+// DELETE /api/lottery/:id/users/:userEntryId
 
 router.delete(
-  "/:id/date/:dateId/user/:userEntryId",
-  authMiddleware,
-  deleteUserLotteryEntry
+    "/:id/users/:userEntryId",
+    authMiddleware,
+    deleteUserLotteryEntry
 );
 
 // =====================================================
-// ACTIVATE LOTTERY CONFIG
+// DELETE LOTTERY CONFIG
 // =====================================================
 
-router.patch(
-  "/:id/activate",
-  authMiddleware,
-  activateLotteryConfig
-);
-
-// =====================================================
-// DEACTIVATE LOTTERY CONFIG
-// =====================================================
-
-router.patch(
-  "/:id/deactivate",
-  authMiddleware,
-  deactivateLotteryConfig
-);
-
-// =====================================================
-// DELETE MONTHLY LOTTERY CONFIG
-// =====================================================
+// DELETE /api/lottery/:id
 
 router.delete(
-  "/:id",
-  authMiddleware,
-  deleteLotteryConfig
+    "/:id",
+    authMiddleware,
+    deleteLotteryConfig
 );
+
+// =====================================================
+// EXPORT
+// =====================================================
 
 module.exports = router;
