@@ -23,8 +23,6 @@ const Results = () => {
     results = [],
     loading,
     createLoading,
-    publishLoading,
-    deleteLoading,
     success,
     error,
     message,
@@ -51,10 +49,10 @@ const Results = () => {
     winningNumber: "",
   });
 
-  // Local validation error (shown when submit is attempted with invalid data)
+  // Visible validation error
   const [formError, setFormError] = useState("");
 
-  // Per-item loading tracking (so publishing one row doesn't disable all rows)
+  // Per-item loading trackers
   const [publishingIds, setPublishingIds] = useState([]);
   const [deletingIds, setDeletingIds] = useState([]);
 
@@ -101,26 +99,66 @@ const Results = () => {
   }, [configs, formData.lotteryConfigId]);
 
   // =====================================================
-  // CONFIG DATES (deduplicated + sorted)
+  // AVAILABLE DATES
+  //
+  // Supports BOTH backend shapes:
+  //   1. config.dates = [{ _id, date }]        (preferred)
+  //   2. config.users = [{ entryDate, ... }]   (current backend)
+  //
+  // Produces a deduplicated, chronologically sorted list of
+  // { _id, date } objects so the <select> stays consistent.
   // =====================================================
 
   const availableDates = useMemo(() => {
-    if (!selectedConfig?.dates) return [];
+    if (!selectedConfig) return [];
 
     const seen = new Set();
-    const unique = [];
+    const collected = [];
 
-    for (const item of selectedConfig.dates) {
-      const value = item?.date;
-      if (value && !seen.has(value)) {
-        seen.add(value);
-        unique.push(item);
+    const pushDate = (value, id) => {
+      if (!value) return;
+      if (seen.has(value)) return;
+      seen.add(value);
+      collected.push({ _id: id || value, date: value });
+    };
+
+    // ---------------------------------------------
+    // 1. Prefer explicit `dates` array
+    // ---------------------------------------------
+    if (
+      Array.isArray(selectedConfig.dates) &&
+      selectedConfig.dates.length > 0
+    ) {
+      for (const item of selectedConfig.dates) {
+        pushDate(item?.date, item?._id);
       }
     }
 
-    return unique.sort(
-      (a, b) => new Date(a.date) - new Date(b.date)
-    );
+    // ---------------------------------------------
+    // 2. Fallback: derive from users[].entryDate
+    // ---------------------------------------------
+    if (
+      collected.length === 0 &&
+      Array.isArray(selectedConfig.users)
+    ) {
+      for (const user of selectedConfig.users) {
+        pushDate(user?.entryDate, user?.entryDate);
+      }
+    }
+
+    // ---------------------------------------------
+    // 3. Sort chronologically (invalid dates last)
+    // ---------------------------------------------
+    return collected.sort((a, b) => {
+      const ta = new Date(a.date).getTime();
+      const tb = new Date(b.date).getTime();
+
+      if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
+      if (Number.isNaN(ta)) return 1;
+      if (Number.isNaN(tb)) return -1;
+
+      return ta - tb;
+    });
   }, [selectedConfig]);
 
   // =====================================================
@@ -130,27 +168,23 @@ const Results = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Clear any validation error on change
     if (formError) setFormError("");
 
-    // ==========================================
+    // ---------------------------------------------
     // LOTTERY CONFIG
-    // ==========================================
-
+    // ---------------------------------------------
     if (name === "lotteryConfigId") {
       setFormData({
         lotteryConfigId: value,
         date: "",
         winningNumber: "",
       });
-
       return;
     }
 
-    // ==========================================
+    // ---------------------------------------------
     // WINNING NUMBER — ONLY 6 DIGITS
-    // ==========================================
-
+    // ---------------------------------------------
     if (name === "winningNumber") {
       const onlyNumbers = value.replace(/\D/g, "").slice(0, 6);
 
@@ -158,14 +192,12 @@ const Results = () => {
         ...prev,
         winningNumber: onlyNumbers,
       }));
-
       return;
     }
 
-    // ==========================================
+    // ---------------------------------------------
     // NORMAL INPUT
-    // ==========================================
-
+    // ---------------------------------------------
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -179,10 +211,9 @@ const Results = () => {
   const handleCreate = async (e) => {
     e.preventDefault();
 
-    // ==========================================
+    // ---------------------------------------------
     // VALIDATION (with visible feedback)
-    // ==========================================
-
+    // ---------------------------------------------
     if (!formData.lotteryConfigId) {
       setFormError("Please select a lottery config.");
       return;
@@ -200,26 +231,23 @@ const Results = () => {
 
     setFormError("");
 
-    // ==========================================
+    // ---------------------------------------------
     // API DATA
-    // ==========================================
-
+    // ---------------------------------------------
     const payload = {
       lotteryConfigId: formData.lotteryConfigId,
       date: formData.date,
       winningNumber: formData.winningNumber,
     };
 
-    // ==========================================
+    // ---------------------------------------------
     // CREATE
-    // ==========================================
-
+    // ---------------------------------------------
     const response = await dispatch(createResult(payload));
 
-    // ==========================================
+    // ---------------------------------------------
     // SUCCESS
-    // ==========================================
-
+    // ---------------------------------------------
     if (createResult.fulfilled.match(response)) {
       setFormData({
         lotteryConfigId: "",
@@ -231,6 +259,7 @@ const Results = () => {
       setFormError("");
 
       dispatch(getAllResults());
+      dispatch(getAllLotteryConfigs());
     }
   };
 
@@ -286,7 +315,6 @@ const Results = () => {
     try {
       const response = await dispatch(deleteResult(id));
 
-      // Refetch to ensure UI is in sync
       if (deleteResult.fulfilled.match(response)) {
         dispatch(getAllResults());
       }
@@ -505,6 +533,12 @@ const Results = () => {
                 <p className="mt-2 text-xs text-slate-500">
                   {availableDates.length} date(s) available in this
                   config.
+                </p>
+              )}
+
+              {selectedConfig && availableDates.length === 0 && (
+                <p className="mt-2 text-xs text-red-500">
+                  No dates available for this config.
                 </p>
               )}
             </div>
