@@ -85,8 +85,7 @@ export const getMyLotteryEntries = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message ||
-          "Failed to fetch your lottery entries",
+        error.response?.data?.message || "Failed to fetch your lottery entries",
       );
     }
   },
@@ -146,8 +145,7 @@ export const addUserLotteryEntry = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message ||
-          "Failed to purchase lottery ticket",
+        error.response?.data?.message || "Failed to purchase lottery ticket",
       );
     }
   },
@@ -228,8 +226,7 @@ const createLotteryConfigSlice = createSlice({
         state.createLoading = false;
 
         state.error =
-          action.payload ||
-          "Failed to create lottery configuration";
+          action.payload || "Failed to create lottery configuration";
       })
 
       // =================================================
@@ -262,8 +259,7 @@ const createLotteryConfigSlice = createSlice({
         state.activeLoading = false;
 
         state.error =
-          action.payload ||
-          "Failed to fetch active lottery configuration";
+          action.payload || "Failed to fetch active lottery configuration";
       })
 
       // =================================================
@@ -286,12 +282,15 @@ const createLotteryConfigSlice = createSlice({
         const data = action.payload?.data;
 
         if (data) {
-          state.myEntries = Array.isArray(data.entries)
-            ? data.entries
-            : [];
+          // Backend returns user lottery entries inside data.users.
+          // Also keep data.entries support for backward compatibility.
+          state.myEntries = Array.isArray(data.users)
+            ? data.users
+            : Array.isArray(data.entries)
+              ? data.entries
+              : [];
 
-          state.totalEntries =
-            data.totalEntries ?? state.myEntries.length;
+          state.totalEntries = data.totalEntries ?? state.myEntries.length;
 
           // ---------------------------------------------
           // Update active/config information
@@ -299,45 +298,27 @@ const createLotteryConfigSlice = createSlice({
 
           state.config = {
             ...(state.config || {}),
-            _id:
-              data.lotteryId ||
-              state.config?._id,
+            _id: data.lotteryId || data._id || state.config?._id,
 
-            marketName:
-              data.marketName ||
-              state.config?.marketName,
+            marketName: data.marketName || state.config?.marketName,
 
-            month:
-              data.month ??
-              state.config?.month,
+            month: data.month ?? state.config?.month,
 
-            year:
-              data.year ??
-              state.config?.year,
+            year: data.year ?? state.config?.year,
 
-            isActive:
-              data.isActive ??
-              state.config?.isActive,
+            isActive: data.isActive ?? state.config?.isActive,
           };
 
           if (data.isActive !== undefined) {
             state.activeConfig = {
               ...(state.activeConfig || {}),
-              _id:
-                data.lotteryId ||
-                state.activeConfig?._id,
+              _id: data.lotteryId || data._id || state.activeConfig?._id,
 
-              marketName:
-                data.marketName ||
-                state.activeConfig?.marketName,
+              marketName: data.marketName || state.activeConfig?.marketName,
 
-              month:
-                data.month ??
-                state.activeConfig?.month,
+              month: data.month ?? state.activeConfig?.month,
 
-              year:
-                data.year ??
-                state.activeConfig?.year,
+              year: data.year ?? state.activeConfig?.year,
 
               isActive: data.isActive,
             };
@@ -355,9 +336,7 @@ const createLotteryConfigSlice = createSlice({
       .addCase(getMyLotteryEntries.rejected, (state, action) => {
         state.myEntriesLoading = false;
 
-        state.error =
-          action.payload ||
-          "Failed to fetch your lottery entries";
+        state.error = action.payload || "Failed to fetch your lottery entries";
 
         state.myEntries = [];
         state.totalEntries = 0;
@@ -390,21 +369,13 @@ const createLotteryConfigSlice = createSlice({
           state.config = {
             ...(state.config || {}),
 
-            _id:
-              responseData.lotteryId ||
-              state.config?._id,
+            _id: responseData.lotteryId || state.config?._id,
 
-            marketName:
-              responseData.marketName ||
-              state.config?.marketName,
+            marketName: responseData.marketName || state.config?.marketName,
 
-            month:
-              responseData.month ??
-              state.config?.month,
+            month: responseData.month ?? state.config?.month,
 
-            year:
-              responseData.year ??
-              state.config?.year,
+            year: responseData.year ?? state.config?.year,
           };
 
           // ---------------------------------------------
@@ -412,19 +383,14 @@ const createLotteryConfigSlice = createSlice({
           // ---------------------------------------------
 
           if (responseData.entry) {
-            state.myEntries = [
-              responseData.entry,
-              ...state.myEntries,
-            ];
+            state.myEntries = [responseData.entry, ...state.myEntries];
 
-            state.totalEntries =
-              state.myEntries.length;
+            state.totalEntries = state.myEntries.length;
           }
         }
 
         state.successMessage =
-          action.payload?.message ||
-          "Lottery ticket purchased successfully";
+          action.payload?.message || "Lottery ticket purchased successfully";
       })
 
       // =================================================
@@ -434,9 +400,7 @@ const createLotteryConfigSlice = createSlice({
       .addCase(addUserLotteryEntry.rejected, (state, action) => {
         state.purchaseLoading = false;
 
-        state.error =
-          action.payload ||
-          "Failed to purchase lottery ticket";
+        state.error = action.payload || "Failed to purchase lottery ticket";
       });
   },
 });
@@ -457,8 +421,7 @@ export const {
 // =====================================================
 
 // Config
-export const selectLotteryConfig = (state) =>
-  state.createLotteryConfig.config;
+export const selectLotteryConfig = (state) => state.createLotteryConfig.config;
 
 export const selectActiveLotteryConfig = (state) =>
   state.createLotteryConfig.activeConfig;
@@ -487,8 +450,7 @@ export const selectMyLotteryTotalEntries = (state) =>
   state.createLotteryConfig.totalEntries;
 
 // Error / Success
-export const selectLotteryError = (state) =>
-  state.createLotteryConfig.error;
+export const selectLotteryError = (state) => state.createLotteryConfig.error;
 
 export const selectLotterySuccessMessage = (state) =>
   state.createLotteryConfig.successMessage;
