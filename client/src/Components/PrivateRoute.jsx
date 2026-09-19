@@ -13,18 +13,18 @@ const PrivateRoute = () => {
     (state) => state.auth,
   );
 
-  console.log(user, isAuthenticated, profileLoading, profileError)
-
   useEffect(() => {
-    if (user || isAuthenticated) return;
+    // If we already have a user, no need to fetch
+    if (user) return;
+    // Only attempt fetch once
     if (profileRequested.current) return;
-    if (profileLoading) return;
 
     profileRequested.current = true;
     dispatch(fetchProfile());
-  }, [dispatch, user, isAuthenticated, profileLoading]);
+  }, [dispatch, user]);
 
-  if (profileLoading || (!user && !profileError)) {
+  // Still loading the initial profile → show spinner
+  if (profileLoading) {
     return (
       <div className="min-h-screen bg-seth-bg flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -35,10 +35,13 @@ const PrivateRoute = () => {
     );
   }
 
-  if (!user || !isAuthenticated || profileError) {
+  // Not authenticated → redirect to login
+  // Note: we trust `user` OR `isAuthenticated`. If either is true, allow in.
+  if (!user && !isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
+  // Authenticated → render child routes
   return <Outlet />;
 };
 
