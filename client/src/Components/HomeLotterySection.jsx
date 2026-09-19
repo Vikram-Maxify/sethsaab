@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -10,42 +11,138 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
-import { createLotteryConfig } from "../reducer/slice/createLotteryConfigSlice";
+import {
+  getActiveLotteryConfig,
+  selectActiveLotteryConfig,
+  selectLotteryActiveLoading,
+  selectLotteryError,
+  selectLotterySuccessMessage,
+} from "../reducer/slice/createLotteryConfigSlice";
+
+// =====================================================
+// HELPERS
+// =====================================================
+
+const HINDI_MONTHS = [
+  "जनवरी",
+  "फरवरी",
+  "मार्च",
+  "अप्रैल",
+  "मई",
+  "जून",
+  "जुलाई",
+  "अगस्त",
+  "सितंबर",
+  "अक्टूबर",
+  "नवंबर",
+  "दिसंबर",
+];
+
+const formatHindiDate = (date, month, year) => {
+  if (!date || !month || !year) return null;
+  return `${date} ${HINDI_MONTHS[month - 1]} ${year}`;
+};
+
+const formatCrore = (amount) => {
+  if (amount === undefined || amount === null) return "₹0";
+  const num = Number(amount);
+  if (!Number.isFinite(num) || num <= 0) return "₹0";
+
+  const crore = num / 10000000;
+
+  if (crore >= 1) {
+    const formatted = crore % 1 === 0 ? crore.toFixed(0) : crore.toFixed(2);
+    return `₹${formatted} करोड़`;
+  }
+
+  const lakh = num / 100000;
+  if (lakh >= 1) {
+    const formatted = lakh % 1 === 0 ? lakh.toFixed(0) : lakh.toFixed(2);
+    return `₹${formatted} लाख`;
+  }
+
+  return `₹${num.toLocaleString("en-IN")}`;
+};
+
+const getDaysRemaining = (date, month, year) => {
+  if (!date || !month || !year) return null;
+
+  const target = new Date(year, month - 1, date);
+  const now = new Date();
+
+  target.setHours(0, 0, 0, 0);
+  now.setHours(0, 0, 0, 0);
+
+  const diffMs = target.getTime() - now.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+};
+
+// =====================================================
+// COMPONENT
+// =====================================================
 
 const HomeLotterySection = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
   // =====================================================
-  // CREATE LOTTERY CONFIG REDUX
+  // REDUX STATE
   // =====================================================
 
-  const {
-    config,
-    loading: lotteryLoading,
-    error: lotteryError,
-    successMessage,
-  } = useSelector((state) => state.createLotteryConfig);
+  const activeConfig = useSelector(selectActiveLotteryConfig);
+  const loading = useSelector(selectLotteryActiveLoading);
+  const error = useSelector(selectLotteryError);
+  const successMessage = useSelector(selectLotterySuccessMessage);
 
   // =====================================================
-  // CREATE LOTTERY CONFIG
+  // FETCH ACTIVE CONFIG ON MOUNT
   // =====================================================
 
-  const handleCreateLottery = () => {
-    const now = new Date();
+  useEffect(() => {
+    dispatch(getActiveLotteryConfig());
+  }, [dispatch]);
 
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
+  // =====================================================
+  // DERIVED VALUES
+  // =====================================================
 
-    dispatch(
-      createLotteryConfig({
-        month,
-        year,
-      }),
+  const drawDateText = useMemo(() => {
+    if (!activeConfig) return "जल्द घोषित होगा";
+    return (
+      formatHindiDate(
+        activeConfig.date,
+        activeConfig.month,
+        activeConfig.year
+      ) || "जल्द घोषित होगा"
     );
-  };
+  }, [activeConfig]);
 
-  console.log("Created Lottery Config:", config);
+  const daysRemaining = useMemo(() => {
+    if (!activeConfig) return null;
+    return getDaysRemaining(
+      activeConfig.date,
+      activeConfig.month,
+      activeConfig.year
+    );
+  }, [activeConfig]);
+
+  const isActive = Boolean(activeConfig?.isActive);
+
+  const firstPrize = formatCrore(activeConfig?.prizes?.first);
+  const secondPrize = formatCrore(activeConfig?.prizes?.second);
+  const thirdPrize = formatCrore(activeConfig?.prizes?.third);
+
+  // =====================================================
+  // HANDLERS
+  // =====================================================
+
+  const handleBuyTicket = () => {
+    if (!isActive) {
+      alert("कोई सक्रिय लॉटरी उपलब्ध नहीं है");
+      return;
+    }
+    navigate("/buy-ticket");
+  };
 
   return (
     <section className="w-full px-[10px] pt-2 pb-3 bg-[#050505]">
@@ -74,17 +171,15 @@ const HomeLotterySection = () => {
 
           <div className="flex-1 min-w-0">
             <p className="text-[#d1d1d1] text-[13px] font-medium leading-none">
-              {lotteryLoading
+              {loading
                 ? "लॉटरी जानकारी लोड हो रही है..."
-                : lotteryError
+                : error
                   ? "लॉटरी जानकारी उपलब्ध नहीं है"
                   : "अगला ड्रा (लक्की ड्रा)"}
             </p>
 
             <p className="text-[#f5c542] text-[25px] font-extrabold leading-none mt-[9px] tracking-tight">
-              {config?.year && config?.month
-                ? `${config.month}/${config.year}`
-                : "11 अक्टूबर 2026"}
+              {drawDateText}
             </p>
           </div>
 
@@ -106,12 +201,23 @@ const HomeLotterySection = () => {
               </div>
 
               <span className="text-white text-[13px] font-bold">
-                जल्द शुरू होगा
+                {daysRemaining !== null && daysRemaining <= 0
+                  ? "आज ही ड्रा"
+                  : "जल्द शुरू होगा"}
               </span>
             </div>
 
             <p className="text-white text-[25px] font-extrabold leading-none mt-[7px]">
-              12 <span className="text-[15px] font-bold">दिन बाकी</span>
+              {daysRemaining !== null && daysRemaining > 0 ? (
+                <>
+                  {daysRemaining}{" "}
+                  <span className="text-[15px] font-bold">दिन बाकी</span>
+                </>
+              ) : daysRemaining === 0 ? (
+                <span className="text-[18px] font-bold">आज</span>
+              ) : (
+                <span className="text-[18px] font-bold">—</span>
+              )}
             </p>
           </div>
         </div>
@@ -125,7 +231,7 @@ const HomeLotterySection = () => {
         <PrizeCard
           type="first"
           title="प्रथम पुरस्कार"
-          amount="₹5 करोड़"
+          amount={firstPrize}
           subtitle="(6 अंक मिलने पर)"
           image="https://i.ibb.co/ZRPdFtMk/1trophy.png"
         />
@@ -133,7 +239,7 @@ const HomeLotterySection = () => {
         <PrizeCard
           type="second"
           title="द्वितीय पुरस्कार"
-          amount="₹3 करोड़"
+          amount={secondPrize}
           subtitle="(5 अंक मिलने पर)"
           image="https://i.ibb.co/Hf8YPcmc/2trophy.png"
         />
@@ -141,7 +247,7 @@ const HomeLotterySection = () => {
         <PrizeCard
           type="third"
           title="तृतीय पुरस्कार"
-          amount="₹2 करोड़"
+          amount={thirdPrize}
           subtitle="(4 अंक मिलने पर)"
           image="https://i.ibb.co/mV8nXr0h/3trophy.png"
         />
@@ -153,8 +259,13 @@ const HomeLotterySection = () => {
 
       <button
         type="button"
-        onClick={() => navigate("/buy-ticket")}
-        className="relative mt-[16px] w-full h-[70px] rounded-[13px] flex items-center justify-center gap-[12px] text-black overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
+        onClick={handleBuyTicket}
+        disabled={!isActive}
+        className={`relative mt-[16px] w-full h-[70px] rounded-[13px] flex items-center justify-center gap-[12px] text-black overflow-hidden transition-transform ${
+          isActive
+            ? "active:scale-[0.99] cursor-pointer"
+            : "opacity-60 cursor-not-allowed"
+        }`}
         style={{
           background:
             "linear-gradient(180deg, #ffe477 0%, #f5c542 52%, #e4ae16 100%)",
@@ -245,20 +356,8 @@ const HomeLotterySection = () => {
       </div>
 
       {/* =====================================================
-          OPTIONAL CREATE BUTTON
-          Agar Home par config create nahi karna hai to
-          is button ko remove kar dena.
+          FEEDBACK
       ===================================================== */}
-
-      {/* 
-      <button
-        onClick={handleCreateLottery}
-        disabled={lotteryLoading}
-        className="mt-4 w-full h-[50px] rounded-xl bg-[#f5c542] text-black font-bold"
-      >
-        {lotteryLoading ? "Creating..." : "Create Lottery"}
-      </button>
-      */}
 
       {successMessage && (
         <p className="mt-2 text-center text-green-400 text-xs">
@@ -266,16 +365,18 @@ const HomeLotterySection = () => {
         </p>
       )}
 
-      {lotteryError && (
+      {error && (
         <p className="mt-2 text-center text-red-400 text-xs">
-          {typeof lotteryError === "string"
-            ? lotteryError
-            : "Something went wrong"}
+          {typeof error === "string" ? error : "Something went wrong"}
         </p>
       )}
     </section>
   );
 };
+
+// =====================================================
+// PRIZE CARD
+// =====================================================
 
 const PrizeCard = ({ type, title, amount, subtitle, image }) => {
   const amountColor = {
@@ -313,7 +414,7 @@ const PrizeCard = ({ type, title, amount, subtitle, image }) => {
         </p>
 
         <p
-          className="mt-[13px] text-[27px] font-extrabold leading-none whitespace-nowrap"
+          className="mt-[13px] text-[22px] font-extrabold leading-none whitespace-nowrap px-1"
           style={{
             color: amountColor[type],
             textShadow:
@@ -332,6 +433,10 @@ const PrizeCard = ({ type, title, amount, subtitle, image }) => {
     </div>
   );
 };
+
+// =====================================================
+// TRUST ITEM
+// =====================================================
 
 const TrustItem = ({ icon, text }) => (
   <div className="flex-1 flex items-center justify-center gap-[7px] min-w-0">

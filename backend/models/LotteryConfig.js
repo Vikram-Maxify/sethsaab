@@ -12,10 +12,6 @@ const lotteryUserEntrySchema = new mongoose.Schema(
       index: true,
     },
 
-    // =================================================
-    // ENTRY DATE
-    // =================================================
-
     entryDate: {
       type: String,
       required: true,
@@ -23,19 +19,11 @@ const lotteryUserEntrySchema = new mongoose.Schema(
       index: true,
     },
 
-    // =================================================
-    // 6 DIGIT NUMBER
-    // =================================================
-
     number: {
       type: String,
       required: true,
       match: /^\d{6}$/,
     },
-
-    // =================================================
-    // TICKET AMOUNT
-    // =================================================
 
     amount: {
       type: Number,
@@ -43,51 +31,23 @@ const lotteryUserEntrySchema = new mongoose.Schema(
       min: 0,
     },
 
-    // =================================================
-    // PAYMENT SUCCESS
-    // =================================================
-
     isBuy: {
       type: Boolean,
       default: false,
       index: true,
     },
 
-    // =================================================
-    // PRIZE
-    // =================================================
-
     prize: {
-      first: {
-        type: Number,
-        default: 0,
-        min: 0,
-      },
-      second: {
-        type: Number,
-        default: 0,
-        min: 0,
-      },
-      third: {
-        type: Number,
-        default: 0,
-        min: 0,
-      },
+      first: { type: Number, default: 0, min: 0 },
+      second: { type: Number, default: 0, min: 0 },
+      third: { type: Number, default: 0, min: 0 },
     },
-
-    // =================================================
-    // PRIZE TYPE
-    // =================================================
 
     prizeType: {
       type: String,
       enum: ["1st", "2nd", "3rd", null],
       default: null,
     },
-
-    // =================================================
-    // RESULT STATUS
-    // =================================================
 
     status: {
       type: String,
@@ -106,19 +66,11 @@ const lotteryUserEntrySchema = new mongoose.Schema(
 
 const lotteryConfigSchema = new mongoose.Schema(
   {
-    // =================================================
-    // MARKET NAME
-    // =================================================
-
     marketName: {
       type: String,
       required: true,
       trim: true,
     },
-
-    // =================================================
-    // DATE
-    // =================================================
 
     date: {
       type: Number,
@@ -127,10 +79,6 @@ const lotteryConfigSchema = new mongoose.Schema(
       max: 31,
     },
 
-    // =================================================
-    // MONTH
-    // =================================================
-
     month: {
       type: Number,
       required: true,
@@ -138,50 +86,22 @@ const lotteryConfigSchema = new mongoose.Schema(
       max: 12,
     },
 
-    // =================================================
-    // YEAR
-    // =================================================
-
     year: {
       type: Number,
       required: true,
       min: 2000,
     },
 
-    // =================================================
-    // PRIZES
-    // =================================================
-
     prizes: {
-      first: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-      second: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-      third: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
+      first: { type: Number, required: true, min: 0 },
+      second: { type: Number, required: true, min: 0 },
+      third: { type: Number, required: true, min: 0 },
     },
-
-    // =================================================
-    // USERS / ENTRIES
-    // =================================================
 
     users: {
       type: [lotteryUserEntrySchema],
       default: [],
     },
-
-    // =================================================
-    // ACTIVE
-    // =================================================
 
     isActive: {
       type: Boolean,
@@ -210,7 +130,4 @@ lotteryConfigSchema.index(
   }
 );
 
-module.exports = mongoose.model(
-  "LotteryConfig",
-  lotteryConfigSchema
-);
+module.exports = mongoose.model("LotteryConfig", lotteryConfigSchema);

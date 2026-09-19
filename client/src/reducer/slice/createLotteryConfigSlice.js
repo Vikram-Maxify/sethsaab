@@ -26,31 +26,66 @@ const initialState = {
 // =====================================================
 // CREATE LOTTERY CONFIG
 // POST /api/lottery
+//
+// Backend returns:
+//   { success, message, totalCreated, startDay, endDay, data: [...] }
 // =====================================================
 
 export const createLotteryConfig = createAsyncThunk(
   "createLotteryConfig/create",
-  async ({ marketName, month, year }, { rejectWithValue }) => {
+  async ({ marketName, month, year, prizes }, { rejectWithValue }) => {
     try {
-      const response = await api.post("/lottery", {
-        marketName,
-        month,
-        year,
-      });
+      if (!marketName || typeof marketName !== "string" || !marketName.trim()) {
+        return rejectWithValue("Market name is required");
+      }
+
+      if (!prizes || typeof prizes !== "object") {
+        return rejectWithValue("Prize amounts are required");
+      }
+
+      if (
+        prizes.first === undefined ||
+        prizes.second === undefined ||
+        prizes.third === undefined
+      ) {
+        return rejectWithValue("All three prize amounts are required");
+      }
+
+      const body = {
+        marketName: marketName.trim(),
+        prizes: {
+          first: Number(prizes.first),
+          second: Number(prizes.second),
+          third: Number(prizes.third),
+        },
+      };
+
+      if (month !== undefined && month !== null) {
+        body.month = Number(month);
+      }
+
+      if (year !== undefined && year !== null) {
+        body.year = Number(year);
+      }
+
+      const response = await api.post("/lottery", body);
 
       return response.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message ||
-          "Failed to create lottery configuration",
+          "Failed to create lottery configuration"
       );
     }
-  },
+  }
 );
 
 // =====================================================
 // GET ACTIVE LOTTERY CONFIG
 // GET /api/lottery/active
+//
+// 200 → { success: true, data: {...} }
+// 404 → treated as "no active config" (NOT an error)
 // =====================================================
 
 export const getActiveLotteryConfig = createAsyncThunk(
@@ -58,22 +93,23 @@ export const getActiveLotteryConfig = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.get("/lottery/active");
-
       return response.data;
     } catch (error) {
+      if (error.response?.status === 404) {
+        return { success: true, data: null };
+      }
+
       return rejectWithValue(
         error.response?.data?.message ||
-          "Failed to fetch active lottery configuration",
+          "Failed to fetch active lottery configuration"
       );
     }
-  },
+  }
 );
 
 // =====================================================
 // GET MY LOTTERY ENTRIES
 // GET /api/lottery/my-entries
-//
-// JWT se user ID automatically backend par milegi
 // =====================================================
 
 export const getMyLotteryEntries = createAsyncThunk(
@@ -81,14 +117,13 @@ export const getMyLotteryEntries = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.get("/lottery/my-entries");
-
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to fetch your lottery entries",
+        error.response?.data?.message || "Failed to fetch your lottery entries"
       );
     }
-  },
+  }
 );
 
 // =====================================================
@@ -100,10 +135,6 @@ export const addUserLotteryEntry = createAsyncThunk(
   "createLotteryConfig/addUserLotteryEntry",
   async ({ number, amount }, { rejectWithValue }) => {
     try {
-      // -----------------------------------------------
-      // Validate number
-      // -----------------------------------------------
-
       if (number === undefined || number === null || number === "") {
         return rejectWithValue("6 digit lottery number is required");
       }
@@ -113,10 +144,6 @@ export const addUserLotteryEntry = createAsyncThunk(
       if (!/^\d{6}$/.test(lotteryNumber)) {
         return rejectWithValue("Lottery number must be exactly 6 digits");
       }
-
-      // -----------------------------------------------
-      // Validate amount
-      // -----------------------------------------------
 
       if (
         amount === undefined ||
@@ -133,10 +160,6 @@ export const addUserLotteryEntry = createAsyncThunk(
         return rejectWithValue("Amount cannot be negative");
       }
 
-      // -----------------------------------------------
-      // API
-      // -----------------------------------------------
-
       const response = await api.post("/lottery/entry", {
         number: lotteryNumber,
         amount: lotteryAmount,
@@ -145,10 +168,10 @@ export const addUserLotteryEntry = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to purchase lottery ticket",
+        error.response?.data?.message || "Failed to purchase lottery ticket"
       );
     }
-  },
+  }
 );
 
 // =====================================================
@@ -161,34 +184,23 @@ const createLotteryConfigSlice = createSlice({
   initialState,
 
   reducers: {
-    // -----------------------------------------------
-    // CLEAR ERROR
-    // -----------------------------------------------
-
     clearLotteryConfigError: (state) => {
       state.error = null;
     },
-
-    // -----------------------------------------------
-    // CLEAR SUCCESS
-    // -----------------------------------------------
 
     clearLotteryConfigSuccess: (state) => {
       state.successMessage = null;
     },
 
-    // -----------------------------------------------
-    // CLEAR MY ENTRIES
-    // -----------------------------------------------
+    clearLotteryMessages: (state) => {
+      state.error = null;
+      state.successMessage = null;
+    },
 
     clearMyLotteryEntries: (state) => {
       state.myEntries = [];
       state.totalEntries = 0;
     },
-
-    // -----------------------------------------------
-    // RESET
-    // -----------------------------------------------
 
     resetLotteryConfig: () => initialState,
   },
@@ -209,12 +221,16 @@ const createLotteryConfigSlice = createSlice({
       .addCase(createLotteryConfig.fulfilled, (state, action) => {
         state.createLoading = false;
 
-        const config = action.payload?.data || null;
+        // Backend returns data as ARRAY (insertMany)
+        const createdArray = action.payload?.data;
+        const created = Array.isArray(createdArray)
+          ? createdArray[0] || null
+          : createdArray || null;
 
-        state.config = config;
+        state.config = created;
 
-        if (config?.isActive) {
-          state.activeConfig = config;
+        if (created?.isActive) {
+          state.activeConfig = created;
         }
 
         state.successMessage =
@@ -224,23 +240,18 @@ const createLotteryConfigSlice = createSlice({
 
       .addCase(createLotteryConfig.rejected, (state, action) => {
         state.createLoading = false;
-
         state.error =
           action.payload || "Failed to create lottery configuration";
       })
 
       // =================================================
-      // ACTIVE CONFIG - PENDING
+      // ACTIVE CONFIG
       // =================================================
 
       .addCase(getActiveLotteryConfig.pending, (state) => {
         state.activeLoading = true;
         state.error = null;
       })
-
-      // =================================================
-      // ACTIVE CONFIG - SUCCESS
-      // =================================================
 
       .addCase(getActiveLotteryConfig.fulfilled, (state, action) => {
         state.activeLoading = false;
@@ -249,21 +260,19 @@ const createLotteryConfigSlice = createSlice({
 
         state.config = config;
         state.activeConfig = config;
+        state.error = null;
       })
-
-      // =================================================
-      // ACTIVE CONFIG - ERROR
-      // =================================================
 
       .addCase(getActiveLotteryConfig.rejected, (state, action) => {
         state.activeLoading = false;
-
         state.error =
           action.payload || "Failed to fetch active lottery configuration";
+        state.activeConfig = null;
+        state.config = null;
       })
 
       // =================================================
-      // GET MY ENTRIES - PENDING
+      // GET MY ENTRIES
       // =================================================
 
       .addCase(getMyLotteryEntries.pending, (state) => {
@@ -271,79 +280,36 @@ const createLotteryConfigSlice = createSlice({
         state.error = null;
       })
 
-      // =================================================
-      // GET MY ENTRIES - SUCCESS
-      // =================================================
-
       .addCase(getMyLotteryEntries.fulfilled, (state, action) => {
         state.myEntriesLoading = false;
         state.error = null;
 
         const data = action.payload?.data;
 
-        if (data) {
-          // Backend returns user lottery entries inside data.users.
-          // Also keep data.entries support for backward compatibility.
-          state.myEntries = Array.isArray(data.users)
-            ? data.users
-            : Array.isArray(data.entries)
-              ? data.entries
-              : [];
-
-          state.totalEntries = data.totalEntries ?? state.myEntries.length;
-
-          // ---------------------------------------------
-          // Update active/config information
-          // ---------------------------------------------
-
-          state.config = {
-            ...(state.config || {}),
-            _id: data.lotteryId || data._id || state.config?._id,
-
-            marketName: data.marketName || state.config?.marketName,
-
-            month: data.month ?? state.config?.month,
-
-            year: data.year ?? state.config?.year,
-
-            isActive: data.isActive ?? state.config?.isActive,
-          };
-
-          if (data.isActive !== undefined) {
-            state.activeConfig = {
-              ...(state.activeConfig || {}),
-              _id: data.lotteryId || data._id || state.activeConfig?._id,
-
-              marketName: data.marketName || state.activeConfig?.marketName,
-
-              month: data.month ?? state.activeConfig?.month,
-
-              year: data.year ?? state.activeConfig?.year,
-
-              isActive: data.isActive,
-            };
-          }
-        } else {
+        if (!data) {
           state.myEntries = [];
           state.totalEntries = 0;
+          return;
         }
-      })
 
-      // =================================================
-      // GET MY ENTRIES - ERROR
-      // =================================================
+        // Backend returns `{ totalEntries, data: [...] }` — data is a flat array
+        const entriesArray = Array.isArray(data) ? data : [];
+
+        state.myEntries = entriesArray;
+        state.totalEntries =
+          action.payload?.totalEntries ?? entriesArray.length;
+      })
 
       .addCase(getMyLotteryEntries.rejected, (state, action) => {
         state.myEntriesLoading = false;
-
-        state.error = action.payload || "Failed to fetch your lottery entries";
-
+        state.error =
+          action.payload || "Failed to fetch your lottery entries";
         state.myEntries = [];
         state.totalEntries = 0;
       })
 
       // =================================================
-      // PURCHASE - PENDING
+      // PURCHASE / ADD ENTRY
       // =================================================
 
       .addCase(addUserLotteryEntry.pending, (state) => {
@@ -352,39 +318,24 @@ const createLotteryConfigSlice = createSlice({
         state.successMessage = null;
       })
 
-      // =================================================
-      // PURCHASE - SUCCESS
-      // =================================================
-
       .addCase(addUserLotteryEntry.fulfilled, (state, action) => {
         state.purchaseLoading = false;
 
         const responseData = action.payload?.data;
 
         if (responseData) {
-          // ---------------------------------------------
-          // Update config
-          // ---------------------------------------------
-
           state.config = {
             ...(state.config || {}),
-
             _id: responseData.lotteryId || state.config?._id,
-
             marketName: responseData.marketName || state.config?.marketName,
-
+            date: responseData.date ?? state.config?.date,
             month: responseData.month ?? state.config?.month,
-
             year: responseData.year ?? state.config?.year,
+            isActive: responseData.isActive ?? state.config?.isActive,
           };
-
-          // ---------------------------------------------
-          // Add newly purchased entry to Redux
-          // ---------------------------------------------
 
           if (responseData.entry) {
             state.myEntries = [responseData.entry, ...state.myEntries];
-
             state.totalEntries = state.myEntries.length;
           }
         }
@@ -393,13 +344,8 @@ const createLotteryConfigSlice = createSlice({
           action.payload?.message || "Lottery ticket purchased successfully";
       })
 
-      // =================================================
-      // PURCHASE - ERROR
-      // =================================================
-
       .addCase(addUserLotteryEntry.rejected, (state, action) => {
         state.purchaseLoading = false;
-
         state.error = action.payload || "Failed to purchase lottery ticket";
       });
   },
@@ -412,6 +358,7 @@ const createLotteryConfigSlice = createSlice({
 export const {
   clearLotteryConfigError,
   clearLotteryConfigSuccess,
+  clearLotteryMessages,
   clearMyLotteryEntries,
   resetLotteryConfig,
 } = createLotteryConfigSlice.actions;
@@ -420,13 +367,11 @@ export const {
 // SELECTORS
 // =====================================================
 
-// Config
 export const selectLotteryConfig = (state) => state.createLotteryConfig.config;
 
 export const selectActiveLotteryConfig = (state) =>
   state.createLotteryConfig.activeConfig;
 
-// Loading
 export const selectLotteryLoading = (state) =>
   state.createLotteryConfig.loading;
 
@@ -442,14 +387,12 @@ export const selectLotteryPurchaseLoading = (state) =>
 export const selectMyLotteryEntriesLoading = (state) =>
   state.createLotteryConfig.myEntriesLoading;
 
-// My entries
 export const selectMyLotteryEntries = (state) =>
   state.createLotteryConfig.myEntries;
 
 export const selectMyLotteryTotalEntries = (state) =>
   state.createLotteryConfig.totalEntries;
 
-// Error / Success
 export const selectLotteryError = (state) => state.createLotteryConfig.error;
 
 export const selectLotterySuccessMessage = (state) =>
