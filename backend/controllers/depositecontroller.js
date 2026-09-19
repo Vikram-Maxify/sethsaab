@@ -130,15 +130,6 @@ const createDeposit = async (req, res) => {
             `${gatewayBaseUrl}/api/create-order`,
             payload,
             {
-              headers: {
-                "Content-Type": "application/json",
-                "X-API-Key":
-                  gateway.apiKey ||
-                  "pi_live_22343a6ab9a88b57b0877cd7b4328d540dba19a870df1927",
-                "X-API-Secret":
-                  gateway.secretKey ||
-                  "sk_live_194873f938eec0bcd5c3d803a223decdf0ffa7a037217ef4",
-              },
             }
           );
 
