@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 // =====================================================
 // USER LOTTERY ENTRY SCHEMA
+// (BILKUL WAISA HI — kuch nahi badla)
 // =====================================================
 
 const lotteryUserEntrySchema = new mongoose.Schema(
@@ -43,13 +44,11 @@ const lotteryUserEntrySchema = new mongoose.Schema(
         default: 0,
         min: 0,
       },
-
       second: {
         type: Number,
         default: 0,
         min: 0,
       },
-
       third: {
         type: Number,
         default: 0,
@@ -58,7 +57,6 @@ const lotteryUserEntrySchema = new mongoose.Schema(
     },
 
     // Which prize user won
-    // null = result not declared / no prize
     prizeType: {
       type: String,
       enum: ["1st", "2nd", "3rd", null],
@@ -88,6 +86,14 @@ const lotteryConfigSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // 👇 NEW: day of month (1 - 31)
+    date: {
+      type: Number,
+      required: true,
+      min: 1,
+      max: 31,
+    },
+
     // 1 - 12
     month: {
       type: Number,
@@ -101,6 +107,25 @@ const lotteryConfigSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 2000,
+    },
+
+    // Admin-entered prize amounts
+    prizes: {
+      first: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+      second: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+      third: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
     },
 
     users: {
@@ -119,12 +144,13 @@ const lotteryConfigSchema = new mongoose.Schema(
 );
 
 // =====================================================
-// ONE MARKET PER MONTH
+// ONE MARKET PER DATE + MONTH + YEAR
 // =====================================================
 
 lotteryConfigSchema.index(
   {
     marketName: 1,
+    date: 1,
     month: 1,
     year: 1,
   },

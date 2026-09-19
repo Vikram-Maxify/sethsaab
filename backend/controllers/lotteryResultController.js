@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const LotteryResult = require("../models/LotteryResult");
 const LotteryConfig = require("../models/LotteryConfig");
+const User = require("../models/userModel");
 
 // =====================================================
 // VALIDATE 6 DIGIT NUMBER
@@ -11,7 +12,6 @@ const validateSixDigitNumber = (number) => {
   if (number === undefined || number === null) {
     return false;
   }
-
   return /^\d{6}$/.test(String(number).trim());
 };
 
@@ -20,9 +20,7 @@ const validateSixDigitNumber = (number) => {
 // =====================================================
 
 const normalizeDate = (date) => {
-  if (!date) {
-    return null;
-  }
+  if (!date) return null;
 
   const value = String(date).substring(0, 10);
 
@@ -38,14 +36,9 @@ const normalizeDate = (date) => {
 // =====================================================
 
 const getDateString = (date) => {
-  if (!date) {
-    return null;
-  }
+  if (!date) return null;
 
-  if (
-    typeof date === "string" &&
-    /^\d{4}-\d{2}-\d{2}$/.test(date)
-  ) {
+  if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return date;
   }
 
@@ -59,6 +52,24 @@ const getDateString = (date) => {
 };
 
 // =====================================================
+// BUILD DATE STRING FROM CONFIG (date + month + year)
+// NAYA HELPER — config se YYYY-MM-DD banata hai
+// =====================================================
+
+const buildDateFromConfig = (config) => {
+  if (!config) return null;
+
+  const { date, month, year } = config;
+
+  if (!date || !month || !year) return null;
+
+  const day = String(date).padStart(2, "0");
+  const m = String(month).padStart(2, "0");
+
+  return `${year}-${m}-${day}`;
+};
+
+// =====================================================
 // CHECK PRIZE
 // =====================================================
 
@@ -66,64 +77,26 @@ const getPrize = (userNumber, winningNumber) => {
   const user = String(userNumber).trim();
   const winning = String(winningNumber).trim();
 
-  // ===================================================
-  // 1ST PRIZE
-  // EXACT 6 DIGITS
-  // ===================================================
-
+  // 1ST PRIZE — EXACT 6 DIGITS
   if (user === winning) {
-    return {
-      prize: "1st",
-      matchedDigits: 6,
-    };
+    return { prize: "1st", matchedDigits: 6 };
   }
 
-  // ===================================================
-  // 2ND PRIZE
-  // FIRST 5 OR LAST 5
-  // ===================================================
-
-  const firstFiveMatch =
-    user.substring(0, 5) ===
-    winning.substring(0, 5);
-
-  const lastFiveMatch =
-    user.substring(1, 6) ===
-    winning.substring(1, 6);
+  // 2ND PRIZE — FIRST 5 OR LAST 5
+  const firstFiveMatch = user.substring(0, 5) === winning.substring(0, 5);
+  const lastFiveMatch = user.substring(1, 6) === winning.substring(1, 6);
 
   if (firstFiveMatch || lastFiveMatch) {
-    return {
-      prize: "2nd",
-      matchedDigits: 5,
-    };
+    return { prize: "2nd", matchedDigits: 5 };
   }
 
-  // ===================================================
-  // 3RD PRIZE
-  // FIRST 4 OR MIDDLE 4 OR LAST 4
-  // ===================================================
+  // 3RD PRIZE — FIRST 4 OR MIDDLE 4 OR LAST 4
+  const firstFourMatch = user.substring(0, 4) === winning.substring(0, 4);
+  const middleFourMatch = user.substring(1, 5) === winning.substring(1, 5);
+  const lastFourMatch = user.substring(2, 6) === winning.substring(2, 6);
 
-  const firstFourMatch =
-    user.substring(0, 4) ===
-    winning.substring(0, 4);
-
-  const middleFourMatch =
-    user.substring(1, 5) ===
-    winning.substring(1, 5);
-
-  const lastFourMatch =
-    user.substring(2, 6) ===
-    winning.substring(2, 6);
-
-  if (
-    firstFourMatch ||
-    middleFourMatch ||
-    lastFourMatch
-  ) {
-    return {
-      prize: "3rd",
-      matchedDigits: 4,
-    };
+  if (firstFourMatch || middleFourMatch || lastFourMatch) {
+    return { prize: "3rd", matchedDigits: 4 };
   }
 
   return null;
@@ -132,79 +105,117 @@ const getPrize = (userNumber, winningNumber) => {
 // =====================================================
 // GET PRIZE AMOUNTS
 // =====================================================
-//
-// Optional support if config has:
-//
-// prizes: {
-//   first: 10000,
-//   second: 5000,
-//   third: 1000
-// }
-//
-// Current config schema may not contain this.
-// =====================================================
 
 const getPrizeAmounts = (config) => {
-  const prizeObject =
-    config?.prizes ||
-    config?.prize ||
-    {};
+  const prizeObject = config?.prizes || config?.prize || {};
 
   return {
-    first:
-      Number(
-        prizeObject.first ??
-        prizeObject.firstPrize ??
-        0
-      ) || 0,
-
-    second:
-      Number(
-        prizeObject.second ??
-        prizeObject.secondPrize ??
-        0
-      ) || 0,
-
-    third:
-      Number(
-        prizeObject.third ??
-        prizeObject.thirdPrize ??
-        0
-      ) || 0,
+    first: Number(prizeObject.first ?? prizeObject.firstPrize ?? 0) || 0,
+    second: Number(prizeObject.second ?? prizeObject.secondPrize ?? 0) || 0,
+    third: Number(prizeObject.third ?? prizeObject.thirdPrize ?? 0) || 0,
   };
+};
+
+// =====================================================
+// GET PRIZE AMOUNT BY TYPE
+// =====================================================
+
+const getAmountByPrizeType = (prizeType, prizeAmounts) => {
+  if (prizeType === "1st") return Number(prizeAmounts.first) || 0;
+  if (prizeType === "2nd") return Number(prizeAmounts.second) || 0;
+  if (prizeType === "3rd") return Number(prizeAmounts.third) || 0;
+  return 0;
 };
 
 // =====================================================
 // BUILD USER PRIZE OBJECT
 // =====================================================
-//
-// This is for LotteryConfig.users[].prize
-// =====================================================
 
-const buildUserPrizeObject = (
-  prizeType,
-  prizeAmounts
-) => {
+const buildUserPrizeObject = (prizeType, prizeAmounts) => {
   return {
-    first:
-      prizeType === "1st"
-        ? prizeAmounts.first
-        : 0,
-
-    second:
-      prizeType === "2nd"
-        ? prizeAmounts.second
-        : 0,
-
-    third:
-      prizeType === "3rd"
-        ? prizeAmounts.third
-        : 0,
+    first: prizeType === "1st" ? prizeAmounts.first : 0,
+    second: prizeType === "2nd" ? prizeAmounts.second : 0,
+    third: prizeType === "3rd" ? prizeAmounts.third : 0,
   };
 };
 
 // =====================================================
-// PROCESS USERS
+// FIND USER FOR WALLET
+// =====================================================
+
+const findUserForWallet = async (userId) => {
+  if (!userId) return null;
+
+  const stringUserId = String(userId);
+
+  let user = await User.findOne({ uuid: stringUserId });
+  if (user) return user;
+
+  if (mongoose.Types.ObjectId.isValid(stringUserId)) {
+    user = await User.findById(stringUserId);
+  }
+
+  return user;
+};
+
+// =====================================================
+// ADD PRIZE TO USER WALLET
+// =====================================================
+
+const addPrizeToWallet = async (userId, amount) => {
+  const prizeAmount = Number(amount) || 0;
+
+  if (!userId || prizeAmount <= 0) return null;
+
+  const user = await findUserForWallet(userId);
+  if (!user) {
+    throw new Error(`User not found for wallet prize: ${userId}`);
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    user._id,
+    { $inc: { wallet: prizeAmount } },
+    { new: true }
+  );
+
+  return updatedUser;
+};
+
+// =====================================================
+// REMOVE PRIZE FROM USER WALLET
+// =====================================================
+
+const removePrizeFromWallet = async (userId, amount) => {
+  const prizeAmount = Number(amount) || 0;
+
+  if (!userId || prizeAmount <= 0) return null;
+
+  const user = await findUserForWallet(userId);
+  if (!user) {
+    throw new Error(`User not found for wallet adjustment: ${userId}`);
+  }
+
+  const currentWallet = Number(user.wallet) || 0;
+  if (currentWallet < prizeAmount) {
+    throw new Error(
+      `Insufficient wallet balance while reversing prize for user: ${userId}`
+    );
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    user._id,
+    { $inc: { wallet: -prizeAmount } },
+    { new: true }
+  );
+
+  return updatedUser;
+};
+
+// =====================================================
+// PROCESS USERS FOR DATE
+//
+// Ab config mein sirf us date ke users hain,
+// lekin safety ke liye entryDate match bhi kar rahe hain
 // =====================================================
 
 const processUsersForDate = ({
@@ -220,10 +231,6 @@ const processUsersForDate = ({
   let thirdPrizeCount = 0;
   let lostCount = 0;
 
-  // ===================================================
-  // CHECK USERS
-  // ===================================================
-
   if (!Array.isArray(config.users)) {
     return {
       winners,
@@ -235,148 +242,58 @@ const processUsersForDate = ({
     };
   }
 
-  // ===================================================
-  // GET USERS OF SELECTED DATE
-  // ===================================================
-
   const dateUsers = config.users.filter((user) => {
-    return (
-      getDateString(user.entryDate) ===
-      selectedDate
-    );
+    return getDateString(user.entryDate) === selectedDate;
   });
 
-  // ===================================================
-  // PROCESS EACH USER
-  // ===================================================
-
   for (const user of dateUsers) {
-    const userNumber = String(
-      user.number || ""
-    ).trim();
-
-    // =================================================
-    // INVALID NUMBER
-    // =================================================
+    const userNumber = String(user.number || "").trim();
 
     if (!validateSixDigitNumber(userNumber)) {
       user.status = "lost";
-
       user.prizeType = null;
-
-      user.prize = {
-        first: 0,
-        second: 0,
-        third: 0,
-      };
-
+      user.prize = { first: 0, second: 0, third: 0 };
       lostCount++;
-
       continue;
     }
 
-    // =================================================
-    // CHECK MATCH
-    // =================================================
-
-    const match = getPrize(
-      userNumber,
-      winningNumber
-    );
-
-    // =================================================
-    // LOST
-    // =================================================
+    const match = getPrize(userNumber, winningNumber);
 
     if (!match) {
       user.status = "lost";
-
       user.prizeType = null;
-
-      user.prize = {
-        first: 0,
-        second: 0,
-        third: 0,
-      };
-
+      user.prize = { first: 0, second: 0, third: 0 };
       lostCount++;
-
       continue;
     }
 
-    // =================================================
-    // WIN
-    // =================================================
-
     user.status = "win";
-
     user.prizeType = match.prize;
+    user.prize = buildUserPrizeObject(match.prize, prizeAmounts);
 
-    // =================================================
-    // SAVE PRIZE AMOUNT IN USER ENTRY
-    // =================================================
+    if (match.prize === "1st") firstPrizeCount++;
+    if (match.prize === "2nd") secondPrizeCount++;
+    if (match.prize === "3rd") thirdPrizeCount++;
 
-    user.prize =
-      buildUserPrizeObject(
-        match.prize,
-        prizeAmounts
-      );
-
-    // =================================================
-    // COUNT PRIZE
-    // =================================================
-
-    if (match.prize === "1st") {
-      firstPrizeCount++;
-    }
-
-    if (match.prize === "2nd") {
-      secondPrizeCount++;
-    }
-
-    if (match.prize === "3rd") {
-      thirdPrizeCount++;
-    }
-
-    // =================================================
-    // IMPORTANT
-    //
-    // LotteryResult.prize expects:
-    //
-    // "1st"
-    // "2nd"
-    // "3rd"
-    //
-    // NOT amount
-    // NOT object
-    // =================================================
+    const prizeAmount = getAmountByPrizeType(match.prize, prizeAmounts);
 
     winners.push({
       userId: user.userId,
-
       userNumber: userNumber,
-
       amount: Number(user.amount) || 0,
-
       prizeType: match.prize,
-
       matchedDigits: match.matchedDigits,
-
       prize: match.prize,
+      prizeAmount: prizeAmount,
     });
   }
 
   return {
     winners,
-
     totalUsers: dateUsers.length,
-
     firstPrizeCount,
-
     secondPrizeCount,
-
     thirdPrizeCount,
-
     lostCount,
   };
 };
@@ -384,248 +301,227 @@ const processUsersForDate = ({
 // =====================================================
 // CREATE RESULT
 // POST /
+//
+// 👇 CHANGE: Ab config date-wise hai, to safety check
+//    karo ki config.date aur selectedDate match kare
 // =====================================================
 
 const createResult = async (req, res) => {
   try {
-    const {
-      lotteryConfigId,
-      date,
-      winningNumber,
-    } = req.body;
+    const { lotteryConfigId, date, winningNumber } = req.body;
 
-    // =================================================
-    // ADMIN ID
-    // =================================================
-
-    const adminId =
-      req.user?.uuid ||
-      req.user?.id ||
-      req.user?._id;
+    const adminId = req.user?.uuid || req.user?.id || req.user?._id;
 
     if (!adminId) {
       return res.status(401).json({
         success: false,
-        message:
-          "Admin ID not found in token",
+        message: "Admin ID not found in token",
       });
     }
-
-    // =================================================
-    // CONFIG ID
-    // =================================================
 
     if (
       !lotteryConfigId ||
-      !mongoose.Types.ObjectId.isValid(
-        lotteryConfigId
-      )
+      !mongoose.Types.ObjectId.isValid(lotteryConfigId)
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "Valid lotteryConfigId is required",
+        message: "Valid lotteryConfigId is required",
       });
     }
 
-    // =================================================
-    // DATE
-    // =================================================
-
-    const selectedDate =
-      normalizeDate(date);
-
+    const selectedDate = normalizeDate(date);
     if (!selectedDate) {
       return res.status(400).json({
         success: false,
-        message:
-          "Valid date is required. Format: YYYY-MM-DD",
+        message: "Valid date is required. Format: YYYY-MM-DD",
       });
     }
 
-    // =================================================
-    // WINNING NUMBER
-    // =================================================
-
-    if (
-      !validateSixDigitNumber(
-        winningNumber
-      )
-    ) {
+    if (!validateSixDigitNumber(winningNumber)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Winning number must contain exactly 6 digits",
+        message: "Winning number must contain exactly 6 digits",
       });
     }
 
-    const finalWinningNumber =
-      String(winningNumber).trim();
+    const finalWinningNumber = String(winningNumber).trim();
 
-    // =================================================
-    // FIND CONFIG
-    // =================================================
-
-    const config =
-      await LotteryConfig.findById(
-        lotteryConfigId
-      );
-
+    const config = await LotteryConfig.findById(lotteryConfigId);
     if (!config) {
       return res.status(404).json({
         success: false,
-        message:
-          "Lottery config not found",
+        message: "Lottery config not found",
       });
     }
 
-    // =================================================
-    // CHECK DATE USERS
-    // =================================================
+    // ==========================================
+    // SAFETY: Config date aur selectedDate match karo
+    // (agar config mein date field hai)
+    // ==========================================
+    const configDateStr = buildDateFromConfig(config);
 
-    const dateUsers =
-      Array.isArray(config.users)
-        ? config.users.filter((user) => {
-            return (
-              getDateString(
-                user.entryDate
-              ) === selectedDate
-            );
-          })
-        : [];
+    if (configDateStr && configDateStr !== selectedDate) {
+      return res.status(400).json({
+        success: false,
+        message: `Date mismatch. Config date is ${configDateStr}, but you sent ${selectedDate}`,
+      });
+    }
+
+    // ==========================================
+    // DATE USERS FILTER
+    // ==========================================
+    const dateUsers = Array.isArray(config.users)
+      ? config.users.filter(
+          (user) => getDateString(user.entryDate) === selectedDate
+        )
+      : [];
 
     if (dateUsers.length === 0) {
       return res.status(404).json({
         success: false,
-        message:
-          `No user entries found for date ${selectedDate}`,
+        message: `No user entries found for date ${selectedDate}`,
       });
     }
 
-    // =================================================
-    // CHECK DUPLICATE RESULT
-    // =================================================
-
-    const existingResult =
-      await LotteryResult.findOne({
-        lotteryConfigId,
-        date: selectedDate,
-      });
+    // ==========================================
+    // EXISTING RESULT CHECK
+    // ==========================================
+    const existingResult = await LotteryResult.findOne({
+      lotteryConfigId,
+      date: selectedDate,
+    });
 
     if (existingResult) {
       return res.status(409).json({
         success: false,
-        message:
-          "Result already exists for this date. Use update API.",
-        resultId:
-          existingResult._id,
+        message: "Result already exists for this date. Use update API.",
+        resultId: existingResult._id,
       });
     }
 
-    // =================================================
-    // PRIZE AMOUNTS
-    // =================================================
+    const prizeAmounts = getPrizeAmounts(config);
 
-    const prizeAmounts =
-      getPrizeAmounts(config);
+    const processed = processUsersForDate({
+      config,
+      selectedDate,
+      winningNumber: finalWinningNumber,
+      prizeAmounts,
+    });
 
-    // =================================================
-    // PROCESS USERS
-    // =================================================
+    // ==========================================
+    // WALLET CREDITS
+    // ==========================================
+    const walletCredits = [];
 
-    const processed =
-      processUsersForDate({
-        config,
+    try {
+      for (const winner of processed.winners) {
+        const prizeAmount = getAmountByPrizeType(
+          winner.prizeType,
+          prizeAmounts
+        );
 
-        selectedDate,
+        if (winner.userId && prizeAmount > 0) {
+          const updatedUser = await addPrizeToWallet(
+            winner.userId,
+            prizeAmount
+          );
 
-        winningNumber:
-          finalWinningNumber,
+          walletCredits.push({
+            userId: winner.userId,
+            prize: winner.prizeType,
+            amount: prizeAmount,
+            wallet: Number(updatedUser?.wallet) || 0,
+          });
+        }
+      }
+    } catch (walletError) {
+      console.error("Wallet Credit Error:", walletError);
 
-        prizeAmounts,
+      for (const credited of walletCredits) {
+        try {
+          await removePrizeFromWallet(credited.userId, credited.amount);
+        } catch (rollbackError) {
+          console.error("Wallet Rollback Error:", rollbackError);
+        }
+      }
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Result was not created because wallet prize credit failed",
+        error: walletError.message,
       });
-
-    // =================================================
-    // SAVE USER RESULTS
-    // =================================================
+    }
 
     config.markModified("users");
-
     await config.save();
 
-    // =================================================
+    // ==========================================
     // CREATE RESULT
-    // =================================================
+    // ==========================================
+    let result;
 
-    const result =
-      await LotteryResult.create({
+    try {
+      result = await LotteryResult.create({
         lotteryConfigId,
-
         date: selectedDate,
-
-        winningNumber:
-          finalWinningNumber,
-
-        winners:
-          processed.winners,
-
+        winningNumber: finalWinningNumber,
+        winners: processed.winners,
         isPublished: false,
-
         createdBy: adminId,
       });
+    } catch (resultError) {
+      console.error("LotteryResult Create Error:", resultError);
 
-    // =================================================
-    // RESPONSE
-    // =================================================
+      for (const credited of walletCredits) {
+        try {
+          await removePrizeFromWallet(credited.userId, credited.amount);
+        } catch (rollbackError) {
+          console.error("Wallet Rollback Error:", rollbackError);
+        }
+      }
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Result creation failed and wallet credits were rolled back",
+        error: resultError.message,
+      });
+    }
 
     return res.status(201).json({
       success: true,
-
       message:
-        "Lottery result created and users processed successfully",
-
+        "Lottery result created and winning prizes added to wallets successfully",
       result,
-
+      walletCredits,
       summary: {
         date: selectedDate,
-
-        winningNumber:
-          finalWinningNumber,
-
-        totalUsers:
-          processed.totalUsers,
-
-        firstPrize:
-          processed.firstPrizeCount,
-
-        secondPrize:
-          processed.secondPrizeCount,
-
-        thirdPrize:
-          processed.thirdPrizeCount,
-
-        lost:
-          processed.lostCount,
+        winningNumber: finalWinningNumber,
+        totalUsers: processed.totalUsers,
+        firstPrize: processed.firstPrizeCount,
+        secondPrize: processed.secondPrizeCount,
+        thirdPrize: processed.thirdPrizeCount,
+        lost: processed.lostCount,
+        totalPrizePaid: walletCredits.reduce(
+          (total, item) => total + Number(item.amount || 0),
+          0
+        ),
       },
     });
   } catch (error) {
-    console.error(
-      "Create Result Error:",
-      error
-    );
+    console.error("Create Result Error:", error);
 
     if (error.code === 11000) {
       return res.status(409).json({
         success: false,
-        message:
-          "Result already exists for this date",
+        message: "Result already exists for this date",
       });
     }
 
     return res.status(500).json({
       success: false,
-      message:
-        "Internal server error",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -634,41 +530,26 @@ const createResult = async (req, res) => {
 // =====================================================
 // GET ALL RESULTS
 // GET /
+//
+// 👇 CHANGE: populate mein `date` add kiya
 // =====================================================
 
-const getAllResults = async (
-  req,
-  res
-) => {
+const getAllResults = async (req, res) => {
   try {
-    const results =
-      await LotteryResult.find()
-        .populate(
-          "lotteryConfigId",
-          "marketName month year isActive"
-        )
-        .sort({
-          date: -1,
-          createdAt: -1,
-        });
+    const results = await LotteryResult.find()
+      .populate("lotteryConfigId", "marketName date month year isActive")
+      .sort({ date: -1, createdAt: -1 });
 
     return res.status(200).json({
       success: true,
-
       count: results.length,
-
       results,
     });
   } catch (error) {
-    console.error(
-      "Get All Results Error:",
-      error
-    );
-
+    console.error("Get All Results Error:", error);
     return res.status(500).json({
       success: false,
-      message:
-        "Internal server error",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -677,37 +558,30 @@ const getAllResults = async (
 // =====================================================
 // GET RESULT BY ID
 // GET /:id
+//
+// 👇 CHANGE: populate mein `date` add kiya
 // =====================================================
 
-const getResultById = async (
-  req,
-  res
-) => {
+const getResultById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (
-      !mongoose.Types.ObjectId.isValid(id)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid result ID",
+        message: "Invalid result ID",
       });
     }
 
-    const result =
-      await LotteryResult.findById(id)
-        .populate(
-          "lotteryConfigId",
-          "marketName month year isActive"
-        );
+    const result = await LotteryResult.findById(id).populate(
+      "lotteryConfigId",
+      "marketName date month year isActive"
+    );
 
     if (!result) {
       return res.status(404).json({
         success: false,
-        message:
-          "Result not found",
+        message: "Result not found",
       });
     }
 
@@ -716,15 +590,10 @@ const getResultById = async (
       result,
     });
   } catch (error) {
-    console.error(
-      "Get Result Error:",
-      error
-    );
-
+    console.error("Get Result Error:", error);
     return res.status(500).json({
       success: false,
-      message:
-        "Internal server error",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -735,63 +604,40 @@ const getResultById = async (
 // PATCH /:id/publish
 // =====================================================
 
-const publishResult = async (
-  req,
-  res
-) => {
+const publishResult = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (
-      !mongoose.Types.ObjectId.isValid(id)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid result ID",
+        message: "Invalid result ID",
       });
     }
 
-    const result =
-      await LotteryResult.findByIdAndUpdate(
-        id,
-        {
-          $set: {
-            isPublished: true,
-          },
-        },
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+    const result = await LotteryResult.findByIdAndUpdate(
+      id,
+      { $set: { isPublished: true } },
+      { new: true, runValidators: true }
+    );
 
     if (!result) {
       return res.status(404).json({
         success: false,
-        message:
-          "Result not found",
+        message: "Result not found",
       });
     }
 
     return res.status(200).json({
       success: true,
-
-      message:
-        "Result published successfully",
-
+      message: "Result published successfully",
       result,
     });
   } catch (error) {
-    console.error(
-      "Publish Result Error:",
-      error
-    );
-
+    console.error("Publish Result Error:", error);
     return res.status(500).json({
       success: false,
-      message:
-        "Internal server error",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -802,63 +648,40 @@ const publishResult = async (
 // PATCH /:id/unpublish
 // =====================================================
 
-const unpublishResult = async (
-  req,
-  res
-) => {
+const unpublishResult = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (
-      !mongoose.Types.ObjectId.isValid(id)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid result ID",
+        message: "Invalid result ID",
       });
     }
 
-    const result =
-      await LotteryResult.findByIdAndUpdate(
-        id,
-        {
-          $set: {
-            isPublished: false,
-          },
-        },
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+    const result = await LotteryResult.findByIdAndUpdate(
+      id,
+      { $set: { isPublished: false } },
+      { new: true, runValidators: true }
+    );
 
     if (!result) {
       return res.status(404).json({
         success: false,
-        message:
-          "Result not found",
+        message: "Result not found",
       });
     }
 
     return res.status(200).json({
       success: true,
-
-      message:
-        "Result unpublished successfully",
-
+      message: "Result unpublished successfully",
       result,
     });
   } catch (error) {
-    console.error(
-      "Unpublish Result Error:",
-      error
-    );
-
+    console.error("Unpublish Result Error:", error);
     return res.status(500).json({
       success: false,
-      message:
-        "Internal server error",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -869,230 +692,219 @@ const unpublishResult = async (
 // PUT /:id
 // =====================================================
 
-const updateResult = async (
-  req,
-  res
-) => {
+const updateResult = async (req, res) => {
   try {
     const { id } = req.params;
+    const { winningNumber } = req.body;
 
-    const {
-      winningNumber,
-    } = req.body;
-
-    // =================================================
-    // VALIDATE ID
-    // =================================================
-
-    if (
-      !mongoose.Types.ObjectId.isValid(id)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid result ID",
+        message: "Invalid result ID",
       });
     }
 
-    // =================================================
-    // VALIDATE NUMBER
-    // =================================================
-
-    if (
-      winningNumber === undefined ||
-      winningNumber === null
-    ) {
+    if (winningNumber === undefined || winningNumber === null) {
       return res.status(400).json({
         success: false,
-        message:
-          "winningNumber is required",
+        message: "winningNumber is required",
       });
     }
 
-    if (
-      !validateSixDigitNumber(
-        winningNumber
-      )
-    ) {
+    if (!validateSixDigitNumber(winningNumber)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Winning number must contain exactly 6 digits",
+        message: "Winning number must contain exactly 6 digits",
       });
     }
 
-    const finalWinningNumber =
-      String(winningNumber).trim();
+    const finalWinningNumber = String(winningNumber).trim();
 
-    // =================================================
-    // FIND RESULT
-    // =================================================
-
-    const result =
-      await LotteryResult.findById(id);
+    const result = await LotteryResult.findById(id);
 
     if (!result) {
       return res.status(404).json({
         success: false,
-        message:
-          "Result not found",
+        message: "Result not found",
       });
     }
-
-    // =================================================
-    // PUBLISHED RESULT CANNOT EDIT
-    // =================================================
 
     if (result.isPublished) {
       return res.status(400).json({
         success: false,
-        message:
-          "Published result cannot be edited. Unpublish it first.",
+        message: "Published result cannot be edited. Unpublish it first.",
       });
     }
 
-    // =================================================
-    // FIND CONFIG
-    // =================================================
-
-    const config =
-      await LotteryConfig.findById(
-        result.lotteryConfigId
-      );
+    const config = await LotteryConfig.findById(result.lotteryConfigId);
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message:
-          "Lottery config not found",
+        message: "Lottery config not found",
       });
     }
 
-    // =================================================
-    // RESULT DATE
-    // =================================================
-
-    const selectedDate =
-      getDateString(result.date);
+    const selectedDate = getDateString(result.date);
 
     if (!selectedDate) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid result date",
+        message: "Invalid result date",
       });
     }
 
-    // =================================================
-    // CHECK USERS
-    // =================================================
-
-    const dateUsers =
-      Array.isArray(config.users)
-        ? config.users.filter((user) => {
-            return (
-              getDateString(
-                user.entryDate
-              ) === selectedDate
-            );
-          })
-        : [];
+    const dateUsers = Array.isArray(config.users)
+      ? config.users.filter(
+          (user) => getDateString(user.entryDate) === selectedDate
+        )
+      : [];
 
     if (dateUsers.length === 0) {
       return res.status(404).json({
         success: false,
-        message:
-          `No user entries found for date ${selectedDate}`,
+        message: `No user entries found for date ${selectedDate}`,
       });
     }
 
-    // =================================================
-    // PRIZE AMOUNTS
-    // =================================================
+    const prizeAmounts = getPrizeAmounts(config);
 
-    const prizeAmounts =
-      getPrizeAmounts(config);
+    // ==========================================
+    // REMOVE OLD PRIZES
+    // ==========================================
+    const walletReversals = [];
 
-    // =================================================
-    // RECALCULATE
-    // =================================================
+    try {
+      if (Array.isArray(result.winners)) {
+        for (const oldWinner of result.winners) {
+          const oldPrizeType = oldWinner.prizeType || oldWinner.prize;
 
-    const processed =
-      processUsersForDate({
-        config,
+          const oldPrizeAmount =
+            oldWinner.prizeAmount !== undefined
+              ? Number(oldWinner.prizeAmount) || 0
+              : getAmountByPrizeType(oldPrizeType, prizeAmounts);
 
-        selectedDate,
+          if (oldWinner.userId && oldPrizeAmount > 0) {
+            await removePrizeFromWallet(oldWinner.userId, oldPrizeAmount);
 
-        winningNumber:
-          finalWinningNumber,
+            walletReversals.push({
+              userId: oldWinner.userId,
+              amount: oldPrizeAmount,
+            });
+          }
+        }
+      }
+    } catch (walletError) {
+      console.error("Old Wallet Reversal Error:", walletError);
 
-        prizeAmounts,
+      for (const reversal of walletReversals) {
+        try {
+          await addPrizeToWallet(reversal.userId, reversal.amount);
+        } catch (restoreError) {
+          console.error("Old Prize Restore Error:", restoreError);
+        }
+      }
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Result update stopped because old wallet prizes could not be reversed",
+        error: walletError.message,
       });
+    }
 
-    // =================================================
+    // ==========================================
+    // RECALCULATE
+    // ==========================================
+    const processed = processUsersForDate({
+      config,
+      selectedDate,
+      winningNumber: finalWinningNumber,
+      prizeAmounts,
+    });
+
+    // ==========================================
+    // ADD NEW PRIZES
+    // ==========================================
+    const walletCredits = [];
+
+    try {
+      for (const winner of processed.winners) {
+        const newPrizeAmount = getAmountByPrizeType(
+          winner.prizeType,
+          prizeAmounts
+        );
+
+        if (winner.userId && newPrizeAmount > 0) {
+          await addPrizeToWallet(winner.userId, newPrizeAmount);
+
+          walletCredits.push({
+            userId: winner.userId,
+            amount: newPrizeAmount,
+          });
+        }
+      }
+    } catch (walletError) {
+      console.error("New Wallet Credit Error:", walletError);
+
+      for (const credit of walletCredits) {
+        try {
+          await removePrizeFromWallet(credit.userId, credit.amount);
+        } catch (rollbackError) {
+          console.error("New Credit Rollback Error:", rollbackError);
+        }
+      }
+
+      for (const reversal of walletReversals) {
+        try {
+          await addPrizeToWallet(reversal.userId, reversal.amount);
+        } catch (restoreError) {
+          console.error("Old Prize Restore Error:", restoreError);
+        }
+      }
+
+      return res.status(500).json({
+        success: false,
+        message: "Result update failed and wallet changes were rolled back",
+        error: walletError.message,
+      });
+    }
+
+    // ==========================================
     // UPDATE RESULT
-    // =================================================
-
-    result.winningNumber =
-      finalWinningNumber;
-
-    result.winners =
-      processed.winners;
-
+    // ==========================================
+    result.winningNumber = finalWinningNumber;
+    result.winners = processed.winners;
     await result.save();
 
-    // =================================================
-    // SAVE CONFIG USERS
-    // =================================================
-
     config.markModified("users");
-
     await config.save();
-
-    // =================================================
-    // RESPONSE
-    // =================================================
 
     return res.status(200).json({
       success: true,
-
-      message:
-        "Result updated and users recalculated successfully",
-
+      message: "Result updated and wallet prizes recalculated successfully",
       result,
-
+      walletReversals,
+      walletCredits,
       summary: {
         date: selectedDate,
-
-        winningNumber:
-          finalWinningNumber,
-
-        totalUsers:
-          processed.totalUsers,
-
-        firstPrize:
-          processed.firstPrizeCount,
-
-        secondPrize:
-          processed.secondPrizeCount,
-
-        thirdPrize:
-          processed.thirdPrizeCount,
-
-        lost:
-          processed.lostCount,
+        winningNumber: finalWinningNumber,
+        totalUsers: processed.totalUsers,
+        firstPrize: processed.firstPrizeCount,
+        secondPrize: processed.secondPrizeCount,
+        thirdPrize: processed.thirdPrizeCount,
+        lost: processed.lostCount,
+        totalPrizePaid: walletCredits.reduce(
+          (total, item) => total + Number(item.amount || 0),
+          0
+        ),
       },
     });
   } catch (error) {
-    console.error(
-      "Update Result Error:",
-      error
-    );
-
+    console.error("Update Result Error:", error);
     return res.status(500).json({
       success: false,
-      message:
-        "Internal server error",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -1103,43 +915,30 @@ const updateResult = async (
 // DELETE /:id
 // =====================================================
 
-const deleteResult = async (
-  req,
-  res
-) => {
+const deleteResult = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (
-      !mongoose.Types.ObjectId.isValid(id)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid result ID",
+        message: "Invalid result ID",
       });
     }
 
-    const result =
-      await LotteryResult.findById(id);
+    const result = await LotteryResult.findById(id);
 
     if (!result) {
       return res.status(404).json({
         success: false,
-        message:
-          "Result not found",
+        message: "Result not found",
       });
     }
-
-    // =================================================
-    // PUBLISHED RESULT DELETE NOT ALLOWED
-    // =================================================
 
     if (result.isPublished) {
       return res.status(400).json({
         success: false,
-        message:
-          "Published result cannot be deleted",
+        message: "Published result cannot be deleted",
       });
     }
 
@@ -1147,21 +946,13 @@ const deleteResult = async (
 
     return res.status(200).json({
       success: true,
-
-      message:
-        "Result deleted successfully",
+      message: "Result deleted successfully",
     });
   } catch (error) {
-    console.error(
-      "Delete Result Error:",
-      error
-    );
-
+    console.error("Delete Result Error:", error);
     return res.status(500).json({
       success: false,
-      message:
-        "Internal server error",
-      error: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -1171,38 +962,19 @@ const deleteResult = async (
 // POST /check-number
 // =====================================================
 
-const checkNumber = async (
-  req,
-  res
-) => {
+const checkNumber = async (req, res) => {
   try {
-    const {
-      userNumber,
-      winningNumber,
-    } = req.body;
-
-    // =================================================
-    // VALIDATE
-    // =================================================
+    const { userNumber, winningNumber } = req.body;
 
     if (
-      !validateSixDigitNumber(
-        userNumber
-      ) ||
-      !validateSixDigitNumber(
-        winningNumber
-      )
+      !validateSixDigitNumber(userNumber) ||
+      !validateSixDigitNumber(winningNumber)
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "Both numbers must contain exactly 6 digits",
+        message: "Both numbers must contain exactly 6 digits",
       });
     }
-
-    // =================================================
-    // CHECK
-    // =================================================
 
     const result = getPrize(
       String(userNumber).trim(),
@@ -1211,28 +983,16 @@ const checkNumber = async (
 
     return res.status(200).json({
       success: true,
-
-      userNumber:
-        String(userNumber).trim(),
-
-      winningNumber:
-        String(winningNumber).trim(),
-
-      winner:
-        result !== null,
-
+      userNumber: String(userNumber).trim(),
+      winningNumber: String(winningNumber).trim(),
+      winner: result !== null,
       result,
     });
   } catch (error) {
-    console.error(
-      "Check Number Error:",
-      error
-    );
-
+    console.error("Check Number Error:", error);
     return res.status(500).json({
       success: false,
-      message:
-        "Internal server error",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -1241,43 +1001,26 @@ const checkNumber = async (
 // =====================================================
 // GET PUBLISHED RESULTS
 // GET /published
+//
+// 👇 CHANGE: populate mein `date` add kiya
 // =====================================================
 
-const getPublishedResults = async (
-  req,
-  res
-) => {
+const getPublishedResults = async (req, res) => {
   try {
-    const results =
-      await LotteryResult.find({
-        isPublished: true,
-      })
-        .populate(
-          "lotteryConfigId",
-          "marketName month year isActive"
-        )
-        .sort({
-          date: -1,
-          createdAt: -1,
-        });
+    const results = await LotteryResult.find({ isPublished: true })
+      .populate("lotteryConfigId", "marketName date month year isActive")
+      .sort({ date: -1, createdAt: -1 });
 
     return res.status(200).json({
       success: true,
-
       count: results.length,
-
       results,
     });
   } catch (error) {
-    console.error(
-      "Get Published Results Error:",
-      error
-    );
-
+    console.error("Get Published Results Error:", error);
     return res.status(500).json({
       success: false,
-      message:
-        "Internal server error",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -1286,56 +1029,42 @@ const getPublishedResults = async (
 // =====================================================
 // GET PUBLISHED RESULT BY DATE
 // GET /published/:date
+//
+// 👇 CHANGE: populate mein `date` add kiya
 // =====================================================
 
-const getPublishedResultByDate = async (
-  req,
-  res
-) => {
+const getPublishedResultByDate = async (req, res) => {
   try {
-    const selectedDate =
-      normalizeDate(req.params.date);
+    const selectedDate = normalizeDate(req.params.date);
 
     if (!selectedDate) {
       return res.status(400).json({
         success: false,
-        message:
-          "Valid date is required. Format: YYYY-MM-DD",
+        message: "Valid date is required. Format: YYYY-MM-DD",
       });
     }
 
-    const result =
-      await LotteryResult.findOne({
-        date: selectedDate,
-        isPublished: true,
-      }).populate(
-        "lotteryConfigId",
-        "marketName month year isActive"
-      );
+    const result = await LotteryResult.findOne({
+      date: selectedDate,
+      isPublished: true,
+    }).populate("lotteryConfigId", "marketName date month year isActive");
 
     if (!result) {
       return res.status(404).json({
         success: false,
-        message:
-          `Published result not found for ${selectedDate}`,
+        message: `Published result not found for ${selectedDate}`,
       });
     }
 
     return res.status(200).json({
       success: true,
-
       result,
     });
   } catch (error) {
-    console.error(
-      "Get Published Result By Date Error:",
-      error
-    );
-
+    console.error("Get Published Result By Date Error:", error);
     return res.status(500).json({
       success: false,
-      message:
-        "Internal server error",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -1347,24 +1076,14 @@ const getPublishedResultByDate = async (
 
 module.exports = {
   createResult,
-
   getAllResults,
-
   getResultById,
-
   publishResult,
-
   unpublishResult,
-
   updateResult,
-
   deleteResult,
-
   checkNumber,
-
   getPublishedResults,
-
   getPublishedResultByDate,
-
   getPrize,
 };

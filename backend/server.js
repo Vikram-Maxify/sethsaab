@@ -16,6 +16,8 @@ const lotteryConfigRoutes = require("./routes/lotteryConfigRoutes");
 
 const lotteryResultRoutes = require("./routes/lotteryResultRoutes");
 
+const depositRoutes = require("./routes/depositRoutes")
+
 
 
 const app = express();
@@ -45,6 +47,9 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 
 app.use("/api", amountRoutes);
+
+app.use("/api", depositRoutes);
+
 
 app.use(
     "/api/lottery",

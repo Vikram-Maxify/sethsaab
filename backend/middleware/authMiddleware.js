@@ -18,6 +18,8 @@ const authMiddleware = (req, res, next) => {
 
     req.user = decoded;
 
+    console.log( req.user)
+
     next();
   } catch (error) {
     console.error("Auth Middleware Error:", error);

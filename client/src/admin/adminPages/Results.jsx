@@ -15,10 +15,6 @@ import { getAllLotteryConfigs } from "../../reducer/slice/lotteryConfigSlice";
 const Results = () => {
   const dispatch = useDispatch();
 
-  // =====================================================
-  // RESULT STATE
-  // =====================================================
-
   const {
     results = [],
     loading,
@@ -28,18 +24,9 @@ const Results = () => {
     message,
   } = useSelector((state) => state.lotteryResult);
 
-  // =====================================================
-  // LOTTERY CONFIG STATE
-  // =====================================================
-
-  const {
-    configs = [],
-    loading: configLoading,
-  } = useSelector((state) => state.lotteryConfig);
-
-  // =====================================================
-  // LOCAL STATE
-  // =====================================================
+  const { configs = [], loading: configLoading } = useSelector(
+    (state) => state.lotteryConfig
+  );
 
   const [showCreate, setShowCreate] = useState(false);
 
@@ -49,32 +36,21 @@ const Results = () => {
     winningNumber: "",
   });
 
-  // Visible validation error
   const [formError, setFormError] = useState("");
 
-  // Per-item loading trackers
   const [publishingIds, setPublishingIds] = useState([]);
   const [deletingIds, setDeletingIds] = useState([]);
-
-  // =====================================================
-  // GET DATA
-  // =====================================================
 
   useEffect(() => {
     dispatch(getAllResults());
     dispatch(getAllLotteryConfigs());
   }, [dispatch]);
 
-  // =====================================================
-  // CLEAR MESSAGE
-  // =====================================================
-
   useEffect(() => {
     if (success || error) {
       const timer = setTimeout(() => {
         dispatch(clearResultMessage());
       }, 3000);
-
       return () => clearTimeout(timer);
     }
   }, [success, error, dispatch]);
@@ -93,38 +69,52 @@ const Results = () => {
 
   const selectedConfig = useMemo(() => {
     return configs.find(
-      (config) =>
-        String(config?._id) === String(formData.lotteryConfigId)
+      (config) => String(config?._id) === String(formData.lotteryConfigId)
     );
   }, [configs, formData.lotteryConfigId]);
 
   // =====================================================
   // AVAILABLE DATES
   //
-  // Supports BOTH backend shapes:
-  //   1. config.dates = [{ _id, date }]        (preferred)
-  //   2. config.users = [{ entryDate, ... }]   (current backend)
+  // NAYA LOGIC:
+  //   Har config mein `date` field hai (Number: 1-31)
+  //   To seedha usi se date banao
   //
-  // Produces a deduplicated, chronologically sorted list of
-  // { _id, date } objects so the <select> stays consistent.
+  // FALLBACK:
+  //   Purane structure ke liye (dates array ya users array)
   // =====================================================
 
   const availableDates = useMemo(() => {
     if (!selectedConfig) return [];
 
+    // ---------------------------------------------
+    // 1. NAYA: config.date directly (preferred)
+    // ---------------------------------------------
+    if (selectedConfig.date) {
+      const year = selectedConfig.year;
+      const month = String(selectedConfig.month).padStart(2, "0");
+      const day = String(selectedConfig.date).padStart(2, "0");
+
+      return [
+        {
+          _id: selectedConfig._id,
+          date: `${year}-${month}-${day}`,
+        },
+      ];
+    }
+
+    // ---------------------------------------------
+    // 2. Fallback: explicit `dates` array
+    // ---------------------------------------------
     const seen = new Set();
     const collected = [];
 
     const pushDate = (value, id) => {
-      if (!value) return;
-      if (seen.has(value)) return;
+      if (!value || seen.has(value)) return;
       seen.add(value);
       collected.push({ _id: id || value, date: value });
     };
 
-    // ---------------------------------------------
-    // 1. Prefer explicit `dates` array
-    // ---------------------------------------------
     if (
       Array.isArray(selectedConfig.dates) &&
       selectedConfig.dates.length > 0
@@ -135,28 +125,20 @@ const Results = () => {
     }
 
     // ---------------------------------------------
-    // 2. Fallback: derive from users[].entryDate
+    // 3. Fallback: derive from users[].entryDate
     // ---------------------------------------------
-    if (
-      collected.length === 0 &&
-      Array.isArray(selectedConfig.users)
-    ) {
+    if (collected.length === 0 && Array.isArray(selectedConfig.users)) {
       for (const user of selectedConfig.users) {
         pushDate(user?.entryDate, user?.entryDate);
       }
     }
 
-    // ---------------------------------------------
-    // 3. Sort chronologically (invalid dates last)
-    // ---------------------------------------------
     return collected.sort((a, b) => {
       const ta = new Date(a.date).getTime();
       const tb = new Date(b.date).getTime();
-
       if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
       if (Number.isNaN(ta)) return 1;
       if (Number.isNaN(tb)) return -1;
-
       return ta - tb;
     });
   }, [selectedConfig]);
@@ -170,9 +152,6 @@ const Results = () => {
 
     if (formError) setFormError("");
 
-    // ---------------------------------------------
-    // LOTTERY CONFIG
-    // ---------------------------------------------
     if (name === "lotteryConfigId") {
       setFormData({
         lotteryConfigId: value,
@@ -182,12 +161,8 @@ const Results = () => {
       return;
     }
 
-    // ---------------------------------------------
-    // WINNING NUMBER — ONLY 6 DIGITS
-    // ---------------------------------------------
     if (name === "winningNumber") {
       const onlyNumbers = value.replace(/\D/g, "").slice(0, 6);
-
       setFormData((prev) => ({
         ...prev,
         winningNumber: onlyNumbers,
@@ -195,9 +170,6 @@ const Results = () => {
       return;
     }
 
-    // ---------------------------------------------
-    // NORMAL INPUT
-    // ---------------------------------------------
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -211,9 +183,6 @@ const Results = () => {
   const handleCreate = async (e) => {
     e.preventDefault();
 
-    // ---------------------------------------------
-    // VALIDATION (with visible feedback)
-    // ---------------------------------------------
     if (!formData.lotteryConfigId) {
       setFormError("Please select a lottery config.");
       return;
@@ -231,23 +200,14 @@ const Results = () => {
 
     setFormError("");
 
-    // ---------------------------------------------
-    // API DATA
-    // ---------------------------------------------
     const payload = {
       lotteryConfigId: formData.lotteryConfigId,
       date: formData.date,
       winningNumber: formData.winningNumber,
     };
 
-    // ---------------------------------------------
-    // CREATE
-    // ---------------------------------------------
     const response = await dispatch(createResult(payload));
 
-    // ---------------------------------------------
-    // SUCCESS
-    // ---------------------------------------------
     if (createResult.fulfilled.match(response)) {
       setFormData({
         lotteryConfigId: "",
@@ -272,7 +232,6 @@ const Results = () => {
 
     try {
       const response = await dispatch(publishResult(id));
-
       if (publishResult.fulfilled.match(response)) {
         dispatch(getAllResults());
       }
@@ -290,7 +249,6 @@ const Results = () => {
 
     try {
       const response = await dispatch(unpublishResult(id));
-
       if (unpublishResult.fulfilled.match(response)) {
         dispatch(getAllResults());
       }
@@ -314,7 +272,6 @@ const Results = () => {
 
     try {
       const response = await dispatch(deleteResult(id));
-
       if (deleteResult.fulfilled.match(response)) {
         dispatch(getAllResults());
       }
@@ -331,7 +288,6 @@ const Results = () => {
     if (!date) return "-";
 
     const parsedDate = new Date(date);
-
     if (Number.isNaN(parsedDate.getTime())) return "-";
 
     return parsedDate.toLocaleDateString("en-IN", {
@@ -342,7 +298,7 @@ const Results = () => {
   };
 
   // =====================================================
-  // FORMAT MONTH / YEAR (avoids "-/2024" artifacts)
+  // FORMAT MONTH / YEAR
   // =====================================================
 
   const formatMonthYear = (config) => {
@@ -359,29 +315,39 @@ const Results = () => {
   };
 
   // =====================================================
+  // FORMAT CONFIG LABEL (dropdown mein dikhane ke liye)
+  // Ab date bhi dikhayenge — kyunki har config ek date ka hai
+  // =====================================================
+
+  const formatConfigLabel = (config) => {
+    if (!config) return "-";
+
+    const market = config.marketName || "-";
+    const month = config.month ?? "-";
+    const year = config.year ?? "-";
+    const day = config.date ?? "-";
+
+    return `${market} - ${day}/${month}/${year}`;
+  };
+
+  // =====================================================
   // RENDER
   // =====================================================
 
   return (
     <div className="space-y-6">
-      {/* =================================================
-          HEADER
-      ================================================= */}
-
+      {/* HEADER */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
             Lottery Results
           </h1>
-
           <p className="mt-1 text-sm text-slate-500">
             Manage date-wise lottery results.
           </p>
         </div>
 
         <div className="flex gap-3">
-          {/* REFRESH */}
-
           <button
             type="button"
             onClick={() => {
@@ -393,8 +359,6 @@ const Results = () => {
           >
             {loading ? "Refreshing..." : "Refresh"}
           </button>
-
-          {/* CREATE */}
 
           <button
             type="button"
@@ -409,55 +373,42 @@ const Results = () => {
         </div>
       </div>
 
-      {/* =================================================
-          SUCCESS
-      ================================================= */}
-
+      {/* SUCCESS */}
       {success && (
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
           {message}
         </div>
       )}
 
-      {/* =================================================
-          ERROR
-      ================================================= */}
-
+      {/* ERROR */}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {error}
         </div>
       )}
 
-      {/* =================================================
-          CREATE FORM
-      ================================================= */}
-
+      {/* CREATE FORM */}
       {showCreate && (
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <h2 className="mb-2 text-lg font-semibold text-slate-900">
             Create Lottery Result
           </h2>
-
           <p className="mb-6 text-sm text-slate-500">
-            Select monthly lottery config, then select the date and
-            enter the 6 digit winning number.
+            Select the date-wise lottery config, then enter the 6 digit
+            winning number.
           </p>
 
           <form
             onSubmit={handleCreate}
             className="grid grid-cols-1 gap-5 md:grid-cols-3"
           >
-            {/* =================================================
-                LOTTERY CONFIG
-            ================================================= */}
-
+            {/* CONFIG */}
             <div>
               <label
                 htmlFor="lotteryConfigId"
                 className="mb-2 block text-sm font-medium text-slate-700"
               >
-                Lottery Config
+                Lottery Config (Date-wise)
               </label>
 
               <select
@@ -476,8 +427,7 @@ const Results = () => {
 
                 {activeConfigs.map((config) => (
                   <option key={config._id} value={config._id}>
-                    {config.marketName ? `${config.marketName} - ` : ""}
-                    {config.month}/{config.year}
+                    {formatConfigLabel(config)}
                   </option>
                 ))}
               </select>
@@ -489,10 +439,7 @@ const Results = () => {
               )}
             </div>
 
-            {/* =================================================
-                DATE
-            ================================================= */}
-
+            {/* DATE */}
             <div>
               <label
                 htmlFor="date"
@@ -510,14 +457,11 @@ const Results = () => {
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-100"
               >
                 <option value="">
-                  {!selectedConfig
-                    ? "Select config first"
-                    : "Select Date"}
+                  {!selectedConfig ? "Select config first" : "Select Date"}
                 </option>
 
                 {availableDates.map((dateItem, index) => {
                   const dateValue = dateItem?.date;
-
                   return (
                     <option
                       key={dateItem?._id || `${dateValue}-${index}`}
@@ -531,8 +475,7 @@ const Results = () => {
 
               {selectedConfig && (
                 <p className="mt-2 text-xs text-slate-500">
-                  {availableDates.length} date(s) available in this
-                  config.
+                  {availableDates.length} date(s) available in this config.
                 </p>
               )}
 
@@ -543,10 +486,7 @@ const Results = () => {
               )}
             </div>
 
-            {/* =================================================
-                WINNING NUMBER
-            ================================================= */}
-
+            {/* WINNING NUMBER */}
             <div>
               <label
                 htmlFor="winningNumber"
@@ -572,18 +512,22 @@ const Results = () => {
               </p>
             </div>
 
-            {/* =================================================
-                SELECTED CONFIG INFO
-            ================================================= */}
-
+            {/* SELECTED CONFIG INFO */}
             {selectedConfig && (
               <div className="md:col-span-3">
                 <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
                     <div>
                       <p className="text-xs text-slate-500">Market</p>
                       <p className="mt-1 font-semibold text-slate-900">
                         {selectedConfig.marketName || "-"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-slate-500">Date</p>
+                      <p className="mt-1 font-semibold text-slate-900">
+                        {selectedConfig.date || "-"}
                       </p>
                     </div>
 
@@ -602,9 +546,7 @@ const Results = () => {
                     </div>
 
                     <div>
-                      <p className="text-xs text-slate-500">
-                        Selected Date
-                      </p>
+                      <p className="text-xs text-slate-500">Selected Date</p>
                       <p className="mt-1 font-semibold text-slate-900">
                         {formData.date ? formatDate(formData.date) : "-"}
                       </p>
@@ -614,10 +556,7 @@ const Results = () => {
               </div>
             )}
 
-            {/* =================================================
-                VALIDATION ERROR
-            ================================================= */}
-
+            {/* VALIDATION ERROR */}
             {formError && (
               <div className="md:col-span-3">
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -626,10 +565,7 @@ const Results = () => {
               </div>
             )}
 
-            {/* =================================================
-                SUBMIT
-            ================================================= */}
-
+            {/* SUBMIT */}
             <div className="md:col-span-3">
               <button
                 type="submit"
@@ -643,19 +579,12 @@ const Results = () => {
         </div>
       )}
 
-      {/* =================================================
-          RESULTS TABLE
-      ================================================= */}
-
+      {/* RESULTS TABLE */}
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-        {/* TABLE HEADER */}
-
         <div className="border-b border-slate-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-semibold text-slate-900">
-                All Results
-              </h2>
+              <h2 className="font-semibold text-slate-900">All Results</h2>
               <p className="mt-1 text-xs text-slate-500">
                 {results?.length || 0} result(s)
               </p>
@@ -663,22 +592,12 @@ const Results = () => {
           </div>
         </div>
 
-        {/* =================================================
-            LOADING
-        ================================================= */}
-
         {loading ? (
           <div className="p-10 text-center">
             <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900" />
-            <p className="text-sm text-slate-500">
-              Loading results...
-            </p>
+            <p className="text-sm text-slate-500">Loading results...</p>
           </div>
         ) : results?.length === 0 ? (
-          /* =================================================
-              EMPTY
-          ================================================= */
-
           <div className="p-10 text-center">
             <div className="mb-3 text-4xl">📋</div>
             <h3 className="font-semibold text-slate-900">
@@ -689,10 +608,6 @@ const Results = () => {
             </p>
           </div>
         ) : (
-          /* =================================================
-              TABLE
-          ================================================= */
-
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1000px]">
               <thead className="bg-slate-50">
@@ -737,36 +652,30 @@ const Results = () => {
                       key={item?._id || index}
                       className="transition hover:bg-slate-50"
                     >
-                      {/* INDEX */}
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
                         {index + 1}
                       </td>
 
-                      {/* MARKET */}
                       <td className="whitespace-nowrap px-6 py-4">
                         <span className="font-semibold text-slate-900">
                           {config?.marketName || item?.marketName || "-"}
                         </span>
                       </td>
 
-                      {/* MONTH / YEAR */}
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-700">
                         {formatMonthYear(config)}
                       </td>
 
-                      {/* DATE */}
                       <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-slate-900">
                         {formatDate(item?.date)}
                       </td>
 
-                      {/* NUMBER */}
                       <td className="whitespace-nowrap px-6 py-4">
                         <span className="rounded-lg bg-slate-100 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-slate-900">
                           {item?.winningNumber || "-"}
                         </span>
                       </td>
 
-                      {/* STATUS */}
                       <td className="whitespace-nowrap px-6 py-4">
                         {published ? (
                           <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
@@ -779,16 +688,12 @@ const Results = () => {
                         )}
                       </td>
 
-                      {/* CREATED */}
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
                         {formatDate(item?.createdAt)}
                       </td>
 
-                      {/* ACTIONS */}
                       <td className="whitespace-nowrap px-6 py-4">
                         <div className="flex justify-end gap-2">
-                          {/* PUBLISH / UNPUBLISH */}
-
                           {published ? (
                             <button
                               type="button"
@@ -808,8 +713,6 @@ const Results = () => {
                               {isPublishing ? "..." : "Publish"}
                             </button>
                           )}
-
-                          {/* DELETE */}
 
                           <button
                             type="button"

@@ -10,7 +10,8 @@ import createLotteryConfigReducer from "./slice/createLotteryConfigSlice";
 
 import lotteryResultReducer from "./slice/lotteryResultReducer";
 
-import adminLotteryReducer from './slice/adminLotteryReducer'
+import adminLotteryReducer from './slice/adminLotteryReducer';
+import depositReducer from './slice/depositSlice'
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -21,5 +22,7 @@ export const store = configureStore({
     adminLottery: adminLotteryReducer,
 
     createLotteryConfig: createLotteryConfigReducer,
+            deposit: depositReducer,
+
   },
 });

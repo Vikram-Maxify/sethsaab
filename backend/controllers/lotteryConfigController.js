@@ -16,24 +16,21 @@ const getUserId = (req) => {
 
 const getCurrentMonthYear = () => {
   const now = new Date();
-
   return {
     month: now.getMonth() + 1,
     year: now.getFullYear(),
   };
 };
 
-
+// =====================================================
+// GET CURRENT DATE STRING (YYYY-MM-DD)
+// =====================================================
 
 const getCurrentDate = () => {
   const now = new Date();
-
   const year = now.getFullYear();
-
   const month = String(now.getMonth() + 1).padStart(2, "0");
-
   const day = String(now.getDate()).padStart(2, "0");
-
   return `${year}-${month}-${day}`;
 };
 
@@ -43,25 +40,13 @@ const getCurrentDate = () => {
 
 const validateNumber = (number) => {
   if (number === undefined || number === null || number === "") {
-    return {
-      valid: false,
-      message: "6 digit lottery number is required",
-    };
+    return { valid: false, message: "6 digit lottery number is required" };
   }
-
   const value = String(number).trim();
-
   if (!/^\d{6}$/.test(value)) {
-    return {
-      valid: false,
-      message: "Lottery number must be exactly 6 digits",
-    };
+    return { valid: false, message: "Lottery number must be exactly 6 digits" };
   }
-
-  return {
-    valid: true,
-    number: value,
-  };
+  return { valid: true, number: value };
 };
 
 // =====================================================
@@ -75,25 +60,13 @@ const validateAmount = (amount) => {
     amount === "" ||
     Number.isNaN(Number(amount))
   ) {
-    return {
-      valid: false,
-      message: "Valid amount is required",
-    };
+    return { valid: false, message: "Valid amount is required" };
   }
-
   const convertedAmount = Number(amount);
-
   if (convertedAmount < 0) {
-    return {
-      valid: false,
-      message: "Amount cannot be negative",
-    };
+    return { valid: false, message: "Amount cannot be negative" };
   }
-
-  return {
-    valid: true,
-    amount: convertedAmount,
-  };
+  return { valid: true, amount: convertedAmount };
 };
 
 // =====================================================
@@ -102,18 +75,10 @@ const validateAmount = (amount) => {
 
 const validateStatus = (status) => {
   const allowedStatuses = ["pending", "win", "lost"];
-
   if (!allowedStatuses.includes(status)) {
-    return {
-      valid: false,
-      message: "Status must be pending, win or lost",
-    };
+    return { valid: false, message: "Status must be pending, win or lost" };
   }
-
-  return {
-    valid: true,
-    status,
-  };
+  return { valid: true, status };
 };
 
 // =====================================================
@@ -122,18 +87,10 @@ const validateStatus = (status) => {
 
 const validateMonth = (month) => {
   const value = Number(month);
-
   if (!Number.isInteger(value) || value < 1 || value > 12) {
-    return {
-      valid: false,
-      message: "Month must be between 1 and 12",
-    };
+    return { valid: false, message: "Month must be between 1 and 12" };
   }
-
-  return {
-    valid: true,
-    month: value,
-  };
+  return { valid: true, month: value };
 };
 
 // =====================================================
@@ -142,55 +99,40 @@ const validateMonth = (month) => {
 
 const validateYear = (year) => {
   const value = Number(year);
-
   if (!Number.isInteger(value) || value < 2000) {
-    return {
-      valid: false,
-      message: "Valid year is required",
-    };
+    return { valid: false, message: "Valid year is required" };
   }
-
-  return {
-    valid: true,
-    year: value,
-  };
+  return { valid: true, year: value };
 };
 
 // =====================================================
-// CREATE LOTTERY CONFIG
+// CREATE LOTTERY CONFIG (BULK — 19, 20, 21... sab)
 // =====================================================
 // ADMIN
 //
 // POST /api/lottery
 //
 // Body:
-//
 // {
 //   "marketName": "Delhi Market",
 //   "month": 9,
-//   "year": 2026
+//   "year": 2026,
+//   "prizes": { "first": 1000, "second": 500, "third": 100 }
 // }
 //
+// Result:
+// 19 Sept se 30 Sept tak ke saare configs ban jaayenge (inactive)
+// Current date (18) skip ho jaayegi
 // =====================================================
 
 const createLotteryConfig = async (req, res) => {
   try {
-    const {
-      marketName,
-      month,
-      year,
-      prizes,
-    } = req.body;
+    const { marketName, month, year, prizes } = req.body;
 
     // ==========================================
     // MARKET NAME
     // ==========================================
-
-    if (
-      !marketName ||
-      typeof marketName !== "string" ||
-      !marketName.trim()
-    ) {
+    if (!marketName || typeof marketName !== "string" || !marketName.trim()) {
       return res.status(400).json({
         success: false,
         message: "Market name is required",
@@ -200,26 +142,17 @@ const createLotteryConfig = async (req, res) => {
     // ==========================================
     // CURRENT MONTH + YEAR
     // ==========================================
-
     const current = getCurrentMonthYear();
 
     const selectedMonth =
-      month !== undefined
-        ? Number(month)
-        : current.month;
-
+      month !== undefined ? Number(month) : current.month;
     const selectedYear =
-      year !== undefined
-        ? Number(year)
-        : current.year;
+      year !== undefined ? Number(year) : current.year;
 
     // ==========================================
     // VALIDATE MONTH
     // ==========================================
-
-    const monthValidation =
-      validateMonth(selectedMonth);
-
+    const monthValidation = validateMonth(selectedMonth);
     if (!monthValidation.valid) {
       return res.status(400).json({
         success: false,
@@ -230,10 +163,7 @@ const createLotteryConfig = async (req, res) => {
     // ==========================================
     // VALIDATE YEAR
     // ==========================================
-
-    const yearValidation =
-      validateYear(selectedYear);
-
+    const yearValidation = validateYear(selectedYear);
     if (!yearValidation.valid) {
       return res.status(400).json({
         success: false,
@@ -244,7 +174,6 @@ const createLotteryConfig = async (req, res) => {
     // ==========================================
     // VALIDATE PRIZES
     // ==========================================
-
     if (!prizes || typeof prizes !== "object") {
       return res.status(400).json({
         success: false,
@@ -256,30 +185,19 @@ const createLotteryConfig = async (req, res) => {
     const secondPrize = Number(prizes.second);
     const thirdPrize = Number(prizes.third);
 
-    if (
-      !Number.isFinite(firstPrize) ||
-      firstPrize < 0
-    ) {
+    if (!Number.isFinite(firstPrize) || firstPrize < 0) {
       return res.status(400).json({
         success: false,
         message: "Valid first prize amount is required",
       });
     }
-
-    if (
-      !Number.isFinite(secondPrize) ||
-      secondPrize < 0
-    ) {
+    if (!Number.isFinite(secondPrize) || secondPrize < 0) {
       return res.status(400).json({
         success: false,
         message: "Valid second prize amount is required",
       });
     }
-
-    if (
-      !Number.isFinite(thirdPrize) ||
-      thirdPrize < 0
-    ) {
+    if (!Number.isFinite(thirdPrize) || thirdPrize < 0) {
       return res.status(400).json({
         success: false,
         message: "Valid third prize amount is required",
@@ -287,72 +205,89 @@ const createLotteryConfig = async (req, res) => {
     }
 
     // ==========================================
-    // CHECK EXISTING MARKET
+    // TOTAL DAYS IN SELECTED MONTH
     // ==========================================
+    const totalDays = new Date(selectedYear, selectedMonth, 0).getDate();
 
-    const existingConfig =
-      await LotteryConfig.findOne({
-        marketName: marketName.trim(),
-        month: selectedMonth,
-        year: selectedYear,
-      });
+    // ==========================================
+    // DECIDE START DAY
+    // Agar current month/year hai to aaj ke baad se
+    // Warna 1st se (future month case)
+    // ==========================================
+    const today = new Date();
+    const isCurrentMonthYear =
+      today.getMonth() + 1 === selectedMonth &&
+      today.getFullYear() === selectedYear;
 
-    if (existingConfig) {
-      return res.status(409).json({
+    const startDay = isCurrentMonthYear ? today.getDate() + 1 : 1;
+
+    if (startDay > totalDays) {
+      return res.status(400).json({
         success: false,
-        message:
-          "Lottery configuration already exists",
-        data: existingConfig,
+        message: "Is month ki koi future date nahi bachi",
       });
     }
 
     // ==========================================
-    // CREATE MARKET
+    // CHECK EXISTING CONFIGS
     // ==========================================
+    const existingConfigs = await LotteryConfig.find({
+      marketName: marketName.trim(),
+      month: selectedMonth,
+      year: selectedYear,
+    }).select("date");
 
-    const config =
-      await LotteryConfig.create({
+    const existingDates = new Set(existingConfigs.map((c) => c.date));
+
+    // ==========================================
+    // BUILD BULK INSERT DOCS
+    // ==========================================
+    const docsToInsert = [];
+    for (let day = startDay; day <= totalDays; day++) {
+      if (existingDates.has(day)) continue;
+
+      docsToInsert.push({
         marketName: marketName.trim(),
-
+        date: day,
         month: selectedMonth,
-
         year: selectedYear,
-
-        // ADMIN ENTERED PRIZES
         prizes: {
           first: firstPrize,
           second: secondPrize,
           third: thirdPrize,
         },
-
         users: [],
-
-        isActive: false,
+        isActive: false, // sab inactive
       });
+    }
+
+    if (docsToInsert.length === 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Is market ke saare dates already exist karte hain",
+      });
+    }
+
+    const createdConfigs = await LotteryConfig.insertMany(docsToInsert);
 
     // ==========================================
     // RESPONSE
     // ==========================================
-
     return res.status(201).json({
       success: true,
-
-      message:
-        "Lottery configuration created successfully",
-
-      data: config,
+      message: `${createdConfigs.length} lottery configs created successfully`,
+      totalCreated: createdConfigs.length,
+      startDay,
+      endDay: totalDays,
+      data: createdConfigs,
     });
   } catch (error) {
-    console.error(
-      "Create lottery config error:",
-      error
-    );
+    console.error("Create lottery config error:", error);
 
     if (error.code === 11000) {
       return res.status(409).json({
         success: false,
-        message:
-          "Lottery configuration already exists",
+        message: "Kuch dates already exist karti hain",
       });
     }
 
@@ -371,16 +306,11 @@ const createLotteryConfig = async (req, res) => {
 //
 // POST /api/lottery/entry
 //
-// Body:
+// Body: { "number": "123456", "amount": 100 }
 //
-// {
-//   "number": "123456",
-//   "amount": 100
-// }
-//
-// User ID = JWT
-// Date = Server automatically
-//
+// Logic:
+// - Aaj ki date ka ACTIVE config dhoondo
+// - Usme user entry push karo
 // =====================================================
 
 const addUserLotteryEntry = async (req, res) => {
@@ -390,9 +320,7 @@ const addUserLotteryEntry = async (req, res) => {
     // ==========================================
     // USER ID
     // ==========================================
-
     const userId = getUserId(req);
-
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -403,9 +331,7 @@ const addUserLotteryEntry = async (req, res) => {
     // ==========================================
     // VALIDATE NUMBER
     // ==========================================
-
     const numberValidation = validateNumber(number);
-
     if (!numberValidation.valid) {
       return res.status(400).json({
         success: false,
@@ -416,9 +342,7 @@ const addUserLotteryEntry = async (req, res) => {
     // ==========================================
     // VALIDATE AMOUNT
     // ==========================================
-
     const amountValidation = validateAmount(amount);
-
     if (!amountValidation.valid) {
       return res.status(400).json({
         success: false,
@@ -427,48 +351,38 @@ const addUserLotteryEntry = async (req, res) => {
     }
 
     // ==========================================
-    // CURRENT MONTH + YEAR
+    // CURRENT DATE + MONTH + YEAR
     // ==========================================
-
     const entryDate = getCurrentDate();
+    const today = new Date();
+    const currentDay = today.getDate();
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
 
     // ==========================================
-    // FIND ACTIVE LOTTERY
+    // FIND ACTIVE CONFIG FOR TODAY
     // ==========================================
-
     const config = await LotteryConfig.findOne({
       isActive: true,
+      date: currentDay,
+      month: currentMonth,
+      year: currentYear,
     });
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "No active lottery market found",
-      });
-    }
-
-    // ==========================================
-    // AUTO CREATE MARKET
-    // ==========================================
-
-    // ==========================================
-    // SAFETY CHECK
-    // ==========================================
-
-    if (!config) {
-      return res.status(500).json({
-        success: false,
-        message: "Unable to create or find lottery market",
+        message: "No active lottery market found for today",
       });
     }
 
     // ==========================================
     // CHECK SAME USER + SAME DATE
     // ==========================================
-
     const existingUser = config.users.find(
       (user) =>
-        String(user.userId) === String(userId) && user.entryDate === entryDate,
+        String(user.userId) === String(userId) &&
+        user.entryDate === entryDate
     );
 
     if (existingUser) {
@@ -482,57 +396,36 @@ const addUserLotteryEntry = async (req, res) => {
     // ==========================================
     // ADD USER ENTRY
     // ==========================================
-
     config.users.push({
       userId: String(userId),
-
       entryDate,
-
       amount: amountValidation.amount,
-
       number: numberValidation.number,
-
       status: "pending",
     });
 
-    // ==========================================
-    // SAVE
-    // ==========================================
-
     await config.save();
-
-    // ==========================================
-    // GET NEW ENTRY
-    // ==========================================
 
     const newEntry = config.users[config.users.length - 1];
 
     // ==========================================
     // RESPONSE
     // ==========================================
-
     return res.status(201).json({
       success: true,
-
       message: "Lottery entry submitted successfully",
-
       data: {
         lotteryId: config._id,
-
         marketName: config.marketName,
-
+        date: config.date,
         month: config.month,
-
         year: config.year,
-
         entryDate,
-
         entry: newEntry,
       },
     });
   } catch (error) {
     console.error("Add user lottery entry error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -541,16 +434,19 @@ const addUserLotteryEntry = async (req, res) => {
   }
 };
 
-
+// =====================================================
+// GET MY LOTTERY ENTRIES
+// =====================================================
+// USER
+//
+// GET /api/lottery/my-entries
+//
+// Saari dates ke configs se user ki entries nikaal kar deta hai
+// =====================================================
 
 const getMyLotteryEntries = async (req, res) => {
   try {
-    // ==========================================
-    // USER ID FROM JWT
-    // ==========================================
-
     const userId = getUserId(req);
-
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -558,63 +454,42 @@ const getMyLotteryEntries = async (req, res) => {
       });
     }
 
-    // ==========================================
-    // FIND ACTIVE LOTTERY
-    // ==========================================
+    // Saare configs jisme ye user hai
+    const configs = await LotteryConfig.find({
+      "users.userId": String(userId),
+    }).sort({ year: -1, month: -1, date: -1 });
 
-    const config = await LotteryConfig.findOne({
-      isActive: true,
+    const allEntries = [];
+
+    configs.forEach((config) => {
+      config.users
+        .filter((entry) => String(entry.userId) === String(userId))
+        .forEach((entry) => {
+          allEntries.push({
+            lotteryId: config._id,
+            marketName: config.marketName,
+            date: config.date,
+            month: config.month,
+            year: config.year,
+            isActive: config.isActive,
+            entry,
+          });
+        });
     });
 
-    if (!config) {
-      return res.status(404).json({
-        success: false,
-        message: "No active lottery market found",
-      });
-    }
-
-    // ==========================================
-    // FILTER USER ENTRIES
-    // ==========================================
-
-    const userEntries = config.users
-      .filter(
-        (entry) =>
-          String(entry.userId) === String(userId)
-      )
-      .sort((a, b) => {
-        return (
-          new Date(b.entryDate) -
-          new Date(a.entryDate)
-        );
-      });
-
-    // ==========================================
-    // RESPONSE
-    // ==========================================
+    // Latest first
+    allEntries.sort(
+      (a, b) => new Date(b.entry.entryDate) - new Date(a.entry.entryDate)
+    );
 
     return res.status(200).json({
       success: true,
       message: "User lottery entries fetched successfully",
-
-      data: {
-        lotteryId: config._id,
-        marketName: config.marketName,
-        month: config.month,
-        year: config.year,
-        isActive: config.isActive,
-
-        totalEntries: userEntries.length,
-
-        entries: userEntries,
-      },
+      totalEntries: allEntries.length,
+      data: allEntries,
     });
   } catch (error) {
-    console.error(
-      "Get my lottery entries error:",
-      error
-    );
-
+    console.error("Get my lottery entries error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -629,7 +504,6 @@ const getMyLotteryEntries = async (req, res) => {
 // ADMIN
 //
 // GET /api/lottery
-//
 // =====================================================
 
 const getAllLotteryConfigs = async (req, res) => {
@@ -637,6 +511,7 @@ const getAllLotteryConfigs = async (req, res) => {
     const configs = await LotteryConfig.find().sort({
       year: -1,
       month: -1,
+      date: -1,
       marketName: 1,
     });
 
@@ -647,7 +522,6 @@ const getAllLotteryConfigs = async (req, res) => {
     });
   } catch (error) {
     console.error("Get all lottery configs error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -657,11 +531,10 @@ const getAllLotteryConfigs = async (req, res) => {
 };
 
 // =====================================================
-// GET ACTIVE LOTTERY CONFIG
+// GET ACTIVE LOTTERY CONFIG (AAJ KA)
 // =====================================================
 //
 // GET /api/lottery/active
-//
 // =====================================================
 
 const getActiveLotteryConfig = async (req, res) => {
@@ -683,7 +556,6 @@ const getActiveLotteryConfig = async (req, res) => {
     });
   } catch (error) {
     console.error("Get active lottery config error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -697,7 +569,6 @@ const getActiveLotteryConfig = async (req, res) => {
 // =====================================================
 //
 // GET /api/lottery/:id
-//
 // =====================================================
 
 const getLotteryConfigById = async (req, res) => {
@@ -726,7 +597,6 @@ const getLotteryConfigById = async (req, res) => {
     });
   } catch (error) {
     console.error("Get lottery config by ID error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -741,6 +611,8 @@ const getLotteryConfigById = async (req, res) => {
 //
 // PUT /api/lottery/:id/activate
 //
+// Sirf us date ka config activate karta hai
+// (baaki dates apne aap inactive rahenge)
 // =====================================================
 
 const activateLotteryConfig = async (req, res) => {
@@ -764,30 +636,25 @@ const activateLotteryConfig = async (req, res) => {
     }
 
     // ==========================================
-    // DEACTIVATE ALL OTHER MARKETS
+    // DEACTIVATE ALL OTHER (sirf same market/month/year)
     // ==========================================
-
     await LotteryConfig.updateMany(
       {
+        marketName: config.marketName,
+        month: config.month,
+        year: config.year,
         isActive: true,
-
-        _id: {
-          $ne: id,
-        },
+        _id: { $ne: id },
       },
       {
-        $set: {
-          isActive: false,
-        },
-      },
+        $set: { isActive: false },
+      }
     );
 
     // ==========================================
     // ACTIVATE
     // ==========================================
-
     config.isActive = true;
-
     await config.save();
 
     return res.status(200).json({
@@ -797,7 +664,6 @@ const activateLotteryConfig = async (req, res) => {
     });
   } catch (error) {
     console.error("Activate lottery config error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -811,7 +677,6 @@ const activateLotteryConfig = async (req, res) => {
 // =====================================================
 //
 // PUT /api/lottery/:id/deactivate
-//
 // =====================================================
 
 const deactivateLotteryConfig = async (req, res) => {
@@ -835,7 +700,6 @@ const deactivateLotteryConfig = async (req, res) => {
     }
 
     config.isActive = false;
-
     await config.save();
 
     return res.status(200).json({
@@ -845,7 +709,6 @@ const deactivateLotteryConfig = async (req, res) => {
     });
   } catch (error) {
     console.error("Deactivate lottery config error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -860,26 +723,12 @@ const deactivateLotteryConfig = async (req, res) => {
 // ADMIN
 //
 // PUT /api/lottery/:id/user/:userEntryId
-//
-// Body:
-//
-// {
-//   "number": "123456",
-//   "amount": 200,
-//   "status": "win"
-// }
-//
 // =====================================================
 
 const updateUserLotteryEntry = async (req, res) => {
   try {
     const { id, userEntryId } = req.params;
-
     const { number, amount, status, entryDate } = req.body;
-
-    // ==========================================
-    // VALIDATE CONFIG ID
-    // ==========================================
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -888,10 +737,6 @@ const updateUserLotteryEntry = async (req, res) => {
       });
     }
 
-    // ==========================================
-    // VALIDATE ENTRY ID
-    // ==========================================
-
     if (!mongoose.Types.ObjectId.isValid(userEntryId)) {
       return res.status(400).json({
         success: false,
@@ -899,12 +744,7 @@ const updateUserLotteryEntry = async (req, res) => {
       });
     }
 
-    // ==========================================
-    // FIND CONFIG
-    // ==========================================
-
     const config = await LotteryConfig.findById(id);
-
     if (!config) {
       return res.status(404).json({
         success: false,
@@ -912,12 +752,7 @@ const updateUserLotteryEntry = async (req, res) => {
       });
     }
 
-    // ==========================================
-    // FIND ENTRY
-    // ==========================================
-
     const userEntry = config.users.id(userEntryId);
-
     if (!userEntry) {
       return res.status(404).json({
         success: false,
@@ -925,66 +760,43 @@ const updateUserLotteryEntry = async (req, res) => {
       });
     }
 
-    // ==========================================
     // UPDATE NUMBER
-    // ==========================================
-
     if (number !== undefined) {
       const validation = validateNumber(number);
-
       if (!validation.valid) {
         return res.status(400).json({
           success: false,
           message: validation.message,
         });
       }
-
       userEntry.number = validation.number;
     }
 
-    // ==========================================
     // UPDATE AMOUNT
-    // ==========================================
-
     if (amount !== undefined) {
       const validation = validateAmount(amount);
-
       if (!validation.valid) {
         return res.status(400).json({
           success: false,
           message: validation.message,
         });
       }
-
       userEntry.amount = validation.amount;
     }
 
-    // ==========================================
     // UPDATE STATUS
-    // ==========================================
-
     if (status !== undefined) {
       const validation = validateStatus(status);
-
       if (!validation.valid) {
         return res.status(400).json({
           success: false,
           message: validation.message,
         });
       }
-
       userEntry.status = validation.status;
     }
 
-    // ==========================================
     // UPDATE DATE
-    // ==========================================
-    // Admin can change date if required.
-    //
-    // Format:
-    // YYYY-MM-DD
-    // ==========================================
-
     if (entryDate !== undefined) {
       if (
         typeof entryDate !== "string" ||
@@ -995,13 +807,8 @@ const updateUserLotteryEntry = async (req, res) => {
           message: "Entry date must be in YYYY-MM-DD format",
         });
       }
-
       userEntry.entryDate = entryDate;
     }
-
-    // ==========================================
-    // SAVE
-    // ==========================================
 
     await config.save();
 
@@ -1012,7 +819,6 @@ const updateUserLotteryEntry = async (req, res) => {
     });
   } catch (error) {
     console.error("Update user lottery entry error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -1026,16 +832,11 @@ const updateUserLotteryEntry = async (req, res) => {
 // =====================================================
 //
 // DELETE /api/lottery/:id/user/:userEntryId
-//
 // =====================================================
 
 const deleteUserLotteryEntry = async (req, res) => {
   try {
     const { id, userEntryId } = req.params;
-
-    // ==========================================
-    // VALIDATE CONFIG ID
-    // ==========================================
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -1044,10 +845,6 @@ const deleteUserLotteryEntry = async (req, res) => {
       });
     }
 
-    // ==========================================
-    // VALIDATE ENTRY ID
-    // ==========================================
-
     if (!mongoose.Types.ObjectId.isValid(userEntryId)) {
       return res.status(400).json({
         success: false,
@@ -1055,12 +852,7 @@ const deleteUserLotteryEntry = async (req, res) => {
       });
     }
 
-    // ==========================================
-    // FIND CONFIG
-    // ==========================================
-
     const config = await LotteryConfig.findById(id);
-
     if (!config) {
       return res.status(404).json({
         success: false,
@@ -1068,12 +860,7 @@ const deleteUserLotteryEntry = async (req, res) => {
       });
     }
 
-    // ==========================================
-    // FIND ENTRY
-    // ==========================================
-
     const userEntry = config.users.id(userEntryId);
-
     if (!userEntry) {
       return res.status(404).json({
         success: false,
@@ -1081,12 +868,7 @@ const deleteUserLotteryEntry = async (req, res) => {
       });
     }
 
-    // ==========================================
-    // DELETE
-    // ==========================================
-
     userEntry.deleteOne();
-
     await config.save();
 
     return res.status(200).json({
@@ -1096,7 +878,6 @@ const deleteUserLotteryEntry = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete user lottery entry error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -1110,7 +891,6 @@ const deleteUserLotteryEntry = async (req, res) => {
 // =====================================================
 //
 // DELETE /api/lottery/:id
-//
 // =====================================================
 
 const deleteLotteryConfig = async (req, res) => {
@@ -1125,7 +905,6 @@ const deleteLotteryConfig = async (req, res) => {
     }
 
     const config = await LotteryConfig.findById(id);
-
     if (!config) {
       return res.status(404).json({
         success: false,
@@ -1141,7 +920,6 @@ const deleteLotteryConfig = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete lottery config error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -1156,23 +934,14 @@ const deleteLotteryConfig = async (req, res) => {
 
 module.exports = {
   createLotteryConfig,
-
   addUserLotteryEntry,
-
   getAllLotteryConfigs,
-
   getLotteryConfigById,
-
   getActiveLotteryConfig,
-
   activateLotteryConfig,
-
   deactivateLotteryConfig,
-
   updateUserLotteryEntry,
-
   deleteUserLotteryEntry,
-
   deleteLotteryConfig,
-  getMyLotteryEntries
+  getMyLotteryEntries,
 };
