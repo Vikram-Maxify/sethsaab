@@ -375,8 +375,8 @@ const BuyTicket = () => {
         const gatewayList = Array.isArray(result)
           ? result
           : result?.gateways ||
-            result?.data ||
-            [];
+          result?.data ||
+          [];
 
         gateway =
           gatewayList.find((item) => {
@@ -425,7 +425,7 @@ const BuyTicket = () => {
 
       const maxLimit = Number(
         gateway.maxLimit ||
-          Number.MAX_SAFE_INTEGER
+        Number.MAX_SAFE_INTEGER
       );
 
       if (
@@ -448,9 +448,14 @@ const BuyTicket = () => {
           paymentMethod: "INR",
           channel: "voterx",
           amount,
+
           utr: "",
+
           configId: lotteryConfig._id,
+
           number: lotteryNumber,
+
+          // IMPORTANT
         })
       ).unwrap();
 
@@ -493,8 +498,8 @@ const BuyTicket = () => {
         typeof error === "string"
           ? error
           : error?.message ||
-              error?.payload?.message ||
-              "VoterX payment शुरू नहीं हो सका"
+          error?.payload?.message ||
+          "VoterX payment शुरू नहीं हो सका"
       );
     }
   };
@@ -765,7 +770,7 @@ const BuyTicket = () => {
               {typeof displayError === "string"
                 ? displayError
                 : displayError?.message ||
-                  "Payment gateway में समस्या हुई"}
+                "Payment gateway में समस्या हुई"}
             </div>
           )}
 

@@ -410,6 +410,9 @@ const addUserLotteryEntry = async (req, res) => {
 
 const getMyLotteryEntries = async (req, res) => {
   try {
+    // ==========================================
+    // GET USER ID FROM JWT
+    // ==========================================
     const userId = getUserId(req);
 
     if (!userId) {
@@ -419,33 +422,92 @@ const getMyLotteryEntries = async (req, res) => {
       });
     }
 
+    // ==========================================
+    // FIND LOTTERY CONFIGS
+    // ==========================================
     const configs = await LotteryConfig.find({
       "users.userId": String(userId),
-    }).sort({ year: -1, month: -1, date: -1 });
+    })
+      .sort({
+        year: -1,
+        month: -1,
+        date: -1,
+      })
+      .lean();
 
+    // ==========================================
+    // PREPARE ENTRIES
+    // ==========================================
     const entries = [];
 
     configs.forEach((config) => {
+      if (!Array.isArray(config.users)) {
+        return;
+      }
+
       config.users
-        .filter((entry) => String(entry.userId) === String(userId))
+        .filter(
+          (entry) =>
+            String(entry.userId) === String(userId)
+        )
         .forEach((entry) => {
           entries.push({
+            // Lottery config ID
             lotteryId: config._id,
+
+            // Entry ID
+            entryId: entry._id,
+
+            // Market details
             marketName: config.marketName,
             date: config.date,
             month: config.month,
             year: config.year,
+
+            // Lottery status
             isActive: config.isActive,
+
+            // Prize configuration
             prizes: config.prizes,
-            entry,
+
+            // Entry details
+            entry: {
+              _id: entry._id,
+              userId: entry.userId,
+              entryDate: entry.entryDate,
+              number: entry.number,
+              amount: entry.amount,
+              isBuy: entry.isBuy,
+
+              prize: {
+                first: entry.prize?.first || 0,
+                second: entry.prize?.second || 0,
+                third: entry.prize?.third || 0,
+              },
+
+              prizeType: entry.prizeType || null,
+              status: entry.status || "pending",
+
+              createdAt: entry.createdAt,
+              updatedAt: entry.updatedAt,
+            },
           });
         });
     });
 
-    entries.sort(
-      (a, b) => new Date(b.entry.entryDate) - new Date(a.entry.entryDate)
-    );
+    // ==========================================
+    // SORT BY ENTRY DATE
+    // ==========================================
+    entries.sort((a, b) => {
+      const dateA = new Date(a.entry.entryDate);
+      const dateB = new Date(b.entry.entryDate);
 
+      return dateB - dateA;
+    });
+
+    // ==========================================
+    // RESPONSE
+    // ==========================================
     return res.status(200).json({
       success: true,
       message: "User lottery entries fetched successfully",
@@ -472,7 +534,6 @@ const getAllLotteryConfigs = async (req, res) => {
     const configs = await LotteryConfig.find().sort({
       year: -1,
       month: -1,
-      date: -1,
       marketName: 1,
     });
 
@@ -502,7 +563,6 @@ const getActiveLotteryConfig = async (req, res) => {
     const config = await LotteryConfig.findOne({ isActive: true }).sort({
       year: 1,
       month: 1,
-      date: 1,
     });
 
     if (!config) {

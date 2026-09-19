@@ -16,7 +16,6 @@ const lotteryUserEntrySchema = new mongoose.Schema(
       type: String,
       required: true,
       match: /^\d{4}-\d{2}-\d{2}$/,
-      index: true,
     },
 
     number: {
@@ -121,7 +120,6 @@ const lotteryConfigSchema = new mongoose.Schema(
 lotteryConfigSchema.index(
   {
     marketName: 1,
-    date: 1,
     month: 1,
     year: 1,
   },

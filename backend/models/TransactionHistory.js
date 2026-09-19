@@ -31,7 +31,6 @@ const transactionHistorySchema =
 
       type: {
         type: String,
-
         enum: [
           "Deposit",
           "Withdraw",
@@ -41,11 +40,9 @@ const transactionHistorySchema =
           "Transfer",
           "Penalty",
           "Bonus",
-
-          // Lottery
           "Lottery Ticket",
+          "Lottery Ticket Purchase",
         ],
-
         required: true,
       },
 

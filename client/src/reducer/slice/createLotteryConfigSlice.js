@@ -33,9 +33,20 @@ const initialState = {
 
 export const createLotteryConfig = createAsyncThunk(
   "createLotteryConfig/create",
-  async ({ marketName, month, year, prizes }, { rejectWithValue }) => {
+  async (
+    { marketName, month, year, prizes },
+    { rejectWithValue }
+  ) => {
     try {
-      if (!marketName || typeof marketName !== "string" || !marketName.trim()) {
+      // =====================================================
+      // VALIDATION
+      // =====================================================
+
+      if (
+        !marketName ||
+        typeof marketName !== "string" ||
+        !marketName.trim()
+      ) {
         return rejectWithValue("Market name is required");
       }
 
@@ -48,8 +59,14 @@ export const createLotteryConfig = createAsyncThunk(
         prizes.second === undefined ||
         prizes.third === undefined
       ) {
-        return rejectWithValue("All three prize amounts are required");
+        return rejectWithValue(
+          "All three prize amounts are required"
+        );
       }
+
+      // =====================================================
+      // CREATE BODY
+      // =====================================================
 
       const body = {
         marketName: marketName.trim(),
@@ -68,12 +85,49 @@ export const createLotteryConfig = createAsyncThunk(
         body.year = Number(year);
       }
 
+      // =====================================================
+      // API REQUEST
+      // =====================================================
+
       const response = await api.post("/lottery", body);
+
+      // =====================================================
+      // SUCCESS
+      // =====================================================
 
       return response.data;
     } catch (error) {
+      const status = error.response?.status;
+      const data = error.response?.data;
+
+      // =====================================================
+      // DUPLICATE DATE
+      // =====================================================
+
+      if (
+        status === 400 &&
+        (
+          data?.message?.toLowerCase()?.includes("already exist") ||
+          data?.message?.toLowerCase()?.includes("already exists") ||
+          data?.message?.toLowerCase()?.includes("duplicate")
+        )
+      ) {
+        // Duplicate ko error nahi maanenge
+        return {
+          success: true,
+          skipped: true,
+          duplicate: true,
+          message: "Some lottery dates already exist, so they were ignored.",
+          data,
+        };
+      }
+
+      // =====================================================
+      // OTHER ERROR
+      // =====================================================
+
       return rejectWithValue(
-        error.response?.data?.message ||
+        data?.message ||
           "Failed to create lottery configuration"
       );
     }

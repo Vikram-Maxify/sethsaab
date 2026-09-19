@@ -103,7 +103,7 @@ export const activateLotteryConfig = createAsyncThunk(
         return rejectWithValue("Lottery configuration ID is required");
       }
 
-      const response = await api.put(
+      const response = await api.patch(
         `/lottery/${id}/activate`
       );
 

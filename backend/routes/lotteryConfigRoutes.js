@@ -13,68 +13,88 @@ const {
   deleteLotteryConfig,
 } = require("../controllers/lotteryConfigController");
 
-// =====================================================
-// IMPORT YOUR AUTH MIDDLEWARE HERE
-// =====================================================
-// const { protect, adminOnly } = require("../middleware/auth");
+const authMiddleware = require("../middleware/authMiddleware");
 
 // =====================================================
-// PUBLIC / USER ROUTES
+// PUBLIC ROUTES
 // =====================================================
 
-// GET today's active lottery
+// GET active lottery
+// GET /api/lottery-config/active
 router.get("/active", getActiveLotteryConfig);
 
-// GET my entries (requires auth)
+
+// =====================================================
+// USER ROUTES
+// =====================================================
+
+// GET my lottery entries
+// GET /api/lottery-config/my-entries
 router.get(
   "/my-entries",
-  /* protect, */ getMyLotteryEntries
+  authMiddleware,
+  getMyLotteryEntries
 );
 
-// ADD a new lottery entry (requires auth)
+// ADD lottery entry
+// POST /api/lottery-config/entry
 router.post(
   "/entry",
-  /* protect, */ addUserLotteryEntry
+  authMiddleware,
+  addUserLotteryEntry
 );
+
 
 // =====================================================
 // ADMIN ROUTES
 // =====================================================
 
-// CREATE lottery configs for a month
+// CREATE lottery config
+// POST /api/lottery-config
 router.post(
   "/",
-  /* protect, adminOnly, */ createLotteryConfig
+  authMiddleware,
+  createLotteryConfig
 );
 
 // GET all lottery configs
+// GET /api/lottery-config
 router.get(
-  "/",
-  /* protect, adminOnly, */ getAllLotteryConfigs
+  "/all",
+  authMiddleware,
+  getAllLotteryConfigs
 );
 
-// GET config by ID
+// GET lottery config by ID
+// GET /api/lottery-config/:id
 router.get(
   "/:id",
-  /* protect, adminOnly, */ getLotteryConfigById
+  authMiddleware,
+  getLotteryConfigById
 );
 
-// ACTIVATE a config
+// ACTIVATE lottery config
+// PATCH /api/lottery-config/:id/activate
 router.patch(
   "/:id/activate",
-  /* protect, adminOnly, */ activateLotteryConfig
+  authMiddleware,
+  activateLotteryConfig
 );
 
 // UPDATE user entry status
+// PATCH /api/lottery-config/:configId/entry/:entryId/status
 router.patch(
   "/:configId/entry/:entryId/status",
-  /* protect, adminOnly, */ updateEntryStatus
+  authMiddleware,
+  updateEntryStatus
 );
 
-// DELETE a config
+// DELETE lottery config
+// DELETE /api/lottery-config/:id
 router.delete(
   "/:id",
-  /* protect, adminOnly, */ deleteLotteryConfig
+  authMiddleware,
+  deleteLotteryConfig
 );
 
 module.exports = router;
