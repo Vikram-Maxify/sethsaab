@@ -18,6 +18,11 @@ const lotteryResultRoutes = require("./routes/lotteryResultRoutes");
 
 const depositRoutes = require("./routes/depositRoutes")
 
+const adminGatewayRoutes = require('./routes/adminGatewayRoutes')
+
+
+
+
 
 
 const app = express();
@@ -60,6 +65,8 @@ app.use(
     "/api/lottery-result",
     lotteryResultRoutes
 );
+app.use("/api", adminGatewayRoutes);
+
 
 // Connect DB
 connectDB();

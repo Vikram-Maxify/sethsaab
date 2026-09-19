@@ -2,7 +2,6 @@ const mongoose = require("mongoose");
 
 // =====================================================
 // USER LOTTERY ENTRY SCHEMA
-// (BILKUL WAISA HI — kuch nahi badla)
 // =====================================================
 
 const lotteryUserEntrySchema = new mongoose.Schema(
@@ -13,8 +12,10 @@ const lotteryUserEntrySchema = new mongoose.Schema(
       index: true,
     },
 
-    // Exact date on which user submitted entry
-    // Example: 2026-09-18
+    // =================================================
+    // ENTRY DATE
+    // =================================================
+
     entryDate: {
       type: String,
       required: true,
@@ -22,12 +23,19 @@ const lotteryUserEntrySchema = new mongoose.Schema(
       index: true,
     },
 
-    // User's 6 digit lottery number
+    // =================================================
+    // 6 DIGIT NUMBER
+    // =================================================
+
     number: {
       type: String,
       required: true,
       match: /^\d{6}$/,
     },
+
+    // =================================================
+    // TICKET AMOUNT
+    // =================================================
 
     amount: {
       type: Number,
@@ -36,8 +44,19 @@ const lotteryUserEntrySchema = new mongoose.Schema(
     },
 
     // =================================================
-    // PRIZE DETAILS
+    // PAYMENT SUCCESS
     // =================================================
+
+    isBuy: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    // =================================================
+    // PRIZE
+    // =================================================
+
     prize: {
       first: {
         type: Number,
@@ -56,12 +75,19 @@ const lotteryUserEntrySchema = new mongoose.Schema(
       },
     },
 
-    // Which prize user won
+    // =================================================
+    // PRIZE TYPE
+    // =================================================
+
     prizeType: {
       type: String,
       enum: ["1st", "2nd", "3rd", null],
       default: null,
     },
+
+    // =================================================
+    // RESULT STATUS
+    // =================================================
 
     status: {
       type: String,
@@ -80,13 +106,20 @@ const lotteryUserEntrySchema = new mongoose.Schema(
 
 const lotteryConfigSchema = new mongoose.Schema(
   {
+    // =================================================
+    // MARKET NAME
+    // =================================================
+
     marketName: {
       type: String,
       required: true,
       trim: true,
     },
 
-    // 👇 NEW: day of month (1 - 31)
+    // =================================================
+    // DATE
+    // =================================================
+
     date: {
       type: Number,
       required: true,
@@ -94,7 +127,10 @@ const lotteryConfigSchema = new mongoose.Schema(
       max: 31,
     },
 
-    // 1 - 12
+    // =================================================
+    // MONTH
+    // =================================================
+
     month: {
       type: Number,
       required: true,
@@ -102,14 +138,20 @@ const lotteryConfigSchema = new mongoose.Schema(
       max: 12,
     },
 
-    // Example: 2026
+    // =================================================
+    // YEAR
+    // =================================================
+
     year: {
       type: Number,
       required: true,
       min: 2000,
     },
 
-    // Admin-entered prize amounts
+    // =================================================
+    // PRIZES
+    // =================================================
+
     prizes: {
       first: {
         type: Number,
@@ -128,14 +170,23 @@ const lotteryConfigSchema = new mongoose.Schema(
       },
     },
 
+    // =================================================
+    // USERS / ENTRIES
+    // =================================================
+
     users: {
       type: [lotteryUserEntrySchema],
       default: [],
     },
 
+    // =================================================
+    // ACTIVE
+    // =================================================
+
     isActive: {
       type: Boolean,
       default: false,
+      index: true,
     },
   },
   {
@@ -144,7 +195,7 @@ const lotteryConfigSchema = new mongoose.Schema(
 );
 
 // =====================================================
-// ONE MARKET PER DATE + MONTH + YEAR
+// UNIQUE MARKET + DATE
 // =====================================================
 
 lotteryConfigSchema.index(

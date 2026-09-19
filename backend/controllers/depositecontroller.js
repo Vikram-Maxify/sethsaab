@@ -4,14 +4,141 @@ const Deposit = require("../models/Deposit.js");
 const User = require("../models/userModel");
 const TransactionHistory = require("../models/TransactionHistory");
 const AdminGateway = require("../models/AdminGateway");
+const LotteryConfig = require("../models/LotteryConfig");
 
-// ================= Create Deposit Request =================
+// =====================================================
+// CREATE / FIND LOTTERY ENTRY
+// =====================================================
+
+const createOrGetLotteryEntry = async ({
+  user,
+  configId,
+  number,
+  amount,
+  entryId,
+}) => {
+  if (!configId || !number) {
+    return {
+      config: null,
+      entry: null,
+    };
+  }
+
+  if (!/^\d{6}$/.test(String(number))) {
+    throw new Error("Lottery number must be exactly 6 digits");
+  }
+
+  const config = await LotteryConfig.findById(configId);
+
+  if (!config) {
+    throw new Error("Lottery configuration not found");
+  }
+
+  if (!config.isActive) {
+    throw new Error("Lottery is not active");
+  }
+
+  // ===================================================
+  // IF ENTRY ID WAS ALREADY PROVIDED
+  // ===================================================
+
+  if (entryId) {
+    const existingEntry = config.users.id(entryId);
+
+    if (existingEntry) {
+      // Security check
+      if (String(existingEntry.userId) !== String(user._id)) {
+        throw new Error("This lottery entry does not belong to you");
+      }
+
+      // Make sure number is same
+      if (existingEntry.number !== String(number)) {
+        throw new Error("Lottery entry number mismatch");
+      }
+
+      return {
+        config,
+        entry: existingEntry,
+      };
+    }
+  }
+
+  // ===================================================
+  // FIND EXISTING PENDING ENTRY
+  // ===================================================
+
+  const today = new Date();
+
+  const entryDate = today.toISOString().slice(0, 10);
+
+  let existingEntry = config.users.find(
+    (item) =>
+      String(item.userId) === String(user._id) &&
+      item.number === String(number) &&
+      item.isBuy === false &&
+      item.status === "pending"
+  );
+
+  if (existingEntry) {
+    existingEntry.amount = Number(amount);
+
+    return {
+      config,
+      entry: existingEntry,
+    };
+  }
+
+  // ===================================================
+  // CREATE NEW PENDING ENTRY
+  // ===================================================
+
+  config.users.push({
+    userId: String(user._id),
+    entryDate,
+    number: String(number),
+    amount: Number(amount),
+    isBuy: false,
+    prize: {
+      first: 0,
+      second: 0,
+      third: 0,
+    },
+    prizeType: null,
+    status: "pending",
+  });
+
+  existingEntry = config.users[config.users.length - 1];
+
+  await config.save();
+
+  return {
+    config,
+    entry: existingEntry,
+  };
+};
+
+// =====================================================
+// CREATE DEPOSIT REQUEST
+// =====================================================
+
 const createDeposit = async (req, res) => {
   try {
-    const { gatewayId, paymentMethod, channel, amount, utr } = req.body;
+    const {
+      gatewayId,
+      paymentMethod,
+      channel,
+      amount,
+      utr,
+      configId,
+      entryId,
+      number,
+    } = req.body;
 
-    // Validate amount early
-    if (!amount) {
+    // ===================================================
+    // VALIDATE AMOUNT
+    // ===================================================
+
+    if (amount === undefined || amount === null || amount === "") {
       return res.status(400).json({
         success: false,
         message: "Amount is required",
@@ -20,16 +147,18 @@ const createDeposit = async (req, res) => {
 
     const numericAmount = Number(amount);
 
-    if (isNaN(numericAmount) || numericAmount <= 0) {
+    if (Number.isNaN(numericAmount) || numericAmount <= 0) {
       return res.status(400).json({
         success: false,
         message: "Invalid amount",
       });
     }
 
-    const user = await User.findById(req.user.id);
+    // ===================================================
+    // FIND USER
+    // ===================================================
 
-    console.log(user)
+    const user = await User.findById(req.user.id);
 
     if (!user) {
       return res.status(404).json({
@@ -45,14 +174,39 @@ const createDeposit = async (req, res) => {
     const usdRet = 92;
     let money = 0;
 
-    // =====================================================
+    // ===================================================
+    // LOTTERY ENTRY
+    // ===================================================
+
+    let lotteryConfig = null;
+    let lotteryEntry = null;
+
+    if (configId) {
+      try {
+        const lotteryResult = await createOrGetLotteryEntry({
+          user,
+          configId,
+          number,
+          amount: numericAmount,
+          entryId,
+        });
+
+        lotteryConfig = lotteryResult.config;
+        lotteryEntry = lotteryResult.entry;
+      } catch (lotteryError) {
+        return res.status(400).json({
+          success: false,
+          message: lotteryError.message,
+        });
+      }
+    }
+
+    // ===================================================
     // GATEWAY SELECTED
-    // =====================================================
+    // ===================================================
 
     if (gatewayId) {
       const gateway = await AdminGateway.findById(gatewayId);
-
-      console.log("gateway", gateway);
 
       if (!gateway) {
         return res.status(404).json({
@@ -61,7 +215,7 @@ const createDeposit = async (req, res) => {
         });
       }
 
-      if (gateway.status !== 1) {
+      if (Number(gateway.status) !== 1) {
         return res.status(400).json({
           success: false,
           message:
@@ -69,166 +223,288 @@ const createDeposit = async (req, res) => {
         });
       }
 
-      // Check gateway transaction limits
+      const gatewayMin = Number(gateway.minLimit || 0);
+
+      const gatewayMax = Number(
+        gateway.maxLimit || Number.MAX_SAFE_INTEGER
+      );
+
       if (
-        numericAmount < gateway.minLimit ||
-        numericAmount > gateway.maxLimit
+        numericAmount < gatewayMin ||
+        numericAmount > gatewayMax
       ) {
         return res.status(400).json({
           success: false,
-          message: `Deposit amount must be between ${gateway.minLimit} and ${gateway.maxLimit} for this gateway.`,
+          message: `Deposit amount must be between ${gatewayMin} and ${gatewayMax} for this gateway.`,
         });
       }
 
       resolvedGatewayId = gateway._id;
+
       finalChannel = gateway.name;
 
-      // =====================================================
+      // =================================================
       // AUTOMATIC GATEWAY
-      // =====================================================
+      // =================================================
 
-      if (gateway.mode === "automatic") {
+      if (
+        String(gateway.mode || "").toLowerCase() ===
+        "automatic"
+      ) {
         finalPaymentMethod = "INR";
         money = numericAmount;
 
-        const orderId = `DEP${Date.now()}`;
+        const orderId = `DEP${Date.now()}${Math.floor(
+          Math.random() * 1000
+        )}`;
 
-        // Create pending deposit
         const deposit = await Deposit.create({
           userId: user._id,
+
           gatewayId: resolvedGatewayId,
-          uid: user.uuid,
+
+          // =============================================
+          // LOTTERY LINK
+          // =============================================
+
+          configId: lotteryConfig?._id || null,
+
+          entryId: lotteryEntry?._id || null,
+
+          number:
+            lotteryEntry?.number ||
+            number ||
+            null,
+
+          uid: user.uuid || "",
+
           phone: user.mobile,
+
           orderId,
+
           paymentMethod: finalPaymentMethod,
-          type: paymentMethod,
+
+          type: paymentMethod || "Lottery Ticket",
+
           channel: finalChannel,
+
           amount: money,
+
           exchangeRate: 0,
+
           transactionId: orderId,
+
+          utr: utr || "",
+
           status: 0,
         });
 
-        // Callback URL
+        // =================================================
+        // CALLBACK URL
+        // =================================================
+
         const callbackUrl =
           process.env.GATEWAY_CALLBACK_URL ||
-          `${req.protocol}://${req.get("host")}/api/deposit/callback`;
+          `${req.protocol}://${req.get(
+            "host"
+          )}/api/deposit/callback`;
+
+        // =================================================
+        // GATEWAY URL
+        // =================================================
 
         const gatewayBaseUrl =
-          gateway.gatewayUrl || "https://mch.voterx.xyz";
+          gateway.gatewayUrl ||
+          "https://mch.voterx.xyz";
+
+        // =================================================
+        // GATEWAY PAYLOAD
+        // =================================================
 
         const payload = {
           amount: Math.round(numericAmount),
+
           order_id: orderId,
-          customer_name: user.username || user.mobile,
-          description: `Automatic deposit via ${gateway.name}`,
+
+          customer_name:
+            user.username ||
+            user.name ||
+            user.mobile,
+
+          description: lotteryEntry
+            ? `Lottery Ticket - ${lotteryEntry.number}`
+            : `Automatic deposit via ${gateway.name}`,
+
           callback_url: callbackUrl,
         };
 
         try {
-          const { data: gatewayResponse } = await axios.post(
-            `${gatewayBaseUrl}/api/create-order`,
-            payload,
-            {
-              headers: {
-                "Content-Type": "application/json",
-                "X-API-Key":
-                  gateway.apiKey ||
-                  "pi_live_22343a6ab9a88b57b0877cd7b4328d540dba19a870df1927",
-                "X-API-Secret":
-                  gateway.secretKey ||
-                  "sk_live_194873f938eec0bcd5c3d803a223decdf0ffa7a037217ef4",
-              },
-            }
-          );
+          const { data: gatewayResponse } =
+            await axios.post(
+              `${gatewayBaseUrl}/api/create-order`,
+              payload,
+              {
+                headers: {
+                  "Content-Type":
+                    "application/json",
 
-          console.log("gatewayResponse", gatewayResponse);
+                  "X-API-Key":
+                    gateway.apiKey ||
+                    process.env.VOTERX_API_KEY ||
+                    "",
+
+                  "X-API-Secret":
+                    gateway.secretKey ||
+                    process.env.VOTERX_API_SECRET ||
+                    "",
+                },
+
+                timeout: 30000,
+              }
+            );
+
+          // =================================================
+          // PAYMENT URL SUCCESS
+          // =================================================
 
           if (
-            gatewayResponse?.status === "success" &&
+            gatewayResponse?.status ===
+              "success" &&
             gatewayResponse?.data?.payment_url
           ) {
-            deposit.paymentUrl = gatewayResponse.data.payment_url;
+            deposit.paymentUrl =
+              gatewayResponse.data.payment_url;
 
-            if (gatewayResponse.data.order_id) {
-              deposit.orderId = String(gatewayResponse.data.order_id);
+            if (
+              gatewayResponse.data.order_id
+            ) {
+              deposit.orderId = String(
+                gatewayResponse.data.order_id
+              );
             }
 
             await deposit.save();
 
-            // Transaction History
+            // ===============================================
+            // TRANSACTION HISTORY
+            // ===============================================
+
             await TransactionHistory.create({
-              orderId,
-              userId: user._id,
-              uid: user.uuid,
+              orderId: deposit.orderId,
+
+              userId: String(user._id),
+
+              uid: user.uuid || "",
+
               phone: user.mobile,
-              type: "Deposit",
+
+              type: "Lottery Ticket",
+
               amount: money,
+
               status: 0,
-              remark: `Pending automatic deposit initiated via ${finalChannel}`,
+
+              remark: lotteryEntry
+                ? `Lottery ticket payment initiated for number ${lotteryEntry.number}`
+                : `Pending automatic deposit initiated via ${finalChannel}`,
             });
 
             return res.status(201).json({
               success: true,
-              message: "Automatic payment order created successfully.",
-              paymentUrl: gatewayResponse.data.payment_url,
+
+              message:
+                "Automatic payment order created successfully.",
+
+              paymentUrl:
+                gatewayResponse.data.payment_url,
+
+              depositId: deposit._id,
+
+              orderId: deposit.orderId,
+
+              configId:
+                deposit.configId,
+
+              entryId:
+                deposit.entryId,
+
+              number:
+                deposit.number,
+
               gatewayResponse,
-              deposit,
             });
           }
 
-          // Gateway returned error
+          // =================================================
+          // GATEWAY RESPONSE FAILED
+          // =================================================
+
           deposit.status = 2;
+
           await deposit.save();
 
           return res.status(400).json({
             success: false,
+
             message:
               gatewayResponse?.error ||
+              gatewayResponse?.message ||
               "Failed to create payment order on gateway",
           });
         } catch (gatewayErr) {
           deposit.status = 2;
+
           await deposit.save();
 
           console.error(
             "Gateway Create-Order Error:",
-            gatewayErr.response?.data || gatewayErr.message
+            gatewayErr.response?.data ||
+              gatewayErr.message
           );
 
           return res.status(502).json({
             success: false,
+
             message:
               "Payment gateway request failed. Please try again.",
           });
         }
       }
 
-      // =====================================================
+      // =================================================
       // MANUAL GATEWAY
-      // =====================================================
+      // =================================================
 
-      if (gateway.type === "Crypto") {
+      if (
+        String(gateway.type || "").toLowerCase() ===
+        "crypto"
+      ) {
         finalPaymentMethod = "USDT";
-        money = numericAmount * usdRet;
+
+        money =
+          numericAmount * usdRet;
       } else {
         finalPaymentMethod = "INR";
+
         money = numericAmount;
       }
     } else {
-      // =====================================================
+      // =================================================
       // OLD FRONTEND FALLBACK
-      // =====================================================
+      // =================================================
 
       if (!paymentMethod || !channel) {
         return res.status(400).json({
           success: false,
+
           message:
             "gatewayId (or paymentMethod and channel) is required",
         });
       }
 
-      finalPaymentMethod = paymentMethod;
+      finalPaymentMethod =
+        paymentMethod;
+
       finalChannel = channel;
 
       money =
@@ -237,11 +513,13 @@ const createDeposit = async (req, res) => {
           : numericAmount * usdRet;
     }
 
-    // =====================================================
-    // CREATE MANUAL DEPOSIT
-    // =====================================================
+    // ===================================================
+    // MANUAL DEPOSIT
+    // ===================================================
 
-    const orderId = `DEP${Date.now()}`;
+    const orderId = `DEP${Date.now()}${Math.floor(
+      Math.random() * 1000
+    )}`;
 
     let imageUrl = "";
 
@@ -250,49 +528,106 @@ const createDeposit = async (req, res) => {
       req.files.image &&
       req.files.image[0]
     ) {
-      imageUrl = req.files.image[0].path;
+      imageUrl =
+        req.files.image[0].path || "";
     }
 
     const deposit = await Deposit.create({
       userId: user._id,
+
       gatewayId: resolvedGatewayId,
-      uid: user.uuid,
+
+      // =============================================
+      // LOTTERY LINK
+      // =============================================
+
+      configId:
+        lotteryConfig?._id || null,
+
+      entryId:
+        lotteryEntry?._id || null,
+
+      number:
+        lotteryEntry?.number ||
+        number ||
+        null,
+
+      uid: user.uuid || "",
+
       phone: user.mobile,
-      username: user.username,
+
+      username:
+        user.username ||
+        user.name ||
+        "",
+
       orderId,
-      paymentMethod: finalPaymentMethod,
-      type: paymentMethod,
-      channel: finalChannel,
+
+      paymentMethod:
+        finalPaymentMethod,
+
+      type:
+        paymentMethod ||
+        "Lottery Ticket",
+
+      channel:
+        finalChannel,
+
       amount: money,
+
       exchangeRate:
-        finalPaymentMethod === "USDT" ? usdRet : 0,
+        finalPaymentMethod === "USDT"
+          ? usdRet
+          : 0,
+
       transactionId: orderId,
-      utr,
+
+      utr: utr || "",
+
       paymentProof: imageUrl,
+
+      status: 0,
     });
 
     await TransactionHistory.create({
       orderId,
-      userId: user._id,
-      uid: user.uuid,
+
+      userId: String(user._id),
+
+      uid: user.uuid || "",
+
       phone: user.mobile,
-      type: "Deposit",
+
+      type: "Lottery Ticket",
+
       amount: money,
-      status: deposit.status,
-      remark: `Deposit request submitted via ${finalChannel}`,
+
+      status: 0,
+
+      remark: lotteryEntry
+        ? `Lottery ticket payment submitted for number ${lotteryEntry.number}`
+        : `Deposit request submitted via ${finalChannel}`,
     });
 
     return res.status(201).json({
       success: true,
-      message: "Deposit request submitted successfully.",
+
+      message:
+        "Deposit request submitted successfully.",
+
       deposit,
     });
   } catch (error) {
-    console.error("CREATE DEPOSIT ERROR:", error);
+    console.error(
+      "CREATE DEPOSIT ERROR:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
+
       message: "Server Error",
+
       error: error.message,
     });
   }
@@ -301,20 +636,42 @@ const createDeposit = async (req, res) => {
 // =====================================================
 // ONLINE PAYMENT CALLBACK
 // =====================================================
+// PAYMENT SUCCESS => isBuy = true
+// PAYMENT FAILED  => isBuy remains false
+// =====================================================
 
 const onlinePayCallback = async (req, res) => {
   console.log(
-    "GATEWAY CALLBACK RECEIVED - Query:",
-    req.query,
-    "Body:",
+    "=========================================="
+  );
+
+  console.log(
+    "VOTERX CALLBACK RECEIVED"
+  );
+
+  console.log(
+    "QUERY:",
+    req.query
+  );
+
+  console.log(
+    "BODY:",
     req.body
   );
 
+  console.log(
+    "=========================================="
+  );
+
   try {
-    const { order_id } = req.query;
+    // ===================================================
+    // GET ORDER ID
+    // ===================================================
 
     const resolvedOrderId =
-      order_id || req.body.order_id;
+      req.query?.order_id ||
+      req.body?.order_id ||
+      req.body?.data?.order_id;
 
     if (!resolvedOrderId) {
       return res.status(400).json({
@@ -323,192 +680,397 @@ const onlinePayCallback = async (req, res) => {
       });
     }
 
-    // Find deposit
-    const deposit = await Deposit.findOne({
-      orderId: resolvedOrderId,
-    });
+    // ===================================================
+    // FIND DEPOSIT
+    // ===================================================
+
+    const deposit =
+      await Deposit.findOne({
+        orderId: String(resolvedOrderId),
+      });
 
     if (!deposit) {
+      console.error(
+        "Deposit not found:",
+        resolvedOrderId
+      );
+
       return res.status(404).json({
         success: false,
         message: "Deposit record not found",
       });
     }
 
-    // Already processed
-    if (deposit.status === 1) {
+    // ===================================================
+    // ALREADY SUCCESS
+    // ===================================================
+
+    if (Number(deposit.status) === 1) {
       return res.status(200).json({
         success: true,
-        message: "Already processed",
+        message:
+          "Payment already processed",
+        isBuy: true,
       });
     }
 
-    // Find gateway
-    const gateway = await AdminGateway.findById(
-      deposit.gatewayId
-    );
+    // ===================================================
+    // FIND GATEWAY
+    // ===================================================
+
+    const gateway =
+      await AdminGateway.findById(
+        deposit.gatewayId
+      );
 
     if (!gateway) {
       return res.status(404).json({
         success: false,
-        message: "Associated payment gateway not found",
+        message:
+          "Associated payment gateway not found",
       });
     }
 
-    const gatewayBaseUrl =
-      gateway.gatewayUrl || "https://mch.voterx.xyz";
+    // ===================================================
+    // GATEWAY URL
+    // ===================================================
 
-    // Verify payment
-    const { data: verificationData } =
-      await axios.post(
-        `${gatewayBaseUrl}/api/check-status`,
-        {
-          order_id: resolvedOrderId,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-Key":
-              gateway.apiKey ||
-              "pi_live_22343a6ab9a88b57b0877cd7b4328d540dba19a870df1927",
-            "X-API-Secret":
-              gateway.secretKey ||
-              "sk_live_194873f938eec0bcd5c3d803a223decdf0ffa7a037217ef4",
+    const gatewayBaseUrl =
+      gateway.gatewayUrl ||
+      "https://mch.voterx.xyz";
+
+    // ===================================================
+    // CHECK PAYMENT STATUS
+    // ===================================================
+
+    let verificationData;
+
+    try {
+      const response =
+        await axios.post(
+          `${gatewayBaseUrl}/api/check-status`,
+          {
+            order_id:
+              String(resolvedOrderId),
           },
-        }
+          {
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              "X-API-Key":
+                gateway.apiKey ||
+                process.env.VOTERX_API_KEY ||
+                "",
+
+              "X-API-Secret":
+                gateway.secretKey ||
+                process.env.VOTERX_API_SECRET ||
+                "",
+            },
+
+            timeout: 30000,
+          }
+        );
+
+      verificationData =
+        response.data;
+    } catch (verifyError) {
+      console.error(
+        "VOTERX STATUS API ERROR:",
+        verifyError.response?.data ||
+          verifyError.message
       );
 
-    // =====================================================
-    // PAYMENT FAILED
-    // =====================================================
+      return res.status(502).json({
+        success: false,
 
-    if (
-      verificationData.status !== "success" ||
-      verificationData.payment_status !== "success"
-    ) {
+        message:
+          "Unable to verify payment with gateway",
+      });
+    }
+
+    console.log(
+      "VOTERX VERIFICATION:",
+      verificationData
+    );
+
+    // ===================================================
+    // CHECK PAYMENT SUCCESS
+    // ===================================================
+
+    const paymentIsSuccessful =
+      verificationData?.status ===
+        "success" &&
+      verificationData?.payment_status ===
+        "success";
+
+    // ===================================================
+    // PAYMENT FAILED
+    // ===================================================
+
+    if (!paymentIsSuccessful) {
       deposit.status = 2;
 
       await deposit.save();
 
+      // -----------------------------------------------
+      // DO NOT SET isBuy TRUE
+      // -----------------------------------------------
+
       await TransactionHistory.create({
-        orderId: resolvedOrderId,
-        userId: deposit.userId,
-        uid: deposit.uid,
-        phone: deposit.phone,
-        type: "Deposit",
-        amount: deposit.amount,
+        orderId:
+          String(resolvedOrderId),
+
+        userId:
+          String(deposit.userId),
+
+        uid:
+          deposit.uid || "",
+
+        phone:
+          deposit.phone,
+
+        type: "Lottery Ticket",
+
+        amount:
+          Number(deposit.amount || 0),
+
         status: 2,
-        remark: "Automatic payment verification failed",
+
+        remark:
+          "Lottery payment verification failed. Lottery ticket is not purchased.",
       });
 
       return res.status(400).json({
         success: false,
-        message: "Payment verification failed",
+
+        message:
+          "Payment verification failed",
+
+        isBuy: false,
       });
     }
 
-    // =====================================================
+    // ===================================================
     // FIND USER
-    // =====================================================
+    // ===================================================
 
-    const user = await User.findById(
-      deposit.userId
-    );
+    const user =
+      await User.findById(
+        deposit.userId
+      );
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User associated with deposit not found",
+
+        message:
+          "User associated with deposit not found",
       });
     }
 
-    // =====================================================
-    // CREDIT WALLET
-    // =====================================================
+    // ===================================================
+    // PAYMENT AMOUNT
+    // ===================================================
 
     const creditAmount = Number(
-      verificationData.data?.amount ||
-        deposit.amount
+      verificationData?.data?.amount ||
+        deposit.amount ||
+        0
     );
 
-    user.wallet = Number(
-      (
-        Number(user.wallet || 0) +
-        creditAmount
-      ).toFixed(2)
-    );
+    // ===================================================
+    // LOTTERY CONFIG
+    // ===================================================
 
-    await user.save();
+    let lotteryUpdated = false;
 
-    // =====================================================
-    // REFERRAL BONUS - 10%
-    // =====================================================
+    if (
+      deposit.configId &&
+      deposit.entryId
+    ) {
+      try {
+        const config =
+          await LotteryConfig.findById(
+            deposit.configId
+          );
 
-    if (user.referral) {
-      const parentUser = await User.findOne({
-        refCode: user.referral,
-      });
+        if (!config) {
+          console.error(
+            "LotteryConfig not found:",
+            deposit.configId
+          );
+        } else {
+          const entry =
+            config.users.id(
+              deposit.entryId
+            );
 
-      if (parentUser) {
-        const bonusAmount = Number(
-          (creditAmount * 0.1).toFixed(2)
+          if (!entry) {
+            console.error(
+              "Lottery entry not found:",
+              deposit.entryId
+            );
+          } else {
+            // =========================================
+            // SECURITY CHECK
+            // =========================================
+
+            if (
+              String(entry.userId) !==
+              String(user._id)
+            ) {
+              console.error(
+                "Lottery entry user mismatch"
+              );
+            } else {
+              // =======================================
+              // PAYMENT SUCCESS
+              // isBuy = TRUE
+              // =======================================
+
+              entry.isBuy = true;
+
+              // Keep status pending until result declaration
+              entry.status = "pending";
+
+              await config.save();
+
+              lotteryUpdated = true;
+
+              console.log(
+                "=========================================="
+              );
+
+              console.log(
+                "LOTTERY PURCHASE SUCCESS"
+              );
+
+              console.log(
+                "User:",
+                user._id
+              );
+
+              console.log(
+                "Config:",
+                config._id
+              );
+
+              console.log(
+                "Entry:",
+                entry._id
+              );
+
+              console.log(
+                "Number:",
+                entry.number
+              );
+
+              console.log(
+                "isBuy:",
+                entry.isBuy
+              );
+
+              console.log(
+                "=========================================="
+              );
+            }
+          }
+        }
+      } catch (lotteryError) {
+        console.error(
+          "LOTTERY isBuy UPDATE ERROR:",
+          lotteryError
         );
 
-        parentUser.wallet = Number(
-          (
-            Number(parentUser.wallet || 0) +
-            bonusAmount
-          ).toFixed(2)
-        );
-
-        await parentUser.save();
-
-        await TransactionHistory.create({
-          userId: parentUser._id,
-          uid: parentuser.uuid,
-          phone: parentUser.mobile,
-          amount: bonusAmount,
-          type: "Referral Bonus",
-          status: 1,
-          remark: `10% referral bonus from deposit of ${user.username}`,
-        });
+        // Payment is already successful.
+        // Do not change deposit to failed.
       }
+    } else {
+      console.error(
+        "Lottery information missing in deposit:",
+        {
+          depositId: deposit._id,
+          configId: deposit.configId,
+          entryId: deposit.entryId,
+          number: deposit.number,
+        }
+      );
     }
 
-    // =====================================================
+    // ===================================================
     // UPDATE DEPOSIT
-    // =====================================================
+    // ===================================================
 
     deposit.status = 1;
 
     deposit.utr =
-      verificationData.data?.utr ||
-      deposit.utr;
+      verificationData?.data?.utr ||
+      deposit.utr ||
+      "";
 
     deposit.transactionId =
-      verificationData.data?.gateway_txn_id ||
-      deposit.transactionId;
+      verificationData?.data
+        ?.gateway_txn_id ||
+      deposit.transactionId ||
+      "";
 
     await deposit.save();
 
-    // =====================================================
+    // ===================================================
     // SUCCESS TRANSACTION HISTORY
-    // =====================================================
+    // ===================================================
 
     await TransactionHistory.create({
-      orderId: resolvedOrderId,
-      userId: user._id,
-      uid: user.uuid,
-      phone: user.mobile,
-      type: "Deposit",
+      orderId:
+        String(resolvedOrderId),
+
+      userId:
+        String(user._id),
+
+      uid:
+        user.uuid || "",
+
+      phone:
+        user.mobile,
+
+      type: "Lottery Ticket",
+
       amount: creditAmount,
+
       status: 1,
-      remark: `Wallet credited via automatic payment gateway: ${gateway.name}`,
+
+      remark: lotteryUpdated
+        ? `Lottery ticket purchase successful via ${gateway.name}. isBuy=true`
+        : `Payment successful via ${gateway.name}, but lottery entry could not be updated.`,
     });
+
+    // ===================================================
+    // FINAL SUCCESS RESPONSE
+    // ===================================================
 
     return res.status(200).json({
       success: true,
-      message: "Deposit successful",
+
+      message:
+        lotteryUpdated
+          ? "Payment successful. Lottery ticket purchased successfully."
+          : "Payment successful, but lottery entry update failed.",
+
+      isBuy: lotteryUpdated,
+
+      depositId:
+        deposit._id,
+
+      configId:
+        deposit.configId,
+
+      entryId:
+        deposit.entryId,
+
+      number:
+        deposit.number,
     });
   } catch (error) {
     console.error(
@@ -518,14 +1080,18 @@ const onlinePayCallback = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Callback failed",
-      error: error.message,
+
+      message:
+        "Callback failed",
+
+      error:
+        error.message,
     });
   }
 };
 
 // =====================================================
-// GET MY DEPOSIT HISTORY
+// GET MY DEPOSITS
 // =====================================================
 
 const getMyDeposits = async (req, res) => {
@@ -552,24 +1118,19 @@ const getMyDeposits = async (req, res) => {
       userId: req.user.id,
     };
 
-    console.log("query", query);
-
-    // Status
-    if (status) {
-      query.status = status;
+    if (status !== undefined) {
+      query.status = Number(status);
     }
 
-    // Payment Method
     if (paymentMethod) {
-      query.paymentMethod = paymentMethod;
+      query.paymentMethod =
+        paymentMethod;
     }
 
-    // Channel
     if (channel) {
       query.channel = channel;
     }
 
-    // Phone
     if (phone) {
       query.phone = {
         $regex: phone,
@@ -577,7 +1138,6 @@ const getMyDeposits = async (req, res) => {
       };
     }
 
-    // Username
     if (username) {
       query.username = {
         $regex: username,
@@ -585,7 +1145,6 @@ const getMyDeposits = async (req, res) => {
       };
     }
 
-    // Order ID
     if (orderId) {
       query.orderId = {
         $regex: orderId,
@@ -593,7 +1152,6 @@ const getMyDeposits = async (req, res) => {
       };
     }
 
-    // Transaction ID
     if (transactionId) {
       query.transactionId = {
         $regex: transactionId,
@@ -601,7 +1159,6 @@ const getMyDeposits = async (req, res) => {
       };
     }
 
-    // UTR
     if (utr) {
       query.utr = {
         $regex: utr,
@@ -609,29 +1166,31 @@ const getMyDeposits = async (req, res) => {
       };
     }
 
-    // Amount
     if (minAmount || maxAmount) {
       query.amount = {};
 
       if (minAmount) {
-        query.amount.$gte = Number(minAmount);
+        query.amount.$gte =
+          Number(minAmount);
       }
 
       if (maxAmount) {
-        query.amount.$lte = Number(maxAmount);
+        query.amount.$lte =
+          Number(maxAmount);
       }
     }
 
-    // Date
     if (fromDate || toDate) {
       query.createdAt = {};
 
       if (fromDate) {
-        query.createdAt.$gte = new Date(fromDate);
+        query.createdAt.$gte =
+          new Date(fromDate);
       }
 
       if (toDate) {
-        const endDate = new Date(toDate);
+        const endDate =
+          new Date(toDate);
 
         endDate.setHours(
           23,
@@ -640,12 +1199,21 @@ const getMyDeposits = async (req, res) => {
           999
         );
 
-        query.createdAt.$lte = endDate;
+        query.createdAt.$lte =
+          endDate;
       }
     }
 
+    const pageNumber =
+      Math.max(Number(page) || 1, 1);
+
+    const limitNumber =
+      Math.max(Number(limit) || 10, 1);
+
     const total =
-      await Deposit.countDocuments(query);
+      await Deposit.countDocuments(
+        query
+      );
 
     const deposits =
       await Deposit.find(query)
@@ -654,18 +1222,24 @@ const getMyDeposits = async (req, res) => {
             sort === "asc" ? 1 : -1,
         })
         .skip(
-          (Number(page) - 1) *
-            Number(limit)
+          (pageNumber - 1) *
+            limitNumber
         )
-        .limit(Number(limit));
+        .limit(limitNumber);
 
     return res.status(200).json({
       success: true,
+
       total,
-      currentPage: Number(page),
-      totalPages: Math.ceil(
-        total / Number(limit)
-      ),
+
+      currentPage:
+        pageNumber,
+
+      totalPages:
+        Math.ceil(
+          total / limitNumber
+        ),
+
       deposits,
     });
   } catch (error) {
@@ -676,8 +1250,11 @@ const getMyDeposits = async (req, res) => {
 
     return res.status(500).json({
       success: false,
+
       message: "Server Error",
-      error: error.message,
+
+      error:
+        error.message,
     });
   }
 };
@@ -693,7 +1270,8 @@ const getMyTurnoverHistory = async (
   try {
     const userId = req.user.id;
 
-    const user = await User.findById(userId);
+    const user =
+      await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({
@@ -702,31 +1280,19 @@ const getMyTurnoverHistory = async (
       });
     }
 
-    // =====================================================
-    // DOWNLINE COUNT
-    // =====================================================
-
     const downlineCount =
       await User.countDocuments({
         referral: user.refCode,
       });
 
-    // =====================================================
-    // REFERRAL COMMISSIONS
-    // =====================================================
-
     const commissions =
       await TransactionHistory.find({
-        userId: userId.toString(),
+        userId: String(userId),
         type: "Referral Bonus",
         status: 1,
       }).sort({
         createdAt: -1,
       });
-
-    // =====================================================
-    // FORMAT COMMISSIONS
-    // =====================================================
 
     const formattedCommissions =
       commissions.map((c) => {
@@ -741,16 +1307,21 @@ const getMyTurnoverHistory = async (
             ? match[1]
             : "Referred User";
 
-        // Commission is 10%
         const rechargeAmount =
           Number(
-            (c.amount * 10).toFixed(2)
+            (Number(c.amount || 0) * 10).toFixed(
+              2
+            )
           );
 
         return {
           id: c._id,
-          amount: c.amount,
+
+          amount:
+            Number(c.amount || 0),
+
           rechargeAmount,
+
           referredUsername,
 
           date: c.createdAt
@@ -766,13 +1337,10 @@ const getMyTurnoverHistory = async (
               )
             : "-",
 
-          createdAt: c.createdAt,
+          createdAt:
+            c.createdAt,
         };
       });
-
-    // =====================================================
-    // DATE CALCULATIONS
-    // =====================================================
 
     const now = new Date();
 
@@ -790,53 +1358,46 @@ const getMyTurnoverHistory = async (
       now.getDate() - 30
     );
 
-    // =====================================================
-    // COMMISSION STATS
-    // =====================================================
-
     let weeklyCommission = 0;
     let monthlyCommission = 0;
     let totalCommission = 0;
 
     formattedCommissions.forEach(
       (c) => {
-        totalCommission += Number(
-          c.amount || 0
-        );
+        const amount =
+          Number(c.amount || 0);
 
-        const cDate = new Date(
-          c.createdAt
-        );
+        totalCommission += amount;
+
+        const cDate =
+          new Date(c.createdAt);
 
         if (cDate >= oneWeekAgo) {
-          weeklyCommission += Number(
-            c.amount || 0
-          );
+          weeklyCommission +=
+            amount;
         }
 
         if (cDate >= oneMonthAgo) {
-          monthlyCommission += Number(
-            c.amount || 0
-          );
+          monthlyCommission +=
+            amount;
         }
       }
     );
 
-    totalCommission = Number(
-      totalCommission.toFixed(2)
-    );
+    totalCommission =
+      Number(
+        totalCommission.toFixed(2)
+      );
 
-    weeklyCommission = Number(
-      weeklyCommission.toFixed(2)
-    );
+    weeklyCommission =
+      Number(
+        weeklyCommission.toFixed(2)
+      );
 
-    monthlyCommission = Number(
-      monthlyCommission.toFixed(2)
-    );
-
-    // =====================================================
-    // TURNOVER
-    // =====================================================
+    monthlyCommission =
+      Number(
+        monthlyCommission.toFixed(2)
+      );
 
     const totalTurnover =
       Number(
@@ -859,10 +1420,6 @@ const getMyTurnoverHistory = async (
         ).toFixed(2)
       );
 
-    // =====================================================
-    // RESPONSE
-    // =====================================================
-
     return res.status(200).json({
       success: true,
 
@@ -872,7 +1429,6 @@ const getMyTurnoverHistory = async (
         totalCommission,
         weeklyCommission,
         monthlyCommission,
-
         totalTurnover,
         weeklyTurnover,
         monthlyTurnover,
@@ -889,14 +1445,17 @@ const getMyTurnoverHistory = async (
 
     return res.status(500).json({
       success: false,
+
       message: "Server Error",
-      error: error.message,
+
+      error:
+        error.message,
     });
   }
 };
 
 // =====================================================
-// COMMONJS EXPORT
+// EXPORTS
 // =====================================================
 
 module.exports = {

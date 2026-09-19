@@ -12,6 +12,7 @@ import lotteryResultReducer from "./slice/lotteryResultReducer";
 
 import adminLotteryReducer from './slice/adminLotteryReducer';
 import depositReducer from './slice/depositSlice'
+import gatewayReducer from './slice/gatewaySlice'
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -22,7 +23,9 @@ export const store = configureStore({
     adminLottery: adminLotteryReducer,
 
     createLotteryConfig: createLotteryConfigReducer,
-            deposit: depositReducer,
+    deposit: depositReducer,
+    gateway: gatewayReducer,
+
 
   },
 });
