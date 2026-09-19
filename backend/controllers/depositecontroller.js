@@ -25,6 +25,35 @@ const getGatewayHeaders = (gateway) => {
 };
 
 // =====================================================
+// HELPER: FRONTEND PAYMENT REDIRECT
+// =====================================================
+
+const getFrontendUrl = () => {
+  return (
+    process.env.FRONTEND_URL ||
+    process.env.CLIENT_URL ||
+    "https://lotterry.marinclub.site"
+  ).replace(/\/$/, "");
+};
+
+const redirectPaymentPage = (
+  res,
+  page,
+  { orderId = "", amount = "", number = "", status = "" } = {}
+) => {
+  const params = new URLSearchParams();
+
+  if (orderId !== "") params.set("order_id", String(orderId));
+  if (amount !== "") params.set("amount", String(amount));
+  if (number !== "") params.set("number", String(number));
+  if (status !== "") params.set("status", String(status));
+
+  return res.redirect(
+    `${getFrontendUrl()}/${page}?${params.toString()}`
+  );
+};
+
+// =====================================================
 // CREATE DEPOSIT REQUEST
 // =====================================================
 
@@ -111,10 +140,6 @@ const createDeposit = async (req, res) => {
         });
       }
 
-      // =====================================================
-      // GATEWAY STATUS
-      // =====================================================
-
       if (gateway.status !== 1) {
         return res.status(400).json({
           success: false,
@@ -123,17 +148,10 @@ const createDeposit = async (req, res) => {
         });
       }
 
-      // =====================================================
-      // LIMIT
-      // =====================================================
-
       const minLimit = Number(gateway.minLimit || 0);
       const maxLimit = Number(gateway.maxLimit || Number.MAX_SAFE_INTEGER);
 
-      if (
-        numericAmount < minLimit ||
-        numericAmount > maxLimit
-      ) {
+      if (numericAmount < minLimit || numericAmount > maxLimit) {
         return res.status(400).json({
           success: false,
           message: `Deposit amount must be between ${minLimit} and ${maxLimit} for this gateway.`,
@@ -152,10 +170,6 @@ const createDeposit = async (req, res) => {
         money = numericAmount;
 
         const orderId = `DEP${Date.now()}`;
-
-        // =====================================================
-        // CREATE PENDING DEPOSIT
-        // =====================================================
 
         const deposit = await Deposit.create({
           userId: user._id,
@@ -185,24 +199,12 @@ const createDeposit = async (req, res) => {
           number: number || null,
         });
 
-        // =====================================================
-        // CALLBACK URL
-        // =====================================================
-
         const callbackUrl =
           process.env.GATEWAY_CALLBACK_URL ||
           `${req.protocol}://${req.get("host")}/api/deposit/callback`;
 
-        // =====================================================
-        // GATEWAY URL
-        // =====================================================
-
         const gatewayBaseUrl =
           gateway.gatewayUrl || "https://mch.voterx.xyz";
-
-        // =====================================================
-        // CREATE ORDER PAYLOAD
-        // =====================================================
 
         const payload = {
           amount: Math.round(numericAmount),
@@ -216,6 +218,9 @@ const createDeposit = async (req, res) => {
           description: `Automatic deposit via ${gateway.name}`,
 
           callback_url: callbackUrl,
+
+          // Browser return URL (used only if the gateway supports it).
+          return_url: `${getFrontendUrl()}/payment-success`,
         };
 
         console.log("====================================");
@@ -248,14 +253,10 @@ const createDeposit = async (req, res) => {
             gatewayResponse?.status === "success" &&
             gatewayResponse?.data?.payment_url
           ) {
-            deposit.paymentUrl =
-              gatewayResponse.data.payment_url;
+            deposit.paymentUrl = gatewayResponse.data.payment_url;
 
-            // Gateway may return different order_id
             if (gatewayResponse.data.order_id) {
-              deposit.orderId = String(
-                gatewayResponse.data.order_id
-              );
+              deposit.orderId = String(gatewayResponse.data.order_id);
             }
 
             await deposit.save();
@@ -286,8 +287,7 @@ const createDeposit = async (req, res) => {
               message:
                 "Automatic payment order created successfully.",
 
-              paymentUrl:
-                gatewayResponse.data.payment_url,
+              paymentUrl: gatewayResponse.data.payment_url,
 
               orderId: deposit.orderId,
 
@@ -320,8 +320,7 @@ const createDeposit = async (req, res) => {
 
           console.error(
             "Gateway Create-Order Error:",
-            gatewayErr.response?.data ||
-              gatewayErr.message
+            gatewayErr.response?.data || gatewayErr.message
           );
 
           return res.status(502).json({
@@ -331,8 +330,7 @@ const createDeposit = async (req, res) => {
               "Payment gateway request failed. Please try again.",
 
             error:
-              gatewayErr.response?.data ||
-              gatewayErr.message,
+              gatewayErr.response?.data || gatewayErr.message,
           });
         }
       }
@@ -378,11 +376,7 @@ const createDeposit = async (req, res) => {
 
     let imageUrl = "";
 
-    if (
-      req.files &&
-      req.files.image &&
-      req.files.image[0]
-    ) {
+    if (req.files && req.files.image && req.files.image[0]) {
       imageUrl = req.files.image[0].path;
     }
 
@@ -406,9 +400,7 @@ const createDeposit = async (req, res) => {
       amount: money,
 
       exchangeRate:
-        finalPaymentMethod === "USDT"
-          ? usdRet
-          : 0,
+        finalPaymentMethod === "USDT" ? usdRet : 0,
 
       transactionId: orderId,
 
@@ -440,23 +432,18 @@ const createDeposit = async (req, res) => {
 
       status: 0,
 
-      remark:
-        `Deposit request submitted via ${finalChannel}`,
+      remark: `Deposit request submitted via ${finalChannel}`,
     });
 
     return res.status(201).json({
       success: true,
 
-      message:
-        "Deposit request submitted successfully.",
+      message: "Deposit request submitted successfully.",
 
       deposit,
     });
   } catch (error) {
-    console.error(
-      "CREATE DEPOSIT ERROR:",
-      error
-    );
+    console.error("CREATE DEPOSIT ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -520,10 +507,11 @@ const onlinePayCallback = async (req, res) => {
     // =====================================================
 
     if (Number(deposit.status) === 1) {
-      return res.status(200).json({
-        success: true,
-        message: "Already processed",
-        order_id: deposit.orderId,
+      return redirectPaymentPage(res, "payment-success", {
+        orderId: deposit.orderId,
+        amount: deposit.amount,
+        number: deposit.number || "",
+        status: "success",
       });
     }
 
@@ -590,17 +578,14 @@ const onlinePayCallback = async (req, res) => {
       console.error(
         "PAYMENT VERIFY API ERROR:",
         verifyError.response?.data ||
-          verifyError.message
+        verifyError.message
       );
 
-      return res.status(502).json({
-        success: false,
-        message:
-          "Unable to verify payment with gateway.",
-
-        error:
-          verifyError.response?.data ||
-          verifyError.message,
+      return redirectPaymentPage(res, "payment-failed", {
+        orderId: resolvedOrderId,
+        amount: deposit.amount,
+        number: deposit.number || "",
+        status: "failed",
       });
     }
 
@@ -633,7 +618,7 @@ const onlinePayCallback = async (req, res) => {
     if (
       gatewayOrderId &&
       String(gatewayOrderId) !==
-        String(resolvedOrderId)
+      String(resolvedOrderId)
     ) {
       console.error(
         "ORDER ID MISMATCH",
@@ -663,15 +648,11 @@ const onlinePayCallback = async (req, res) => {
           `Payment verification failed: Order ID mismatch. Expected ${resolvedOrderId}, received ${gatewayOrderId}`,
       });
 
-      return res.status(400).json({
-        success: false,
-
-        message:
-          "Payment verification failed: Order ID mismatch.",
-
-        expectedOrderId: resolvedOrderId,
-
-        receivedOrderId: gatewayOrderId,
+      return redirectPaymentPage(res, "payment-failed", {
+        orderId: resolvedOrderId,
+        amount: deposit.amount,
+        number: deposit.number || "",
+        status: "failed",
       });
     }
 
@@ -708,13 +689,11 @@ const onlinePayCallback = async (req, res) => {
           "Automatic payment verification failed",
       });
 
-      return res.status(400).json({
-        success: false,
-
-        message:
-          "Payment verification failed.",
-
-        gatewayResponse: verificationData,
+      return redirectPaymentPage(res, "payment-failed", {
+        orderId: resolvedOrderId,
+        amount: deposit.amount,
+        number: deposit.number || "",
+        status: "failed",
       });
     }
 
@@ -744,13 +723,11 @@ const onlinePayCallback = async (req, res) => {
       !Number.isFinite(creditAmount) ||
       creditAmount <= 0
     ) {
-      return res.status(400).json({
-        success: false,
-
-        message:
-          "Invalid payment amount received from gateway.",
-
-        gatewayResponse: verificationData,
+      return redirectPaymentPage(res, "payment-failed", {
+        orderId: resolvedOrderId,
+        amount: deposit.amount,
+        number: deposit.number || "",
+        status: "failed",
       });
     }
 
@@ -1005,9 +982,11 @@ const onlinePayCallback = async (req, res) => {
       String(deposit.number).trim() !== ""
     ) {
       try {
+
         await addUserLotteryEntry(
           deposit.number,
-          creditAmount
+          creditAmount,
+          user._id
         );
 
         console.log(
@@ -1065,8 +1044,7 @@ const onlinePayCallback = async (req, res) => {
       status: 1,
 
       remark:
-        `Lottery ticket purchase successful via ${gateway.name}. UTR: ${
-          gatewayUtr || "N/A"
+        `Lottery ticket purchase successful via ${gateway.name}. UTR: ${gatewayUtr || "N/A"
         }. isBuy set to true. No wallet credit.`,
     });
 
@@ -1074,27 +1052,11 @@ const onlinePayCallback = async (req, res) => {
     // SUCCESS RESPONSE
     // =====================================================
 
-    return res.status(200).json({
-      success: true,
-
-      message:
-        "Payment verified successfully. Lottery entry marked as bought.",
-
-      order_id: resolvedOrderId,
-
-      utr: gatewayUtr,
-
+    return redirectPaymentPage(res, "payment-success", {
+      orderId: resolvedOrderId,
       amount: creditAmount,
-
-      depositId: claimed._id,
-
-      isBuyUpdated:
-        !!(
-          deposit.configId &&
-          deposit.entryId
-        ),
-
-      walletCredited: false,
+      number: deposit.number || "",
+      status: "success",
     });
   } catch (error) {
     console.error(
@@ -1110,11 +1072,21 @@ const onlinePayCallback = async (req, res) => {
       "===================================="
     );
 
+    const failedOrderId =
+      req.query?.order_id ||
+      req.body?.order_id ||
+      "";
+
+    if (failedOrderId) {
+      return redirectPaymentPage(res, "payment-failed", {
+        orderId: failedOrderId,
+        status: "failed",
+      });
+    }
+
     return res.status(500).json({
       success: false,
-
       message: "Callback failed",
-
       error: error.message,
     });
   }
@@ -1334,7 +1306,7 @@ const getMyDeposits = async (req, res) => {
 
     const sortDirection =
       String(sort).toLowerCase() ===
-      "asc"
+        "asc"
         ? 1
         : -1;
 
@@ -1345,7 +1317,7 @@ const getMyDeposits = async (req, res) => {
         })
         .skip(
           (currentPage - 1) *
-            perPage
+          perPage
         )
         .limit(perPage);
 
@@ -1445,8 +1417,8 @@ const getMyTurnoverHistory = async (
       commissions.map((c) => {
         const match = c.remark
           ? c.remark.match(
-              /from deposit of (.+)/
-            )
+            /from deposit of (.+)/
+          )
           : null;
 
         const referredUsername =
@@ -1473,15 +1445,15 @@ const getMyTurnoverHistory = async (
 
           date: c.createdAt
             ? new Date(
-                c.createdAt
-              ).toLocaleDateString(
-                "en-GB",
-                {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                }
-              )
+              c.createdAt
+            ).toLocaleDateString(
+              "en-GB",
+              {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              }
+            )
             : "-",
 
           createdAt: c.createdAt,

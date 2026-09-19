@@ -13,6 +13,11 @@ import {
   getMyLotteryEntries,
 } from "../reducer/slice/createLotteryConfigSlice";
 
+const MONTH_NAMES_HI = [
+  "जनवरी", "फरवरी", "मार्च", "अप्रैल", "मई", "जून",
+  "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर",
+];
+
 const MyTickets = () => {
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState("all");
@@ -35,12 +40,15 @@ const MyTickets = () => {
 
   const marketName = useMemo(() => {
     const configMarketName =
-      activeConfig?.marketName || myEntries?.[0]?.marketName || "Market";
+      activeConfig?.marketName ||
+      myEntries?.[0]?.marketName ||
+      myEntries?.[0]?.entry?.marketName ||
+      "Market";
 
     return String(configMarketName)
       .trim()
-      .replace(/\\s+/g, " ")
-      .replace(/\\b\\w/g, (char) => char.toUpperCase());
+      .replace(/\s+/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
   }, [activeConfig, myEntries]);
 
   const formatDate = (value) => {
@@ -79,6 +87,19 @@ const MyTickets = () => {
     })}`;
   };
 
+  const formatDrawDate = (item) => {
+    const d = item?.date;
+    const m = item?.month;
+    const y = item?.year;
+
+    if (d && m && y) {
+      const monthName = MONTH_NAMES_HI[Number(m) - 1] || "";
+      return { day: String(d), month: monthName, year: String(y) };
+    }
+
+    return { day: "—", month: "", year: "" };
+  };
+
   const normalizeStatus = (status) => {
     const value = String(status || "")
       .toLowerCase()
@@ -98,13 +119,25 @@ const MyTickets = () => {
   const tickets = useMemo(() => {
     const entries = Array.isArray(myEntries) ? myEntries : [];
 
-    return entries.map((entry, index) => {
+    return entries.map((item, index) => {
+      // API returns nested `entry` object
+      const entry = item?.entry || item;
+
       const number = String(entry?.number ?? "").padStart(6, "0");
       const status = normalizeStatus(entry?.status);
       const dateValue = entry?.entryDate || entry?.createdAt;
 
+      // API uses entryId at top level; entry._id as fallback
+      const id = item?.entryId || entry?._id || entry?.id || `ticket-${index}`;
+
+      // Draw date from API
+      const drawDate = formatDrawDate(item);
+
+      // Prizes from API (item.prizes), fallback to entry.prize
+      const prizes = item?.prizes || entry?.prize || {};
+
       return {
-        id: entry?._id || entry?.id || `ticket-${index}`,
+        id,
         number: number.slice(0, 6).split(""),
         status,
         statusText:
@@ -113,7 +146,7 @@ const MyTickets = () => {
             : status === "lost"
               ? "हार गया"
               : "पेंडिंग",
-        drawDate: "11 अक्टूबर 2026",
+        drawDate,
         price: formatAmount(entry?.amount),
         purchaseDate: formatDate(dateValue),
         purchaseTime: formatTime(entry?.createdAt || dateValue),
@@ -123,6 +156,11 @@ const MyTickets = () => {
             : status === "lost"
               ? "अगली बार किस्मत आजमाएं"
               : "भाग्य का नया अवसर",
+        prizes: {
+          first: Number(prizes?.first) || 0,
+          second: Number(prizes?.second) || 0,
+          third: Number(prizes?.third) || 0,
+        },
       };
     });
   }, [myEntries]);
@@ -314,17 +352,17 @@ const LotteryTicket = ({ ticket, copyId, marketName }) => {
         <div className="grid grid-cols-3 gap-[4px] mt-[11px]">
           <MiniPrize
             title="प्रथम पुरस्कार"
-            amount="₹5 करोड़"
+            amount={formatPrize(ticket.prizes.first)}
             subtitle="(6 अंक मिलने पर)"
           />
           <MiniPrize
             title="द्वितीय पुरस्कार"
-            amount="₹3 करोड़"
+            amount={formatPrize(ticket.prizes.second)}
             subtitle="(5 अंक मिलने पर)"
           />
           <MiniPrize
             title="तृतीय पुरस्कार"
-            amount="₹2 करोड़"
+            amount={formatPrize(ticket.prizes.third)}
             subtitle="(4 अंक मिलने पर)"
           />
         </div>
@@ -355,7 +393,9 @@ const LotteryTicket = ({ ticket, copyId, marketName }) => {
           label="ड्रॉ दिनांक"
           value={
             <>
-              <span>11</span> <span>अक्टूबर</span> <span>2026</span>
+              <span>{ticket.drawDate.day}</span>{" "}
+              <span>{ticket.drawDate.month}</span>{" "}
+              <span>{ticket.drawDate.year}</span>
             </>
           }
         />
@@ -393,6 +433,14 @@ const LotteryTicket = ({ ticket, copyId, marketName }) => {
       <TicketNotches />
     </div>
   );
+};
+
+const formatPrize = (value) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return "₹0";
+  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2).replace(/\.00$/, "")} करोड़`;
+  if (amount >= 100000) return `₹${(amount / 100000).toFixed(2).replace(/\.00$/, "")} लाख`;
+  return `₹${amount.toLocaleString("en-IN")}`;
 };
 
 const SideInfo = ({ label, value, valueClass = "" }) => (
@@ -433,39 +481,16 @@ const TicketNotches = () => {
 
   return (
     <>
-      {/* LEFT CUTOUTS */}
       {positions.map((position, index) => (
         <span
           key={`left-notch-${index}`}
-          className={`
-            absolute
-            left-[-7px]
-            ${position}
-            w-[14px]
-            h-[14px]
-            rounded-full
-            bg-[#030404]
-            z-[50]
-            pointer-events-none
-          `}
+          className={`absolute left-[-7px] ${position} w-[14px] h-[14px] rounded-full bg-[#030404] z-[50] pointer-events-none`}
         />
       ))}
-
-      {/* RIGHT CUTOUTS */}
       {positions.map((position, index) => (
         <span
           key={`right-notch-${index}`}
-          className={`
-            absolute
-            right-[-7px]
-            ${position}
-            w-[14px]
-            h-[14px]
-            rounded-full
-            bg-[#030404]
-            z-[50]
-            pointer-events-none
-          `}
+          className={`absolute right-[-7px] ${position} w-[14px] h-[14px] rounded-full bg-[#030404] z-[50] pointer-events-none`}
         />
       ))}
     </>

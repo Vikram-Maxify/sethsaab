@@ -367,7 +367,7 @@ const addUserLotteryEntry = async (req, res) => {
       entryDate: dateString,
       number: numberValidation.number,
       amount: amountValidation.amount,
-      isBuy: false,
+      isBuy: true,
       prize: { first: 0, second: 0, third: 0 },
       prizeType: null,
       status: "pending",

@@ -23,6 +23,7 @@ import Results from "./admin/adminPages/Results";
 import Users from "./admin/adminPages/Users";
 import LotteryConfig from "./admin/adminPages/LotteryConfig";
 import AdminLottery from "./admin/adminPages/AdminLottery";
+import PaymentSuccess from "./Pages/PaymentSuccess";
 
 function App() {
   return (
@@ -46,6 +47,10 @@ function App() {
           <Route path="/buy-ticket" element={<BuyTicket />} />
 
           <Route path="/my-tickets" element={<MyTickets />} />
+          <Route
+            path="/payment-success"
+            element={<PaymentSuccess />}
+          />
         </Route>
       </Route>
 
