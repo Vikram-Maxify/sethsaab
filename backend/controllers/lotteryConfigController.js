@@ -943,7 +943,7 @@ const addUserLotteryEntry = async (req, res) => {
 
 const getMyLotteryEntries = async (req, res) => {
   try {
-    const userId = getUserId(req);
+    const userId = getUserId(req); // token se aata hai (ObjectId string ya uuid)
 
     if (!userId) {
       return res.status(401).json({
@@ -952,9 +952,35 @@ const getMyLotteryEntries = async (req, res) => {
       });
     }
 
-    // userId token me ObjectId string ya uuid — dono handle karo
+    // ---- STEP 1: User ko dono tarike se dhoondo (_id ya uuid) ----
+    const isObjectId = /^[a-f\d]{24}$/i.test(String(userId));
+
+    const user = await User.findOne({
+      $or: [
+        ...(isObjectId ? [{ _id: userId }] : []),
+        { uuid: String(userId) },
+      ],
+    }).lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // ---- STEP 2: User ke saare possible identifiers banao ----
+    // Ticket DB me _id se ho ya uuid se — dono match karne chahiye
+    const identifiers = [
+      String(user._id),
+      ...(user.uuid ? [String(user.uuid)] : []),
+      String(userId), // token wala bhi include karo safety ke liye
+    ];
+    const uniqueIdentifiers = [...new Set(identifiers)];
+
+    // ---- STEP 3: Saare lottery configs laao jisme in identifiers me se koi bhi ho ----
     const configs = await LotteryConfig.find({
-      "users.userId": String(userId),
+      "users.userId": { $in: uniqueIdentifiers },
     })
       .sort({ drawDate: -1 })
       .lean();
@@ -964,9 +990,11 @@ const getMyLotteryEntries = async (req, res) => {
     configs.forEach((config) => {
       if (!Array.isArray(config.users)) return;
 
-      // ek user ke saare tickets nikaalo (multi-ticket support)
+      // Har ticket jo is user ka hai (chahe _id se match ho ya uuid se)
       config.users
-        .filter((entry) => String(entry.userId) === String(userId))
+        .filter((entry) =>
+          uniqueIdentifiers.includes(String(entry.userId))
+        )
         .forEach((entry) => {
           entries.push({
             lotteryId: config._id,
@@ -997,45 +1025,25 @@ const getMyLotteryEntries = async (req, res) => {
               createdAt: entry.createdAt,
               updatedAt: entry.updatedAt,
             },
+
+            // ---- User ka full data (password hata ke) ----
+            user: {
+              _id: user._id,
+              uuid: user.uuid,
+              name: user.name,
+              mobile: user.mobile,
+              role: user.role,
+              wallet: user.wallet,
+              createdAt: user.createdAt,
+              updatedAt: user.updatedAt,
+            },
           });
         });
     });
 
-    // ---- Full user data fetch (ek hi baar) ----
-    const userIds = [...new Set(entries.map((e) => String(e.entry.userId)))];
-
-    const users = await User.find({
-      $or: [
-        { _id: { $in: userIds.filter((id) => /^[a-f\d]{24}$/i.test(id)) } },
-        { uuid: { $in: userIds } },
-      ],
-    }).lean();
-
-    const userMap = new Map();
-    users.forEach((u) => {
-      userMap.set(String(u._id), u);
-      if (u.uuid) userMap.set(String(u.uuid), u);
-    });
-
-    // Har ticket ke saath user data attach karo (multi-ticket me bhi same user repeat hoga)
-    entries.forEach((e) => {
-      const u = userMap.get(String(e.entry.userId)) || null;
-      e.user = u
-        ? {
-          _id: u._id,
-          uuid: u.uuid,
-          name: u.name,
-          mobile: u.mobile,
-          role: u.role,
-          wallet: u.wallet,
-          createdAt: u.createdAt,
-          updatedAt: u.updatedAt,
-        }
-        : null;
-    });
-    // ---- END ----
-
-    entries.sort((a, b) => new Date(b.drawDate) - new Date(a.drawDate));
+    entries.sort(
+      (a, b) => new Date(b.drawDate) - new Date(a.drawDate)
+    );
 
     return res.status(200).json({
       success: true,
