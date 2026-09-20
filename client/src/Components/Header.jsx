@@ -4,10 +4,26 @@ const Header = () => {
   return (
     <>
       {/* Fixed Navbar */}
-      <header className="fixed top-0 left-0 right-0 z-[9999] w-full bg-[#0a0a0a]/95 backdrop-blur-md border-b border-[#2a2a2a]">
+      <header
+        className="
+    fixed
+    top-0
+    left-1/2
+    -translate-x-1/2
+    z-[9999]
+    w-[490px]
+    max-w-full
+    bg-[#0a0a0a]/95
+    backdrop-blur-md
+    border-b
+    border-[#2a2a2a]
+  "
+      >
         <div className="flex items-center justify-between px-5 pt-5 pb-4">
+
           {/* ================= LEFT: LOGO ================= */}
           <div className="flex items-center gap-2.5">
+
             {/* Crown */}
             <div className="relative">
               <svg
@@ -18,7 +34,13 @@ const Header = () => {
                 className="drop-shadow-[0_0_8px_rgba(245,197,66,0.5)]"
               >
                 <defs>
-                  <linearGradient id="crownGrad" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient
+                    id="crownGrad"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
                     <stop offset="0%" stopColor="#FFE47A" />
                     <stop offset="50%" stopColor="#f5c542" />
                     <stop offset="100%" stopColor="#d4a017" />
@@ -33,9 +55,26 @@ const Header = () => {
                   strokeLinejoin="round"
                 />
 
-                <circle cx="2" cy="8" r="2.5" fill="url(#crownGrad)" />
-                <circle cx="19" cy="3" r="2.5" fill="url(#crownGrad)" />
-                <circle cx="36" cy="8" r="2.5" fill="url(#crownGrad)" />
+                <circle
+                  cx="2"
+                  cy="8"
+                  r="2.5"
+                  fill="url(#crownGrad)"
+                />
+
+                <circle
+                  cx="19"
+                  cy="3"
+                  r="2.5"
+                  fill="url(#crownGrad)"
+                />
+
+                <circle
+                  cx="36"
+                  cy="8"
+                  r="2.5"
+                  fill="url(#crownGrad)"
+                />
 
                 <rect
                   x="5"
@@ -57,7 +96,8 @@ const Header = () => {
                     "linear-gradient(180deg, #FFE47A 0%, #f5c542 50%, #d4a017 100%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
-                  WebkitTextStroke: "0.3px rgba(212,160,23,0.3)",
+                  WebkitTextStroke:
+                    "0.3px rgba(212,160,23,0.3)",
                 }}
               >
                 SET THE LIFE
