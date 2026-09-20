@@ -12,12 +12,15 @@ const lotteryUserEntrySchema = new mongoose.Schema(
       index: true,
     },
 
+    // Date on which user purchased the ticket
+    // YYYY-MM-DD
     entryDate: {
       type: String,
       required: true,
       match: /^\d{4}-\d{2}-\d{2}$/,
     },
 
+    // 6 digit lottery number
     number: {
       type: String,
       required: true,
@@ -37,9 +40,23 @@ const lotteryUserEntrySchema = new mongoose.Schema(
     },
 
     prize: {
-      first: { type: Number, default: 0, min: 0 },
-      second: { type: Number, default: 0, min: 0 },
-      third: { type: Number, default: 0, min: 0 },
+      first: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      second: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      third: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
     },
 
     prizeType: {
@@ -65,42 +82,76 @@ const lotteryUserEntrySchema = new mongoose.Schema(
 
 const lotteryConfigSchema = new mongoose.Schema(
   {
+    // ================================================
+    // MARKET NAME
+    // ================================================
+
     marketName: {
       type: String,
       required: true,
       trim: true,
     },
 
-    date: {
-      type: Number,
+    // ================================================
+    // EXACT DRAW DATE
+    // Example:
+    // 2026-09-20
+    // ================================================
+
+    drawDate: {
+      type: Date,
       required: true,
-      min: 1,
-      max: 31,
+      index: true,
     },
 
-    month: {
-      type: Number,
+    // ================================================
+    // DRAW TIME
+    // HH:mm
+    // Example: 18:30
+    // ================================================
+
+    drawTime: {
+      type: String,
       required: true,
-      min: 1,
-      max: 12,
+      match: /^([01]\d|2[0-3]):([0-5]\d)$/,
     },
 
-    year: {
-      type: Number,
-      required: true,
-      min: 2000,
-    },
+    // ================================================
+    // PRIZES
+    // ================================================
 
     prizes: {
-      first: { type: Number, required: true, min: 0 },
-      second: { type: Number, required: true, min: 0 },
-      third: { type: Number, required: true, min: 0 },
+      first: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+
+      second: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+
+      third: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
     },
+
+    // ================================================
+    // USER ENTRIES
+    // ================================================
 
     users: {
       type: [lotteryUserEntrySchema],
       default: [],
     },
+
+    // ================================================
+    // ACTIVE STATUS
+    // ================================================
 
     isActive: {
       type: Boolean,
@@ -114,18 +165,29 @@ const lotteryConfigSchema = new mongoose.Schema(
 );
 
 // =====================================================
-// UNIQUE MARKET + DATE
+// UNIQUE MARKET + DRAW DATE
+// =====================================================
+// Same market ke same date par 2 lottery nahi banegi.
+//
+// Example:
+//
+// Delhi Lottery + 2026-09-20 = allowed
+// Delhi Lottery + 2026-09-20 = duplicate ❌
+//
+// Delhi Lottery + 2026-09-21 = allowed
 // =====================================================
 
 lotteryConfigSchema.index(
   {
     marketName: 1,
-    month: 1,
-    year: 1,
+    drawDate: 1,
   },
   {
     unique: true,
   }
 );
 
-module.exports = mongoose.model("LotteryConfig", lotteryConfigSchema);
+module.exports = mongoose.model(
+  "LotteryConfig",
+  lotteryConfigSchema
+);

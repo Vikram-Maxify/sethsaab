@@ -10,33 +10,119 @@ const getUserId = (req) => {
 };
 
 // =====================================================
-// GET TODAY
+// GET TODAY DATE STRING
 // =====================================================
 
-const getToday = () => {
+const getTodayDateString = () => {
   const now = new Date();
 
+  return (
+    `${now.getFullYear()}-` +
+    `${String(now.getMonth() + 1).padStart(2, "0")}-` +
+    `${String(now.getDate()).padStart(2, "0")}`
+  );
+};
+
+// =====================================================
+// FORMAT DATE AS YYYY-MM-DD
+// =====================================================
+
+const formatDateString = (date) => {
+  const d = new Date(date);
+
+  if (Number.isNaN(d.getTime())) {
+    return null;
+  }
+
+  return (
+    `${d.getFullYear()}-` +
+    `${String(d.getMonth() + 1).padStart(2, "0")}-` +
+    `${String(d.getDate()).padStart(2, "0")}`
+  );
+};
+
+// =====================================================
+// VALIDATE DRAW DATE
+// =====================================================
+
+const validateDrawDate = (drawDate) => {
+  if (!drawDate) {
+    return {
+      valid: false,
+      message: "Draw date is required",
+    };
+  }
+
+  const value = String(drawDate).trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return {
+      valid: false,
+      message: "Draw date must be in YYYY-MM-DD format",
+    };
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return {
+      valid: false,
+      message: "Invalid draw date",
+    };
+  }
+
+  // Only today or future date allowed.
+  // Past date ticket create nahi hoga.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  date.setHours(0, 0, 0, 0);
+
+  if (date < today) {
+    return {
+      valid: false,
+      message: "Past draw date cannot be created",
+    };
+  }
+
   return {
-    date: now.getDate(),
-    month: now.getMonth() + 1,
-    year: now.getFullYear(),
-    dateString:
-      `${now.getFullYear()}-` +
-      `${String(now.getMonth() + 1).padStart(2, "0")}-` +
-      `${String(now.getDate()).padStart(2, "0")}`,
+    valid: true,
+    date,
+    dateString: value,
   };
 };
 
 // =====================================================
-// BUILD DATE STRING FROM CONFIG
+// VALIDATE DRAW TIME
 // =====================================================
 
-const buildDateString = (year, month, date) => {
-  return (
-    `${year}-` +
-    `${String(month).padStart(2, "0")}-` +
-    `${String(date).padStart(2, "0")}`
-  );
+const validateDrawTime = (drawTime) => {
+  if (!drawTime) {
+    return {
+      valid: false,
+      message: "Draw time is required",
+    };
+  }
+
+  const value = String(drawTime).trim();
+
+  if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(value)) {
+    return {
+      valid: false,
+      message: "Draw time must be in HH:mm format",
+    };
+  }
+
+  return {
+    valid: true,
+    drawTime: value,
+  };
 };
 
 // =====================================================
@@ -44,17 +130,30 @@ const buildDateString = (year, month, date) => {
 // =====================================================
 
 const validateNumber = (number) => {
-  if (number === undefined || number === null || number === "") {
-    return { valid: false, message: "6 digit lottery number is required" };
+  if (
+    number === undefined ||
+    number === null ||
+    number === ""
+  ) {
+    return {
+      valid: false,
+      message: "6 digit lottery number is required",
+    };
   }
 
   const value = String(number).trim();
 
   if (!/^\d{6}$/.test(value)) {
-    return { valid: false, message: "Lottery number must be exactly 6 digits" };
+    return {
+      valid: false,
+      message: "Lottery number must be exactly 6 digits",
+    };
   }
 
-  return { valid: true, number: value };
+  return {
+    valid: true,
+    number: value,
+  };
 };
 
 // =====================================================
@@ -62,21 +161,37 @@ const validateNumber = (number) => {
 // =====================================================
 
 const validateAmount = (amount) => {
-  if (amount === undefined || amount === null || amount === "") {
-    return { valid: false, message: "Valid amount is required" };
+  if (
+    amount === undefined ||
+    amount === null ||
+    amount === ""
+  ) {
+    return {
+      valid: false,
+      message: "Valid amount is required",
+    };
   }
 
   const value = Number(amount);
 
   if (!Number.isFinite(value)) {
-    return { valid: false, message: "Amount must be a valid number" };
+    return {
+      valid: false,
+      message: "Amount must be a valid number",
+    };
   }
 
   if (value < 0) {
-    return { valid: false, message: "Amount cannot be negative" };
+    return {
+      valid: false,
+      message: "Amount cannot be negative",
+    };
   }
 
-  return { valid: true, amount: value };
+  return {
+    valid: true,
+    amount: value,
+  };
 };
 
 // =====================================================
@@ -84,26 +199,67 @@ const validateAmount = (amount) => {
 // =====================================================
 
 const validateStatus = (status) => {
-  const allowedStatuses = ["pending", "win", "lost"];
+  const allowedStatuses = [
+    "pending",
+    "win",
+    "lost",
+  ];
 
   if (!allowedStatuses.includes(status)) {
-    return { valid: false, message: "Status must be pending, win or lost" };
+    return {
+      valid: false,
+      message: "Status must be pending, win or lost",
+    };
   }
 
-  return { valid: true, status };
+  return {
+    valid: true,
+    status,
+  };
 };
 
 // =====================================================
-// CREATE LOTTERY CONFIG (ADMIN)
+// CREATE LOTTERY CONFIG
+// ADMIN
+//
 // POST /api/lottery
+//
+// BODY:
+//
+// {
+//   "marketName": "Delhi Lottery",
+//   "drawDate": "2026-09-20",
+//   "drawTime": "18:30",
+//   "prizes": {
+//      "first": 500000,
+//      "second": 100000,
+//      "third": 50000
+//   }
+// }
+//
+// IMPORTANT:
+// Sirf ek date create hogi.
+// Future dates automatically create nahi hongi.
 // =====================================================
 
 const createLotteryConfig = async (req, res) => {
   try {
-    const { marketName, month, year, prizes } = req.body;
+    const {
+      marketName,
+      drawDate,
+      drawTime,
+      prizes,
+    } = req.body;
 
+    // ================================================
     // MARKET VALIDATION
-    if (!marketName || typeof marketName !== "string" || !marketName.trim()) {
+    // ================================================
+
+    if (
+      !marketName ||
+      typeof marketName !== "string" ||
+      !marketName.trim()
+    ) {
       return res.status(400).json({
         success: false,
         message: "Market name is required",
@@ -112,162 +268,207 @@ const createLotteryConfig = async (req, res) => {
 
     const cleanMarketName = marketName.trim();
 
-    // CURRENT DATE
-    const today = new Date();
+    // ================================================
+    // DRAW DATE VALIDATION
+    // ================================================
 
-    const selectedMonth =
-      month !== undefined ? Number(month) : today.getMonth() + 1;
+    const dateValidation = validateDrawDate(drawDate);
 
-    const selectedYear =
-      year !== undefined ? Number(year) : today.getFullYear();
+    if (!dateValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: dateValidation.message,
+      });
+    }
 
-    // MONTH VALIDATION
+    // ================================================
+    // DRAW TIME VALIDATION
+    // ================================================
+
+    const timeValidation = validateDrawTime(drawTime);
+
+    if (!timeValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: timeValidation.message,
+      });
+    }
+
+    // ================================================
+    // PRIZES VALIDATION
+    // ================================================
+
     if (
-      !Number.isInteger(selectedMonth) ||
-      selectedMonth < 1 ||
-      selectedMonth > 12
+      !prizes ||
+      typeof prizes !== "object"
     ) {
-      return res.status(400).json({
-        success: false,
-        message: "Month must be between 1 and 12",
-      });
-    }
-
-    // YEAR VALIDATION
-    if (!Number.isInteger(selectedYear) || selectedYear < 2000) {
-      return res.status(400).json({
-        success: false,
-        message: "Valid year is required",
-      });
-    }
-
-    // PRIZE VALIDATION
-    if (!prizes || typeof prizes !== "object") {
       return res.status(400).json({
         success: false,
         message: "Prize amounts are required",
       });
     }
 
-    if (prizes.first === undefined || prizes.first === null || prizes.first === "") {
-      return res.status(400).json({ success: false, message: "First prize is required" });
+    // ================================================
+    // FIRST PRIZE
+    // ================================================
+
+    if (
+      prizes.first === undefined ||
+      prizes.first === null ||
+      prizes.first === ""
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "First prize is required",
+      });
     }
 
-    if (prizes.second === undefined || prizes.second === null || prizes.second === "") {
-      return res.status(400).json({ success: false, message: "Second prize is required" });
+    // ================================================
+    // SECOND PRIZE
+    // ================================================
+
+    if (
+      prizes.second === undefined ||
+      prizes.second === null ||
+      prizes.second === ""
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Second prize is required",
+      });
     }
 
-    if (prizes.third === undefined || prizes.third === null || prizes.third === "") {
-      return res.status(400).json({ success: false, message: "Third prize is required" });
+    // ================================================
+    // THIRD PRIZE
+    // ================================================
+
+    if (
+      prizes.third === undefined ||
+      prizes.third === null ||
+      prizes.third === ""
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Third prize is required",
+      });
     }
 
     const firstPrize = Number(prizes.first);
     const secondPrize = Number(prizes.second);
     const thirdPrize = Number(prizes.third);
 
-    if (!Number.isFinite(firstPrize) || firstPrize < 0) {
-      return res.status(400).json({ success: false, message: "Valid first prize amount is required" });
-    }
-
-    if (!Number.isFinite(secondPrize) || secondPrize < 0) {
-      return res.status(400).json({ success: false, message: "Valid second prize amount is required" });
-    }
-
-    if (!Number.isFinite(thirdPrize) || thirdPrize < 0) {
-      return res.status(400).json({ success: false, message: "Valid third prize amount is required" });
-    }
-
-    // PAST MONTH CHECK
-    const currentMonth = today.getMonth() + 1;
-    const currentYear = today.getFullYear();
+    // ================================================
+    // PRIZE NUMBER VALIDATION
+    // ================================================
 
     if (
-      selectedYear < currentYear ||
-      (selectedYear === currentYear && selectedMonth < currentMonth)
+      !Number.isFinite(firstPrize) ||
+      firstPrize < 0
     ) {
       return res.status(400).json({
         success: false,
-        message: "Past month configuration cannot be created",
+        message: "Valid first prize amount is required",
       });
     }
 
-    // TOTAL DAYS
-    const totalDays = new Date(selectedYear, selectedMonth, 0).getDate();
-
-    // =================================================
-    // START DAY  →  ✅ FIX: allow today as start
-    // =================================================
-
-    let startDay = 1;
-
-    if (selectedYear === currentYear && selectedMonth === currentMonth) {
-      startDay = today.getDate(); // include today
-    }
-
-    // NO FUTURE DAYS
-    if (startDay > totalDays) {
+    if (
+      !Number.isFinite(secondPrize) ||
+      secondPrize < 0
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Is month ki koi future date nahi bachi",
+        message: "Valid second prize amount is required",
       });
     }
 
-    // EXISTING CONFIGS
-    const existingConfigs = await LotteryConfig.find({
+    if (
+      !Number.isFinite(thirdPrize) ||
+      thirdPrize < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid third prize amount is required",
+      });
+    }
+
+    // ================================================
+    // CHECK DUPLICATE
+    // ================================================
+
+    const startOfDay = new Date(dateValidation.date);
+
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(dateValidation.date);
+
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingLottery = await LotteryConfig.findOne({
       marketName: cleanMarketName,
-      month: selectedMonth,
-      year: selectedYear,
-    }).select("date");
+      drawDate: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+    });
 
-    const existingDates = new Set(existingConfigs.map((item) => item.date));
-
-    // PREPARE DOCUMENTS
-    const documents = [];
-
-    for (let day = startDay; day <= totalDays; day++) {
-      if (existingDates.has(day)) continue;
-
-      documents.push({
-        marketName: cleanMarketName,
-        date: day,
-        month: selectedMonth,
-        year: selectedYear,
-        prizes: {
-          first: firstPrize,
-          second: secondPrize,
-          third: thirdPrize,
-        },
-        users: [],
-        isActive: false,
-      });
-    }
-
-    // ALREADY EXISTS
-    if (documents.length === 0) {
+    if (existingLottery) {
       return res.status(409).json({
         success: false,
-        message: "Is market ke saare dates already exist karte hain",
+        message:
+          "Is market ki selected date ka lottery ticket already exist karta hai",
+        data: existingLottery,
       });
     }
 
-    // INSERT
-    const created = await LotteryConfig.insertMany(documents);
+    // ================================================
+    // CREATE ONLY ONE CONFIG
+    // ================================================
+
+    const lottery = await LotteryConfig.create({
+      marketName: cleanMarketName,
+
+      drawDate: dateValidation.date,
+
+      drawTime: timeValidation.drawTime,
+
+      prizes: {
+        first: firstPrize,
+        second: secondPrize,
+        third: thirdPrize,
+      },
+
+      users: [],
+
+      isActive: false,
+    });
+
+    // ================================================
+    // RESPONSE
+    // ================================================
 
     return res.status(201).json({
       success: true,
-      message: `${created.length} lottery configs created successfully`,
-      totalCreated: created.length,
-      startDay,
-      endDay: totalDays,
-      data: created,
+
+      message:
+        "Lottery ticket created successfully for selected date",
+
+      data: lottery,
     });
   } catch (error) {
-    console.error("Create lottery config error:", error);
+    console.error(
+      "Create lottery config error:",
+      error
+    );
+
+    // ================================================
+    // DUPLICATE KEY
+    // ================================================
 
     if (error.code === 11000) {
       return res.status(409).json({
         success: false,
-        message: "Some lottery dates already exist",
+        message:
+          "Is market ki selected date ka lottery ticket already exist karta hai",
       });
     }
 
@@ -280,15 +481,32 @@ const createLotteryConfig = async (req, res) => {
 };
 
 // =====================================================
-// ADD USER LOTTERY ENTRY (USER)
+// ADD USER LOTTERY ENTRY
+// USER
+//
 // POST /api/lottery/entry
+//
+// BODY:
+//
+// {
+//   "number": "123456",
+//   "amount": 100
+// }
+//
+// User sirf ACTIVE lottery mein ticket buy karega.
 // =====================================================
 
 const addUserLotteryEntry = async (req, res) => {
   try {
-    const { number, amount } = req.body;
+    const {
+      number,
+      amount,
+    } = req.body;
 
+    // ================================================
     // USER ID
+    // ================================================
+
     const userId = getUserId(req);
 
     if (!userId) {
@@ -298,8 +516,13 @@ const addUserLotteryEntry = async (req, res) => {
       });
     }
 
+    // ================================================
     // NUMBER VALIDATION
-    const numberValidation = validateNumber(number);
+    // ================================================
+
+    const numberValidation =
+      validateNumber(number);
+
     if (!numberValidation.valid) {
       return res.status(400).json({
         success: false,
@@ -307,8 +530,13 @@ const addUserLotteryEntry = async (req, res) => {
       });
     }
 
+    // ================================================
     // AMOUNT VALIDATION
-    const amountValidation = validateAmount(amount);
+    // ================================================
+
+    const amountValidation =
+      validateAmount(amount);
+
     if (!amountValidation.valid) {
       return res.status(400).json({
         success: false,
@@ -316,85 +544,210 @@ const addUserLotteryEntry = async (req, res) => {
       });
     }
 
-    // =================================================
-    // FIND ACTIVE CONFIG (next active, not strictly today)
-    // ✅ FIX
-    // =================================================
+    // ================================================
+    // GET ACTIVE LOTTERY
+    //
+    // Nearest upcoming active lottery
+    // ================================================
 
-    const config = await LotteryConfig.findOne({ isActive: true }).sort({
-      year: 1,
-      month: 1,
-      date: 1,
+    const now = new Date();
+
+    const config = await LotteryConfig.findOne({
+      isActive: true,
+
+      drawDate: {
+        $gte: new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        ),
+      },
+    }).sort({
+      drawDate: 1,
     });
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "No active lottery market found",
+        message:
+          "No active lottery ticket available",
       });
     }
 
-    // =================================================
-    // ENTRY DATE FROM CONFIG (not today)
-    // ✅ FIX
-    // =================================================
+    // ================================================
+    // DRAW DATE STRING
+    // ================================================
 
-    const dateString = buildDateString(config.year, config.month, config.date);
+    const dateString =
+      formatDateString(config.drawDate);
 
-    // SAFETY: USERS ARRAY
+    if (!dateString) {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Invalid draw date in lottery configuration",
+      });
+    }
+
+    // ================================================
+    // CHECK DRAW DATE
+    // ================================================
+
+    const todayString =
+      getTodayDateString();
+
+    if (dateString !== todayString) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Lottery ticket is not available for today",
+        drawDate: dateString,
+        drawTime: config.drawTime,
+      });
+    }
+
+    // ================================================
+    // CHECK DRAW TIME
+    //
+    // Ticket draw time ke baad buy nahi hoga.
+    // ================================================
+
+    const [
+      drawHour,
+      drawMinute,
+    ] = config.drawTime
+      .split(":")
+      .map(Number);
+
+    const drawDateTime = new Date(
+      config.drawDate
+    );
+
+    drawDateTime.setHours(
+      drawHour,
+      drawMinute,
+      0,
+      0
+    );
+
+    if (now >= drawDateTime) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Lottery ticket sale time has ended",
+        drawDate: dateString,
+        drawTime: config.drawTime,
+      });
+    }
+
+    // ================================================
+    // SAFETY
+    // ================================================
+
     if (!Array.isArray(config.users)) {
       config.users = [];
     }
 
-    // CHECK EXISTING ENTRY (same user + same config)
-    const existingEntry = config.users.find(
-      (entry) =>
-        String(entry.userId) === String(userId) &&
-        entry.entryDate === dateString
-    );
+    // ================================================
+    // CHECK EXISTING ENTRY
+    // ================================================
+
+    const existingEntry =
+      config.users.find(
+        (entry) =>
+          String(entry.userId) ===
+            String(userId) &&
+          entry.entryDate ===
+            dateString
+      );
 
     if (existingEntry) {
       return res.status(409).json({
         success: false,
-        message: "You already have a lottery entry for this draw",
+        message:
+          "You already have a lottery entry for this draw",
         data: existingEntry,
       });
     }
 
+    // ================================================
     // ADD ENTRY
+    // ================================================
+
     config.users.push({
       userId: String(userId),
+
       entryDate: dateString,
+
       number: numberValidation.number,
+
       amount: amountValidation.amount,
+
       isBuy: true,
-      prize: { first: 0, second: 0, third: 0 },
+
+      prize: {
+        first: 0,
+        second: 0,
+        third: 0,
+      },
+
       prizeType: null,
+
       status: "pending",
     });
 
+    // ================================================
     // SAVE
+    // ================================================
+
     await config.save();
 
+    // ================================================
     // GET NEW ENTRY
-    const newEntry = config.users[config.users.length - 1];
+    // ================================================
+
+    const newEntry =
+      config.users[
+        config.users.length - 1
+      ];
+
+    // ================================================
+    // RESPONSE
+    // ================================================
 
     return res.status(201).json({
       success: true,
-      message: "Lottery entry submitted successfully",
+
+      message:
+        "Lottery entry submitted successfully",
+
       data: {
         lotteryId: config._id,
-        marketName: config.marketName,
-        date: config.date,
-        month: config.month,
-        year: config.year,
-        isActive: config.isActive,
-        entryDate: dateString,
-        entry: newEntry,
+
+        marketName:
+          config.marketName,
+
+        drawDate:
+          dateString,
+
+        drawTime:
+          config.drawTime,
+
+        isActive:
+          config.isActive,
+
+        entryDate:
+          dateString,
+
+        entry:
+          newEntry,
       },
     });
   } catch (error) {
-    console.error("Add user lottery entry error:", error);
+    console.error(
+      "Add user lottery entry error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -408,36 +761,43 @@ const addUserLotteryEntry = async (req, res) => {
 // GET MY LOTTERY ENTRIES
 // =====================================================
 
-const getMyLotteryEntries = async (req, res) => {
+const getMyLotteryEntries = async (
+  req,
+  res
+) => {
   try {
-    // ==========================================
-    // GET USER ID FROM JWT
-    // ==========================================
+    // ================================================
+    // USER ID
+    // ================================================
+
     const userId = getUserId(req);
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "User ID not found in token",
+        message:
+          "User ID not found in token",
       });
     }
 
-    // ==========================================
-    // FIND LOTTERY CONFIGS
-    // ==========================================
-    const configs = await LotteryConfig.find({
-      "users.userId": String(userId),
-    })
-      .sort({
-        year: -1,
-        month: -1,
-        date: -1,
-      })
-      .lean();
+    // ================================================
+    // GET CONFIGS
+    // ================================================
 
-    // ==========================================
+    const configs =
+      await LotteryConfig.find({
+        "users.userId":
+          String(userId),
+      })
+        .sort({
+          drawDate: -1,
+        })
+        .lean();
+
+    // ================================================
     // PREPARE ENTRIES
-    // ==========================================
+    // ================================================
+
     const entries = [];
 
     configs.forEach((config) => {
@@ -448,78 +808,119 @@ const getMyLotteryEntries = async (req, res) => {
       config.users
         .filter(
           (entry) =>
-            String(entry.userId) === String(userId)
+            String(entry.userId) ===
+            String(userId)
         )
         .forEach((entry) => {
           entries.push({
-            // Lottery config ID
-            lotteryId: config._id,
+            lotteryId:
+              config._id,
 
-            // Entry ID
-            entryId: entry._id,
+            entryId:
+              entry._id,
 
-            // Market details
-            marketName: config.marketName,
-            date: config.date,
-            month: config.month,
-            year: config.year,
+            marketName:
+              config.marketName,
 
-            // Lottery status
-            isActive: config.isActive,
+            drawDate:
+              config.drawDate,
 
-            // Prize configuration
-            prizes: config.prizes,
+            drawTime:
+              config.drawTime,
 
-            // Entry details
+            isActive:
+              config.isActive,
+
+            prizes:
+              config.prizes,
+
             entry: {
-              _id: entry._id,
-              userId: entry.userId,
-              entryDate: entry.entryDate,
-              number: entry.number,
-              amount: entry.amount,
-              isBuy: entry.isBuy,
+              _id:
+                entry._id,
+
+              userId:
+                entry.userId,
+
+              entryDate:
+                entry.entryDate,
+
+              number:
+                entry.number,
+
+              amount:
+                entry.amount,
+
+              isBuy:
+                entry.isBuy,
 
               prize: {
-                first: entry.prize?.first || 0,
-                second: entry.prize?.second || 0,
-                third: entry.prize?.third || 0,
+                first:
+                  entry.prize?.first ||
+                  0,
+
+                second:
+                  entry.prize?.second ||
+                  0,
+
+                third:
+                  entry.prize?.third ||
+                  0,
               },
 
-              prizeType: entry.prizeType || null,
-              status: entry.status || "pending",
+              prizeType:
+                entry.prizeType ||
+                null,
 
-              createdAt: entry.createdAt,
-              updatedAt: entry.updatedAt,
+              status:
+                entry.status ||
+                "pending",
+
+              createdAt:
+                entry.createdAt,
+
+              updatedAt:
+                entry.updatedAt,
             },
           });
         });
     });
 
-    // ==========================================
-    // SORT BY ENTRY DATE
-    // ==========================================
-    entries.sort((a, b) => {
-      const dateA = new Date(a.entry.entryDate);
-      const dateB = new Date(b.entry.entryDate);
+    // ================================================
+    // SORT
+    // ================================================
 
-      return dateB - dateA;
-    });
+    entries.sort(
+      (a, b) =>
+        new Date(b.drawDate) -
+        new Date(a.drawDate)
+    );
 
-    // ==========================================
+    // ================================================
     // RESPONSE
-    // ==========================================
+    // ================================================
+
     return res.status(200).json({
       success: true,
-      message: "User lottery entries fetched successfully",
-      totalEntries: entries.length,
-      data: entries,
+
+      message:
+        "User lottery entries fetched successfully",
+
+      totalEntries:
+        entries.length,
+
+      data:
+        entries,
     });
   } catch (error) {
-    console.error("Get my lottery entries error:", error);
+    console.error(
+      "Get my lottery entries error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message:
+        "Internal server error",
       error: error.message,
     });
   }
@@ -527,61 +928,102 @@ const getMyLotteryEntries = async (req, res) => {
 
 // =====================================================
 // GET ALL LOTTERY CONFIGS
+// ADMIN
 // =====================================================
 
-const getAllLotteryConfigs = async (req, res) => {
+const getAllLotteryConfigs = async (
+  req,
+  res
+) => {
   try {
-    const configs = await LotteryConfig.find().sort({
-      year: -1,
-      month: -1,
-      marketName: 1,
-    });
+    const configs =
+      await LotteryConfig.find()
+        .sort({
+          drawDate: -1,
+        });
 
     return res.status(200).json({
       success: true,
-      count: configs.length,
-      data: configs,
+
+      count:
+        configs.length,
+
+      data:
+        configs,
     });
   } catch (error) {
-    console.error("Get all lottery configs error:", error);
+    console.error(
+      "Get all lottery configs error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message:
+        "Internal server error",
       error: error.message,
     });
   }
 };
 
 // =====================================================
-// GET ACTIVE LOTTERY (next active)
-// ✅ FIX: returns next active config regardless of today
+// GET ACTIVE LOTTERY
 // =====================================================
 
-const getActiveLotteryConfig = async (req, res) => {
+const getActiveLotteryConfig = async (
+  req,
+  res
+) => {
   try {
-    const config = await LotteryConfig.findOne({ isActive: true }).sort({
-      year: 1,
-      month: 1,
-    });
+    const now = new Date();
+
+    // ================================================
+    // ONLY TODAY/FUTURE ACTIVE LOTTERY
+    // ================================================
+
+    const configs =
+      await LotteryConfig.find({
+        isActive: true,
+
+        drawDate: {
+          $gte: new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate()
+          ),
+        },
+      })
+        .sort({
+          drawDate: 1,
+        })
+        .limit(1);
+
+    const config =
+      configs[0];
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "No active lottery configuration found",
+        message:
+          "No active lottery configuration found",
       });
     }
 
     return res.status(200).json({
       success: true,
+
       data: config,
     });
   } catch (error) {
-    console.error("Get active lottery config error:", error);
+    console.error(
+      "Get active lottery config error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message:
+        "Internal server error",
       error: error.message,
     });
   }
@@ -591,23 +1033,32 @@ const getActiveLotteryConfig = async (req, res) => {
 // GET CONFIG BY ID
 // =====================================================
 
-const getLotteryConfigById = async (req, res) => {
+const getLotteryConfigById = async (
+  req,
+  res
+) => {
   try {
-    const { id } = req.params;
+    const { id } =
+      req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (
+      !mongoose.Types.ObjectId.isValid(id)
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid configuration ID",
+        message:
+          "Invalid configuration ID",
       });
     }
 
-    const config = await LotteryConfig.findById(id);
+    const config =
+      await LotteryConfig.findById(id);
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "Lottery configuration not found",
+        message:
+          "Lottery configuration not found",
       });
     }
 
@@ -616,11 +1067,15 @@ const getLotteryConfigById = async (req, res) => {
       data: config,
     });
   } catch (error) {
-    console.error("Get lottery config by ID error:", error);
+    console.error(
+      "Get lottery config by ID error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message:
+        "Internal server error",
       error: error.message,
     });
   }
@@ -628,168 +1083,446 @@ const getLotteryConfigById = async (req, res) => {
 
 // =====================================================
 // ACTIVATE CONFIG
+// ADMIN
+//
+// PATCH /api/lottery/:id/activate
+//
+// IMPORTANT:
+// Ek time par sirf ONE active lottery.
 // =====================================================
 
-const activateLotteryConfig = async (req, res) => {
+const activateLotteryConfig = async (
+  req,
+  res
+) => {
   try {
-    const { id } = req.params;
+    const { id } =
+      req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (
+      !mongoose.Types.ObjectId.isValid(id)
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid configuration ID",
+        message:
+          "Invalid configuration ID",
       });
     }
 
-    const config = await LotteryConfig.findById(id);
+    const config =
+      await LotteryConfig.findById(id);
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "Lottery configuration not found",
+        message:
+          "Lottery configuration not found",
       });
     }
 
-    // DEACTIVATE OTHER CONFIGS (global — only one active at a time)
-    await LotteryConfig.updateMany(
-      { isActive: true, _id: { $ne: config._id } },
-      { $set: { isActive: false } }
+    // ================================================
+    // CHECK DATE
+    // ================================================
+
+    const today = new Date();
+
+    today.setHours(
+      0,
+      0,
+      0,
+      0
     );
 
-    // ACTIVATE THIS
+    const lotteryDate =
+      new Date(config.drawDate);
+
+    lotteryDate.setHours(
+      0,
+      0,
+      0,
+      0
+    );
+
+    if (lotteryDate < today) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Past lottery cannot be activated",
+      });
+    }
+
+    // ================================================
+    // DEACTIVATE ALL OTHER LOTTERIES
+    // ================================================
+
+    await LotteryConfig.updateMany(
+      {
+        _id: {
+          $ne: config._id,
+        },
+        isActive: true,
+      },
+      {
+        $set: {
+          isActive: false,
+        },
+      }
+    );
+
+    // ================================================
+    // ACTIVATE SELECTED
+    // ================================================
+
     config.isActive = true;
 
     await config.save();
 
     return res.status(200).json({
       success: true,
-      message: "Lottery configuration activated successfully",
-      data: config,
+
+      message:
+        "Lottery configuration activated successfully",
+
+      data:
+        config,
     });
   } catch (error) {
-    console.error("Activate lottery config error:", error);
+    console.error(
+      "Activate lottery config error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message:
+        "Internal server error",
       error: error.message,
     });
   }
 };
 
 // =====================================================
-// UPDATE USER ENTRY STATUS (ADMIN)
-// PATCH /api/lottery/:configId/entry/:entryId/status
+// DEACTIVATE CONFIG
+// ADMIN
 // =====================================================
 
-const updateEntryStatus = async (req, res) => {
+const deactivateLotteryConfig = async (
+  req,
+  res
+) => {
   try {
-    const { configId, entryId } = req.params;
-    const { status, prizeType, prize } = req.body;
+    const { id } =
+      req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(configId)) {
+    if (
+      !mongoose.Types.ObjectId.isValid(id)
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid configuration ID",
+        message:
+          "Invalid configuration ID",
       });
     }
 
-    const statusValidation = validateStatus(status);
-
-    if (!statusValidation.valid) {
-      return res.status(400).json({
-        success: false,
-        message: statusValidation.message,
-      });
-    }
-
-    const config = await LotteryConfig.findById(configId);
+    const config =
+      await LotteryConfig.findById(id);
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "Lottery configuration not found",
+        message:
+          "Lottery configuration not found",
       });
     }
 
-    const entry = config.users.id(entryId);
-
-    if (!entry) {
-      return res.status(404).json({
-        success: false,
-        message: "Lottery entry not found",
-      });
-    }
-
-    entry.status = statusValidation.status;
-
-    if (statusValidation.status === "win") {
-      entry.prizeType = prizeType || entry.prizeType;
-
-      if (prize) {
-        entry.prize = {
-          first: prize.first || 0,
-          second: prize.second || 0,
-          third: prize.third || 0,
-        };
-      }
-    } else if (statusValidation.status === "lost") {
-      entry.prizeType = null;
-      entry.prize = { first: 0, second: 0, third: 0 };
-    }
+    config.isActive = false;
 
     await config.save();
 
     return res.status(200).json({
       success: true,
-      message: "Entry status updated successfully",
-      data: entry,
+
+      message:
+        "Lottery configuration deactivated successfully",
+
+      data:
+        config,
     });
   } catch (error) {
-    console.error("Update entry status error:", error);
+    console.error(
+      "Deactivate lottery config error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message:
+        "Internal server error",
       error: error.message,
     });
   }
 };
 
 // =====================================================
-// DELETE LOTTERY CONFIG (ADMIN)
+// UPDATE USER ENTRY STATUS
+// ADMIN
+//
+// PATCH /api/lottery/:configId/entry/:entryId/status
+//
+// BODY:
+//
+// {
+//   "status": "win",
+//   "prizeType": "1st",
+//   "prize": {
+//      "first": 500000,
+//      "second": 0,
+//      "third": 0
+//   }
+// }
 // =====================================================
 
-const deleteLotteryConfig = async (req, res) => {
+const updateEntryStatus = async (
+  req,
+  res
+) => {
   try {
-    const { id } = req.params;
+    const {
+      configId,
+      entryId,
+    } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    const {
+      status,
+      prizeType,
+      prize,
+    } = req.body;
+
+    // ================================================
+    // CONFIG ID
+    // ================================================
+
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        configId
+      )
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid configuration ID",
+        message:
+          "Invalid configuration ID",
       });
     }
 
-    const config = await LotteryConfig.findByIdAndDelete(id);
+    // ================================================
+    // STATUS
+    // ================================================
+
+    const statusValidation =
+      validateStatus(status);
+
+    if (!statusValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message:
+          statusValidation.message,
+      });
+    }
+
+    // ================================================
+    // GET CONFIG
+    // ================================================
+
+    const config =
+      await LotteryConfig.findById(
+        configId
+      );
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "Lottery configuration not found",
+        message:
+          "Lottery configuration not found",
+      });
+    }
+
+    // ================================================
+    // GET ENTRY
+    // ================================================
+
+    const entry =
+      config.users.id(entryId);
+
+    if (!entry) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Lottery entry not found",
+      });
+    }
+
+    // ================================================
+    // UPDATE STATUS
+    // ================================================
+
+    entry.status =
+      statusValidation.status;
+
+    // ================================================
+    // WIN
+    // ================================================
+
+    if (
+      statusValidation.status ===
+      "win"
+    ) {
+      if (
+        prizeType &&
+        ["1st", "2nd", "3rd"].includes(
+          prizeType
+        )
+      ) {
+        entry.prizeType =
+          prizeType;
+      }
+
+      if (prize) {
+        entry.prize = {
+          first:
+            Number(prize.first) ||
+            0,
+
+          second:
+            Number(prize.second) ||
+            0,
+
+          third:
+            Number(prize.third) ||
+            0,
+        };
+      }
+    }
+
+    // ================================================
+    // LOST
+    // ================================================
+
+    else if (
+      statusValidation.status ===
+      "lost"
+    ) {
+      entry.prizeType = null;
+
+      entry.prize = {
+        first: 0,
+        second: 0,
+        third: 0,
+      };
+    }
+
+    // ================================================
+    // PENDING
+    // ================================================
+
+    else if (
+      statusValidation.status ===
+      "pending"
+    ) {
+      entry.prizeType = null;
+
+      entry.prize = {
+        first: 0,
+        second: 0,
+        third: 0,
+      };
+    }
+
+    // ================================================
+    // SAVE
+    // ================================================
+
+    await config.save();
+
+    return res.status(200).json({
+      success: true,
+
+      message:
+        "Entry status updated successfully",
+
+      data:
+        entry,
+    });
+  } catch (error) {
+    console.error(
+      "Update entry status error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// =====================================================
+// DELETE LOTTERY CONFIG
+// ADMIN
+// =====================================================
+
+const deleteLotteryConfig = async (
+  req,
+  res
+) => {
+  try {
+    const { id } =
+      req.params;
+
+    if (
+      !mongoose.Types.ObjectId.isValid(id)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid configuration ID",
+      });
+    }
+
+    const config =
+      await LotteryConfig.findByIdAndDelete(
+        id
+      );
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Lottery configuration not found",
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Lottery configuration deleted successfully",
+
+      message:
+        "Lottery configuration deleted successfully",
+
+      data: {
+        id: config._id,
+      },
     });
   } catch (error) {
-    console.error("Delete lottery config error:", error);
+    console.error(
+      "Delete lottery config error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message:
+        "Internal server error",
       error: error.message,
     });
   }
@@ -801,12 +1534,22 @@ const deleteLotteryConfig = async (req, res) => {
 
 module.exports = {
   createLotteryConfig,
+
   addUserLotteryEntry,
+
   getMyLotteryEntries,
+
   getAllLotteryConfigs,
+
   getActiveLotteryConfig,
+
   getLotteryConfigById,
+
   activateLotteryConfig,
+
+  deactivateLotteryConfig,
+
   updateEntryStatus,
+
   deleteLotteryConfig,
 };
