@@ -15,6 +15,20 @@ import {
   clearLotteryMessage,
 } from "../../reducer/slice/adminLotteryReducer";
 
+// =====================================================
+// GET TODAY YYYY-MM-DD
+// =====================================================
+
+const getToday = () => {
+  const now = new Date();
+
+  return (
+    `${now.getFullYear()}-` +
+    `${String(now.getMonth() + 1).padStart(2, "0")}-` +
+    `${String(now.getDate()).padStart(2, "0")}`
+  );
+};
+
 const AdminLottery = () => {
   const dispatch = useDispatch();
 
@@ -39,6 +53,10 @@ const AdminLottery = () => {
     marketName: "",
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
+
+    // ✅ ADDED: Draw Date & Draw Time
+    drawDate: getToday(),
+    drawTime: "18:30",
 
     prizes: {
       first: "",
@@ -126,7 +144,7 @@ const AdminLottery = () => {
       return;
     }
 
-    // Normal inputs
+    // Normal inputs (includes drawDate & drawTime)
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -159,6 +177,48 @@ const AdminLottery = () => {
     // Year
     if (!formData.year) {
       setFormError("Year is required");
+      return;
+    }
+
+    // ✅ ADDED: Draw Date validation
+    if (!formData.drawDate) {
+      setFormError("Draw date is required");
+      return;
+    }
+
+    // ✅ ADDED: Draw Time validation
+    if (!formData.drawTime) {
+      setFormError("Draw time is required");
+      return;
+    }
+
+    // ✅ ADDED: Past date validation
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const selectedDate = new Date(
+      `${formData.drawDate}T00:00:00`
+    );
+
+    if (Number.isNaN(selectedDate.getTime())) {
+      setFormError("Invalid draw date");
+      return;
+    }
+
+    selectedDate.setHours(0, 0, 0, 0);
+
+    if (selectedDate < today) {
+      setFormError("Past draw date cannot be selected");
+      return;
+    }
+
+    // ✅ ADDED: Time format validation
+    if (
+      !/^([01]\d|2[0-3]):([0-5]\d)$/.test(
+        formData.drawTime
+      )
+    ) {
+      setFormError("Invalid draw time");
       return;
     }
 
@@ -199,12 +259,19 @@ const AdminLottery = () => {
 
       year: Number(formData.year),
 
+      // ✅ ADDED: Send drawDate & drawTime to backend
+      drawDate: formData.drawDate,
+
+      drawTime: formData.drawTime,
+
       prizes: {
         first: Number(formData.prizes.first),
         second: Number(formData.prizes.second),
         third: Number(formData.prizes.third),
       },
     };
+
+    console.log("CREATE MARKET PAYLOAD:", payload);
 
     const result = await dispatch(
       createLotteryConfig(payload)
@@ -561,6 +628,23 @@ const AdminLottery = () => {
                   {activeLottery.year}
                 </p>
 
+                {/* ✅ ADDED: Active Draw Date & Time */}
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {activeLottery.drawDate && (
+                    <span className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm">
+                      📅 Draw Date:{" "}
+                      {formatDate(activeLottery.drawDate)}
+                    </span>
+                  )}
+
+                  {activeLottery.drawTime && (
+                    <span className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm">
+                      ⏰ Draw Time: {activeLottery.drawTime}
+                    </span>
+                  )}
+                </div>
+
                 {/* Active Prize Amounts */}
 
                 {activeLottery.prizes && (
@@ -688,6 +772,51 @@ const AdminLottery = () => {
                   placeholder="Enter year"
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
+              </div>
+
+              {/* =================================================
+                  ✅ DRAW DATE
+              ================================================= */}
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Draw Date
+                </label>
+
+                <input
+                  type="date"
+                  name="drawDate"
+                  value={formData.drawDate}
+                  onChange={handleChange}
+                  min={getToday()}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Past dates are not allowed.
+                </p>
+              </div>
+
+              {/* =================================================
+                  ✅ DRAW TIME
+              ================================================= */}
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Draw Time
+                </label>
+
+                <input
+                  type="time"
+                  name="drawTime"
+                  value={formData.drawTime}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Select the draw time.
+                </p>
               </div>
 
               {/* =================================================
@@ -858,6 +987,22 @@ const AdminLottery = () => {
                   {lottery.year} •{" "}
                   {lottery.users?.length || 0} Users
                 </p>
+
+                {/* ✅ ADDED: Selected Market Draw Date & Time */}
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {lottery.drawDate && (
+                    <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">
+                      📅 {formatDate(lottery.drawDate)}
+                    </span>
+                  )}
+
+                  {lottery.drawTime && (
+                    <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">
+                      ⏰ {lottery.drawTime}
+                    </span>
+                  )}
+                </div>
 
                 {/* Selected Market Prize */}
 
@@ -1155,6 +1300,18 @@ const AdminLottery = () => {
                       Year
                     </th>
 
+                    {/* ✅ ADDED: Draw Date Column */}
+
+                    <th className="whitespace-nowrap px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Draw Date
+                    </th>
+
+                    {/* ✅ ADDED: Draw Time Column */}
+
+                    <th className="whitespace-nowrap px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Draw Time
+                    </th>
+
                     <th className="whitespace-nowrap px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                       Prize Amounts
                     </th>
@@ -1211,6 +1368,30 @@ const AdminLottery = () => {
 
                         <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-700">
                           {lotteryItem.year}
+                        </td>
+
+                        {/* ✅ ADDED: Draw Date Value */}
+
+                        <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-700">
+                          {formatDate(
+                            lotteryItem.drawDate
+                          )}
+                        </td>
+
+                        {/* ✅ ADDED: Draw Time Value */}
+
+                        <td className="whitespace-nowrap px-5 py-4">
+
+                          {lotteryItem.drawTime ? (
+                            <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+                              {lotteryItem.drawTime}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-gray-400">
+                              -
+                            </span>
+                          )}
+
                         </td>
 
                         {/* Prize Amounts */}

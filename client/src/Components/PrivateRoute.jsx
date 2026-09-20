@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
@@ -7,24 +7,36 @@ import { fetchProfile } from "../reducer/slice/authSlice";
 const PrivateRoute = () => {
   const dispatch = useDispatch();
   const location = useLocation();
-  const profileRequested = useRef(false);
 
-  const { user, isAuthenticated, profileLoading, profileError } = useSelector(
-    (state) => state.auth,
-  );
+  const profileRequested = useRef(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  const {
+    user,
+    isAuthenticated,
+    profileLoading,
+  } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    // If we already have a user, no need to fetch
-    if (user) return;
-    // Only attempt fetch once
+    // User already exists in Redux
+    if (user) {
+      setCheckingAuth(false);
+      return;
+    }
+
+    // Prevent duplicate profile requests
     if (profileRequested.current) return;
 
     profileRequested.current = true;
-    dispatch(fetchProfile());
+
+    dispatch(fetchProfile()).finally(() => {
+      setCheckingAuth(false);
+    });
   }, [dispatch, user]);
 
-  // Still loading the initial profile → show spinner
-  if (profileLoading) {
+  // IMPORTANT:
+  // Do not redirect before fetchProfile() has completed.
+  if (checkingAuth || profileLoading) {
     return (
       <div className="min-h-screen bg-seth-bg flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -35,14 +47,19 @@ const PrivateRoute = () => {
     );
   }
 
-  // Not authenticated → redirect to login
-  // Note: we trust `user` OR `isAuthenticated`. If either is true, allow in.
-  if (!user && !isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+  // Profile successfully restored
+  if (user || isAuthenticated) {
+    return <Outlet />;
   }
 
-  // Authenticated → render child routes
-  return <Outlet />;
+  // Profile request failed / no valid authentication
+  return (
+    <Navigate
+      to="/login"
+      replace
+      state={{ from: location }}
+    />
+  );
 };
 
 export default PrivateRoute;

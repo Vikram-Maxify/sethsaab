@@ -9,7 +9,7 @@ const navItems = [
   },
   {
     label: "रिजल्ट",
-    path: "/result",
+    path: "/results",
     icon: BarChart3,
   },
   {

@@ -1,8 +1,8 @@
-import banner from "../assets/3ban.png";
+import banner from "../assets/3ban.jpeg";
 
 const Hero = () => {
   return (
-    <div className="w-full px-5 pt-2 pb-6">
+    <div className="w-full">
       {/* ================= STATIC HERO BANNER ================= */}
       <div className="relative w-full overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#111111]">
         <img

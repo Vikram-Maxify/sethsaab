@@ -12,6 +12,27 @@ import {
 
 import { getAllLotteryConfigs } from "../../reducer/slice/lotteryConfigSlice";
 
+// =====================================================
+// SAFE DATE-ONLY STRING (YYYY-MM-DD)
+// =====================================================
+
+const toDateOnlyString = (value) => {
+  if (!value) return "";
+
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+
+  return (
+    `${d.getFullYear()}-` +
+    `${String(d.getMonth() + 1).padStart(2, "0")}-` +
+    `${String(d.getDate()).padStart(2, "0")}`
+  );
+};
+
 const Results = () => {
   const dispatch = useDispatch();
 
@@ -69,78 +90,49 @@ const Results = () => {
 
   const selectedConfig = useMemo(() => {
     return configs.find(
-      (config) => String(config?._id) === String(formData.lotteryConfigId)
+      (config) =>
+        String(config?._id) === String(formData.lotteryConfigId)
     );
   }, [configs, formData.lotteryConfigId]);
 
   // =====================================================
   // AVAILABLE DATES
   //
-  // NAYA LOGIC:
-  //   Har config mein `date` field hai (Number: 1-31)
-  //   To seedha usi se date banao
-  //
-  // FALLBACK:
-  //   Purane structure ke liye (dates array ya users array)
+  // Har config mein `drawDate` (Date) hota hai
+  // → seedha usi ko YYYY-MM-DD mein convert karo
   // =====================================================
 
   const availableDates = useMemo(() => {
     if (!selectedConfig) return [];
 
-    // ---------------------------------------------
-    // 1. NAYA: config.date directly (preferred)
-    // ---------------------------------------------
-    if (selectedConfig.date) {
-      const year = selectedConfig.year;
-      const month = String(selectedConfig.month).padStart(2, "0");
-      const day = String(selectedConfig.date).padStart(2, "0");
+    const dateStr = toDateOnlyString(selectedConfig.drawDate);
 
-      return [
-        {
-          _id: selectedConfig._id,
-          date: `${year}-${month}-${day}`,
-        },
-      ];
+    if (!dateStr) return [];
+
+    return [
+      {
+        _id: selectedConfig._id,
+        date: dateStr,
+      },
+    ];
+  }, [selectedConfig]);
+
+  // =====================================================
+  // AUTO-SELECT DATE JAB CONFIG CHANGE HO
+  // =====================================================
+
+  useEffect(() => {
+    if (!selectedConfig) return;
+
+    const dateStr = toDateOnlyString(selectedConfig.drawDate);
+
+    if (dateStr && dateStr !== formData.date) {
+      setFormData((prev) => ({
+        ...prev,
+        date: dateStr,
+      }));
     }
-
-    // ---------------------------------------------
-    // 2. Fallback: explicit `dates` array
-    // ---------------------------------------------
-    const seen = new Set();
-    const collected = [];
-
-    const pushDate = (value, id) => {
-      if (!value || seen.has(value)) return;
-      seen.add(value);
-      collected.push({ _id: id || value, date: value });
-    };
-
-    if (
-      Array.isArray(selectedConfig.dates) &&
-      selectedConfig.dates.length > 0
-    ) {
-      for (const item of selectedConfig.dates) {
-        pushDate(item?.date, item?._id);
-      }
-    }
-
-    // ---------------------------------------------
-    // 3. Fallback: derive from users[].entryDate
-    // ---------------------------------------------
-    if (collected.length === 0 && Array.isArray(selectedConfig.users)) {
-      for (const user of selectedConfig.users) {
-        pushDate(user?.entryDate, user?.entryDate);
-      }
-    }
-
-    return collected.sort((a, b) => {
-      const ta = new Date(a.date).getTime();
-      const tb = new Date(b.date).getTime();
-      if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
-      if (Number.isNaN(ta)) return 1;
-      if (Number.isNaN(tb)) return -1;
-      return ta - tb;
-    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedConfig]);
 
   // =====================================================
@@ -316,18 +308,17 @@ const Results = () => {
 
   // =====================================================
   // FORMAT CONFIG LABEL (dropdown mein dikhane ke liye)
-  // Ab date bhi dikhayenge — kyunki har config ek date ka hai
+  // Ab `drawDate` + `drawTime` bhi dikhayenge
   // =====================================================
 
   const formatConfigLabel = (config) => {
     if (!config) return "-";
 
     const market = config.marketName || "-";
-    const month = config.month ?? "-";
-    const year = config.year ?? "-";
-    const day = config.date ?? "-";
+    const dateStr = toDateOnlyString(config.drawDate) || "-";
+    const time = config.drawTime || "-";
 
-    return `${market} - ${day}/${month}/${year}`;
+    return `${market} - ${dateStr} (${time})`;
   };
 
   // =====================================================
@@ -457,7 +448,9 @@ const Results = () => {
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100 disabled:bg-slate-100"
               >
                 <option value="">
-                  {!selectedConfig ? "Select config first" : "Select Date"}
+                  {!selectedConfig
+                    ? "Select config first"
+                    : "Select Date"}
                 </option>
 
                 {availableDates.map((dateItem, index) => {
@@ -525,9 +518,16 @@ const Results = () => {
                     </div>
 
                     <div>
-                      <p className="text-xs text-slate-500">Date</p>
+                      <p className="text-xs text-slate-500">Draw Date</p>
                       <p className="mt-1 font-semibold text-slate-900">
-                        {selectedConfig.date || "-"}
+                        {formatDate(selectedConfig.drawDate)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-slate-500">Draw Time</p>
+                      <p className="mt-1 font-semibold text-slate-900">
+                        {selectedConfig.drawTime || "-"}
                       </p>
                     </div>
 
@@ -542,13 +542,6 @@ const Results = () => {
                       <p className="text-xs text-slate-500">Year</p>
                       <p className="mt-1 font-semibold text-slate-900">
                         {selectedConfig.year || "-"}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-slate-500">Selected Date</p>
-                      <p className="mt-1 font-semibold text-slate-900">
-                        {formData.date ? formatDate(formData.date) : "-"}
                       </p>
                     </div>
                   </div>
@@ -619,10 +612,13 @@ const Results = () => {
                     Market
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Month
+                    Draw Date
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Date
+                    Draw Time
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Result Date
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Winning Number
@@ -663,7 +659,11 @@ const Results = () => {
                       </td>
 
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-700">
-                        {formatMonthYear(config)}
+                        {formatDate(config?.drawDate)}
+                      </td>
+
+                      <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-700">
+                        {config?.drawTime || "-"}
                       </td>
 
                       <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-slate-900">

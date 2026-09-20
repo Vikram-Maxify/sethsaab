@@ -92,7 +92,7 @@ const Header = () => {
           </div>
 
           {/* ================= RIGHT: MENU ================= */}
-          <button
+          {/* <button
             type="button"
             className="relative w-10 h-10 rounded-xl border border-[#2a2a2a] bg-[#111111] flex items-center justify-center text-[#f5c542] active:scale-95 transition-transform duration-150"
             aria-label="Menu"
@@ -102,7 +102,7 @@ const Header = () => {
             <span className="absolute top-0 right-0 w-2 h-2 border-t border-r border-[#f5c542]/60 rounded-tr-xl" />
 
             <span className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-[#f5c542]/60 rounded-bl-xl" />
-          </button>
+          </button> */}
         </div>
 
         {/* Golden Divider */}
@@ -110,7 +110,7 @@ const Header = () => {
       </header>
 
       {/* Navbar ki exact height jitni space */}
-      <div className="h-[81px]" />
+      <div className="h-[71px]" />
     </>
   );
 };

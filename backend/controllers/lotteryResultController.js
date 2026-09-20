@@ -16,7 +16,7 @@ const validateSixDigitNumber = (number) => {
 };
 
 // =====================================================
-// NORMALIZE DATE
+// NORMALIZE DATE (YYYY-MM-DD)
 // =====================================================
 
 const normalizeDate = (date) => {
@@ -32,7 +32,7 @@ const normalizeDate = (date) => {
 };
 
 // =====================================================
-// DATE STRING
+// DATE STRING (YYYY-MM-DD)
 // =====================================================
 
 const getDateString = (date) => {
@@ -52,21 +52,19 @@ const getDateString = (date) => {
 };
 
 // =====================================================
-// BUILD DATE STRING FROM CONFIG (date + month + year)
-// NAYA HELPER — config se YYYY-MM-DD banata hai
+// BUILD DATE STRING FROM CONFIG
+// ✅ FIXED: `drawDate` use karo, `date` nahi
 // =====================================================
 
 const buildDateFromConfig = (config) => {
   if (!config) return null;
 
-  const { date, month, year } = config;
+  // ✅ drawDate already ek Date object hai, seedha string me convert karo
+  const dateStr = getDateString(config.drawDate);
 
-  if (!date || !month || !year) return null;
+  if (!dateStr) return null;
 
-  const day = String(date).padStart(2, "0");
-  const m = String(month).padStart(2, "0");
-
-  return `${year}-${m}-${day}`;
+  return dateStr;
 };
 
 // =====================================================
@@ -213,9 +211,6 @@ const removePrizeFromWallet = async (userId, amount) => {
 
 // =====================================================
 // PROCESS USERS FOR DATE
-//
-// Ab config mein sirf us date ke users hain,
-// lekin safety ke liye entryDate match bhi kar rahe hain
 // =====================================================
 
 const processUsersForDate = ({
@@ -301,9 +296,6 @@ const processUsersForDate = ({
 // =====================================================
 // CREATE RESULT
 // POST /
-//
-// 👇 CHANGE: Ab config date-wise hai, to safety check
-//    karo ki config.date aur selectedDate match kare
 // =====================================================
 
 const createResult = async (req, res) => {
@@ -355,15 +347,14 @@ const createResult = async (req, res) => {
     }
 
     // ==========================================
-    // SAFETY: Config date aur selectedDate match karo
-    // (agar config mein date field hai)
+    // SAFETY: Config drawDate aur selectedDate match karo
     // ==========================================
     const configDateStr = buildDateFromConfig(config);
 
     if (configDateStr && configDateStr !== selectedDate) {
       return res.status(400).json({
         success: false,
-        message: `Date mismatch. Config date is ${configDateStr}, but you sent ${selectedDate}`,
+        message: `Date mismatch. Config drawDate is ${configDateStr}, but you sent ${selectedDate}`,
       });
     }
 
@@ -530,14 +521,16 @@ const createResult = async (req, res) => {
 // =====================================================
 // GET ALL RESULTS
 // GET /
-//
-// 👇 CHANGE: populate mein `date` add kiya
+// ✅ FIXED: populate `drawDate` not `date`
 // =====================================================
 
 const getAllResults = async (req, res) => {
   try {
     const results = await LotteryResult.find()
-      .populate("lotteryConfigId", "marketName date month year isActive")
+      .populate(
+        "lotteryConfigId",
+        "marketName drawDate drawTime month year isActive"
+      )
       .sort({ date: -1, createdAt: -1 });
 
     return res.status(200).json({
@@ -558,8 +551,7 @@ const getAllResults = async (req, res) => {
 // =====================================================
 // GET RESULT BY ID
 // GET /:id
-//
-// 👇 CHANGE: populate mein `date` add kiya
+// ✅ FIXED: populate `drawDate` not `date`
 // =====================================================
 
 const getResultById = async (req, res) => {
@@ -575,7 +567,7 @@ const getResultById = async (req, res) => {
 
     const result = await LotteryResult.findById(id).populate(
       "lotteryConfigId",
-      "marketName date month year isActive"
+      "marketName drawDate drawTime month year isActive"
     );
 
     if (!result) {
@@ -1001,14 +993,16 @@ const checkNumber = async (req, res) => {
 // =====================================================
 // GET PUBLISHED RESULTS
 // GET /published
-//
-// 👇 CHANGE: populate mein `date` add kiya
+// ✅ FIXED: populate `drawDate` not `date`
 // =====================================================
 
 const getPublishedResults = async (req, res) => {
   try {
     const results = await LotteryResult.find({ isPublished: true })
-      .populate("lotteryConfigId", "marketName date month year isActive")
+      .populate(
+        "lotteryConfigId",
+        "marketName drawDate drawTime month year isActive"
+      )
       .sort({ date: -1, createdAt: -1 });
 
     return res.status(200).json({
@@ -1029,8 +1023,7 @@ const getPublishedResults = async (req, res) => {
 // =====================================================
 // GET PUBLISHED RESULT BY DATE
 // GET /published/:date
-//
-// 👇 CHANGE: populate mein `date` add kiya
+// ✅ FIXED: populate `drawDate` not `date`
 // =====================================================
 
 const getPublishedResultByDate = async (req, res) => {
@@ -1047,7 +1040,10 @@ const getPublishedResultByDate = async (req, res) => {
     const result = await LotteryResult.findOne({
       date: selectedDate,
       isPublished: true,
-    }).populate("lotteryConfigId", "marketName date month year isActive");
+    }).populate(
+      "lotteryConfigId",
+      "marketName drawDate drawTime month year isActive"
+    );
 
     if (!result) {
       return res.status(404).json({

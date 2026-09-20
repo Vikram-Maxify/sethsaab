@@ -1602,6 +1602,288 @@ const getMyTurnoverHistory = async (
   }
 };
 
+
+// =====================================================
+// ADMIN: GET ALL DEPOSITS
+// =====================================================
+
+const getAllDepositsForAdmin = async (req, res) => {
+  try {
+    const {
+      status,
+      paymentMethod,
+      channel,
+      phone,
+      username,
+      uid,
+      orderId,
+      transactionId,
+      utr,
+
+      fromDate,
+      toDate,
+
+      minAmount,
+      maxAmount,
+
+      page = 1,
+      limit = 20,
+
+      sort = "desc",
+    } = req.query;
+
+    // =====================================================
+    // BUILD QUERY
+    // =====================================================
+
+    const query = {};
+
+    // =====================================================
+    // STATUS
+    // 0 = Pending
+    // 1 = Success
+    // 2 = Failed
+    // =====================================================
+
+    if (status !== undefined && status !== "") {
+      query.status = Number(status);
+    }
+
+    // =====================================================
+    // PAYMENT METHOD
+    // =====================================================
+
+    if (paymentMethod && paymentMethod.trim()) {
+      query.paymentMethod = {
+        $regex: paymentMethod.trim(),
+        $options: "i",
+      };
+    }
+
+    // =====================================================
+    // CHANNEL
+    // =====================================================
+
+    if (channel && channel.trim()) {
+      query.channel = {
+        $regex: channel.trim(),
+        $options: "i",
+      };
+    }
+
+    // =====================================================
+    // PHONE
+    // =====================================================
+
+    if (phone && phone.trim()) {
+      query.phone = {
+        $regex: phone.trim(),
+        $options: "i",
+      };
+    }
+
+    // =====================================================
+    // USERNAME
+    // =====================================================
+
+    if (username && username.trim()) {
+      query.username = {
+        $regex: username.trim(),
+        $options: "i",
+      };
+    }
+
+    // =====================================================
+    // UID
+    // =====================================================
+
+    if (uid && uid.trim()) {
+      query.uid = {
+        $regex: uid.trim(),
+        $options: "i",
+      };
+    }
+
+    // =====================================================
+    // ORDER ID
+    // =====================================================
+
+    if (orderId && orderId.trim()) {
+      query.orderId = {
+        $regex: orderId.trim(),
+        $options: "i",
+      };
+    }
+
+    // =====================================================
+    // TRANSACTION ID
+    // =====================================================
+
+    if (transactionId && transactionId.trim()) {
+      query.transactionId = {
+        $regex: transactionId.trim(),
+        $options: "i",
+      };
+    }
+
+    // =====================================================
+    // UTR
+    // =====================================================
+
+    if (utr && utr.trim()) {
+      query.utr = {
+        $regex: utr.trim(),
+        $options: "i",
+      };
+    }
+
+    // =====================================================
+    // AMOUNT FILTER
+    // =====================================================
+
+    if (
+      minAmount !== undefined ||
+      maxAmount !== undefined
+    ) {
+      query.amount = {};
+
+      if (
+        minAmount !== undefined &&
+        minAmount !== ""
+      ) {
+        const min = Number(minAmount);
+
+        if (Number.isFinite(min)) {
+          query.amount.$gte = min;
+        }
+      }
+
+      if (
+        maxAmount !== undefined &&
+        maxAmount !== ""
+      ) {
+        const max = Number(maxAmount);
+
+        if (Number.isFinite(max)) {
+          query.amount.$lte = max;
+        }
+      }
+
+      // Agar amount object empty hai to remove kar do
+      if (Object.keys(query.amount).length === 0) {
+        delete query.amount;
+      }
+    }
+
+    // =====================================================
+    // DATE FILTER
+    // =====================================================
+
+    if (fromDate || toDate) {
+      query.createdAt = {};
+
+      if (fromDate) {
+        const startDate = new Date(fromDate);
+
+        if (!isNaN(startDate.getTime())) {
+          startDate.setHours(0, 0, 0, 0);
+          query.createdAt.$gte = startDate;
+        }
+      }
+
+      if (toDate) {
+        const endDate = new Date(toDate);
+
+        if (!isNaN(endDate.getTime())) {
+          endDate.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = endDate;
+        }
+      }
+
+      if (Object.keys(query.createdAt).length === 0) {
+        delete query.createdAt;
+      }
+    }
+
+    // =====================================================
+    // PAGINATION
+    // =====================================================
+
+    const currentPage = Math.max(
+      Number(page) || 1,
+      1
+    );
+
+    const perPage = Math.min(
+      Math.max(Number(limit) || 20, 1),
+      100
+    );
+
+    const skip = (currentPage - 1) * perPage;
+
+    // =====================================================
+    // SORT
+    // =====================================================
+
+    const sortDirection =
+      String(sort).toLowerCase() === "asc"
+        ? 1
+        : -1;
+
+    // =====================================================
+    // TOTAL COUNT
+    // =====================================================
+
+    const total = await Deposit.countDocuments(query);
+
+    // =====================================================
+    // GET DEPOSITS
+    // =====================================================
+
+    const deposits = await Deposit.find(query)
+      .sort({
+        createdAt: sortDirection,
+      })
+      .skip(skip)
+      .limit(perPage)
+      .lean();
+
+    // =====================================================
+    // RESPONSE
+    // =====================================================
+
+    return res.status(200).json({
+      success: true,
+
+      message: "All deposits fetched successfully",
+
+      total,
+
+      currentPage,
+
+      perPage,
+
+      totalPages: Math.ceil(
+        total / perPage
+      ),
+
+      deposits,
+    });
+
+  } catch (error) {
+    console.error(
+      "GET ALL DEPOSITS FOR ADMIN ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
 // =====================================================
 // EXPORTS
 // =====================================================
@@ -1611,4 +1893,5 @@ module.exports = {
   onlinePayCallback,
   getMyDeposits,
   getMyTurnoverHistory,
+  getAllDepositsForAdmin
 };

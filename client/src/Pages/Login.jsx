@@ -17,7 +17,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { login } from "../reducer/slice/authSlice";
 
 // 👇 Apne actual banner filename ke according change kar dena
-import loginBanner from "../assets/2ban.png";
+import loginBanner from "../assets/1ban.png";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -209,7 +209,11 @@ const Login = () => {
             text-white
             text-[13px]
             placeholder:text-[#777]
+            outline-none
             focus:outline-none
+            focus-visible:outline-none
+            focus:ring-0
+            border-none
           "
                   disabled={loginLoading}
                 />
@@ -253,7 +257,11 @@ const Login = () => {
             text-white
             text-[13px]
             placeholder:text-[#777]
+            outline-none
             focus:outline-none
+            focus-visible:outline-none
+            focus:ring-0
+            border-none
           "
                   disabled={loginLoading}
                 />

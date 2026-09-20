@@ -12,7 +12,21 @@ import {
 } from "../../reducer/slice/lotteryConfigSlice";
 
 // =====================================================
-// HELPERS
+// GET TODAY YYYY-MM-DD
+// =====================================================
+
+const getToday = () => {
+  const now = new Date();
+
+  return (
+    `${now.getFullYear()}-` +
+    `${String(now.getMonth() + 1).padStart(2, "0")}-` +
+    `${String(now.getDate()).padStart(2, "0")}`
+  );
+};
+
+// =====================================================
+// FORMAT DATE
 // =====================================================
 
 const formatDate = (date) => {
@@ -32,34 +46,17 @@ const formatDate = (date) => {
 };
 
 // =====================================================
-// GET TODAY YYYY-MM-DD
-// =====================================================
-
-const getToday = () => {
-  const now = new Date();
-
-  return (
-    `${now.getFullYear()}-` +
-    `${String(now.getMonth() + 1).padStart(2, "0")}-` +
-    `${String(now.getDate()).padStart(2, "0")}`
-  );
-};
-
-// =====================================================
 // DEFAULT FORM
 // =====================================================
 
-const getDefaultForm = () => {
-  return {
-    marketName: "",
-    drawDate: getToday(),
-    drawTime: "18:30",
-
-    firstPrize: "",
-    secondPrize: "",
-    thirdPrize: "",
-  };
-};
+const getDefaultForm = () => ({
+  marketName: "",
+  drawDate: getToday(),
+  drawTime: "18:30",
+  firstPrize: "",
+  secondPrize: "",
+  thirdPrize: "",
+});
 
 // =====================================================
 // COMPONENT
@@ -88,7 +85,7 @@ const LotteryConfig = () => {
   } = lotteryState;
 
   // ===================================================
-  // CREATE FORM
+  // FORM STATE
   // ===================================================
 
   const [formData, setFormData] = useState(
@@ -99,7 +96,7 @@ const LotteryConfig = () => {
     useState("");
 
   // ===================================================
-  // DELETE
+  // DELETE STATE
   // ===================================================
 
   const [deleteModal, setDeleteModal] =
@@ -117,7 +114,7 @@ const LotteryConfig = () => {
   }, [dispatch]);
 
   // ===================================================
-  // CLEAR SUCCESS
+  // CLEAR SUCCESS MESSAGE
   // ===================================================
 
   useEffect(() => {
@@ -150,28 +147,36 @@ const LotteryConfig = () => {
   // ===================================================
 
   const validateCreateForm = () => {
+    // MARKET NAME
     if (!formData.marketName.trim()) {
       return "Market name is required.";
     }
 
+    // DRAW DATE
     if (!formData.drawDate) {
       return "Draw date is required.";
     }
 
+    // DRAW TIME
     if (!formData.drawTime) {
       return "Draw time is required.";
     }
 
-    // ================================================
-    // PAST DATE CHECK
-    // ================================================
+    // =================================================
+    // DATE VALIDATION
+    // =================================================
 
     const today = new Date();
+
     today.setHours(0, 0, 0, 0);
 
     const selectedDate = new Date(
       `${formData.drawDate}T00:00:00`
     );
+
+    if (Number.isNaN(selectedDate.getTime())) {
+      return "Invalid draw date.";
+    }
 
     selectedDate.setHours(0, 0, 0, 0);
 
@@ -179,9 +184,9 @@ const LotteryConfig = () => {
       return "Past draw date cannot be selected.";
     }
 
-    // ================================================
-    // TIME FORMAT
-    // ================================================
+    // =================================================
+    // TIME VALIDATION
+    // =================================================
 
     if (
       !/^([01]\d|2[0-3]):([0-5]\d)$/.test(
@@ -191,9 +196,9 @@ const LotteryConfig = () => {
       return "Invalid draw time.";
     }
 
-    // ================================================
-    // PRIZES
-    // ================================================
+    // =================================================
+    // FIRST PRIZE
+    // =================================================
 
     if (
       formData.firstPrize === "" ||
@@ -203,6 +208,10 @@ const LotteryConfig = () => {
       return "First prize is required.";
     }
 
+    // =================================================
+    // SECOND PRIZE
+    // =================================================
+
     if (
       formData.secondPrize === "" ||
       formData.secondPrize === null ||
@@ -211,6 +220,10 @@ const LotteryConfig = () => {
       return "Second prize is required.";
     }
 
+    // =================================================
+    // THIRD PRIZE
+    // =================================================
+
     if (
       formData.thirdPrize === "" ||
       formData.thirdPrize === null ||
@@ -218,6 +231,10 @@ const LotteryConfig = () => {
     ) {
       return "Third prize is required.";
     }
+
+    // =================================================
+    // CONVERT PRIZES
+    // =================================================
 
     const firstPrize = Number(
       formData.firstPrize
@@ -231,6 +248,10 @@ const LotteryConfig = () => {
       formData.thirdPrize
     );
 
+    // =================================================
+    // VALIDATE FIRST
+    // =================================================
+
     if (
       !Number.isFinite(firstPrize) ||
       firstPrize < 0
@@ -238,12 +259,20 @@ const LotteryConfig = () => {
       return "Please enter a valid first prize.";
     }
 
+    // =================================================
+    // VALIDATE SECOND
+    // =================================================
+
     if (
       !Number.isFinite(secondPrize) ||
       secondPrize < 0
     ) {
       return "Please enter a valid second prize.";
     }
+
+    // =================================================
+    // VALIDATE THIRD
+    // =================================================
 
     if (
       !Number.isFinite(thirdPrize) ||
@@ -266,6 +295,7 @@ const LotteryConfig = () => {
 
     dispatch(clearLotteryConfigError());
 
+    // VALIDATE
     const validationMessage =
       validateCreateForm();
 
@@ -277,9 +307,9 @@ const LotteryConfig = () => {
       return;
     }
 
-    // ================================================
-    // NEW BACKEND PAYLOAD
-    // ================================================
+    // =================================================
+    // PAYLOAD
+    // =================================================
 
     const payload = {
       marketName:
@@ -321,6 +351,10 @@ const LotteryConfig = () => {
         result
       );
 
+      // =================================================
+      // SUCCESS
+      // =================================================
+
       if (
         createLotteryConfig.fulfilled.match(
           result
@@ -335,19 +369,25 @@ const LotteryConfig = () => {
         dispatch(
           getAllLotteryConfigs()
         );
-      } else {
-        const message =
-          result?.payload?.message ||
-          result?.payload ||
-          result?.error?.message ||
-          "Unable to create lottery.";
 
-        setValidationError(
-          typeof message === "string"
-            ? message
-            : "Unable to create lottery."
-        );
+        return;
       }
+
+      // =================================================
+      // ERROR FROM REDUX
+      // =================================================
+
+      const message =
+        result?.payload?.message ||
+        result?.payload ||
+        result?.error?.message ||
+        "Unable to create lottery.";
+
+      setValidationError(
+        typeof message === "string"
+          ? message
+          : "Unable to create lottery."
+      );
     } catch (err) {
       console.error(
         "CREATE LOTTERY ERROR:",
@@ -368,10 +408,9 @@ const LotteryConfig = () => {
   const handleActivate = async (id) => {
     if (!id) return;
 
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to activate this lottery?"
-      );
+    const confirmed = window.confirm(
+      "Are you sure you want to activate this lottery?"
+    );
 
     if (!confirmed) return;
 
@@ -408,10 +447,9 @@ const LotteryConfig = () => {
   const handleDeactivate = async (id) => {
     if (!id) return;
 
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to deactivate this lottery?"
-      );
+    const confirmed = window.confirm(
+      "Are you sure you want to deactivate this lottery?"
+    );
 
     if (!confirmed) return;
 
@@ -442,7 +480,7 @@ const LotteryConfig = () => {
   };
 
   // ===================================================
-  // DELETE
+  // OPEN DELETE MODAL
   // ===================================================
 
   const handleOpenDelete = (id) => {
@@ -452,10 +490,18 @@ const LotteryConfig = () => {
     setDeleteModal(true);
   };
 
+  // ===================================================
+  // CLOSE DELETE MODAL
+  // ===================================================
+
   const handleCloseDelete = () => {
     setDeleteModal(false);
     setDeleteId(null);
   };
+
+  // ===================================================
+  // DELETE
+  // ===================================================
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -517,7 +563,7 @@ const LotteryConfig = () => {
           </h1>
 
           <p className="mt-1 text-sm text-gray-500">
-            Create and manage individual lottery draws.
+            Create and manage lottery markets.
           </p>
         </div>
 
@@ -525,7 +571,7 @@ const LotteryConfig = () => {
           type="button"
           onClick={handleRefresh}
           disabled={loading}
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading
             ? "Refreshing..."
@@ -535,11 +581,11 @@ const LotteryConfig = () => {
       </div>
 
       {/* =================================================
-          SUCCESS
+          SUCCESS MESSAGE
       ================================================= */}
 
       {successMessage && (
-        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
           {successMessage}
         </div>
       )}
@@ -565,7 +611,7 @@ const LotteryConfig = () => {
                 clearLotteryConfigError()
               )
             }
-            className="ml-4 font-bold"
+            className="ml-4 text-lg font-bold"
           >
             ×
           </button>
@@ -584,7 +630,7 @@ const LotteryConfig = () => {
       )}
 
       {/* =================================================
-          CREATE LOTTERY FORM
+          CREATE LOTTERY
       ================================================= */}
 
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -596,7 +642,8 @@ const LotteryConfig = () => {
           </h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            Only the selected date will be created. No future dates will be generated automatically.
+            Create one lottery market for the selected
+            date and time.
           </p>
 
         </div>
@@ -604,12 +651,12 @@ const LotteryConfig = () => {
         <form onSubmit={handleCreate}>
 
           {/* =================================================
-              BASIC DETAILS
+              MARKET + DATE + TIME
           ================================================= */}
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
 
-            {/* MARKET */}
+            {/* MARKET NAME */}
 
             <div className="lg:col-span-2">
 
@@ -627,12 +674,13 @@ const LotteryConfig = () => {
                   handleFormChange
                 }
                 placeholder="Enter market name"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                required
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
 
             </div>
 
-            {/* DATE */}
+            {/* DRAW DATE */}
 
             <div>
 
@@ -650,12 +698,17 @@ const LotteryConfig = () => {
                 onChange={
                   handleFormChange
                 }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                required
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
+
+              <p className="mt-1 text-xs text-gray-500">
+                Past dates are not allowed.
+              </p>
 
             </div>
 
-            {/* TIME */}
+            {/* DRAW TIME */}
 
             <div>
 
@@ -672,8 +725,13 @@ const LotteryConfig = () => {
                 onChange={
                   handleFormChange
                 }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                required
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
+
+              <p className="mt-1 text-xs text-gray-500">
+                Select draw time.
+              </p>
 
             </div>
 
@@ -683,7 +741,7 @@ const LotteryConfig = () => {
               PRIZES
           ================================================= */}
 
-          <div className="mt-5">
+          <div className="mt-6">
 
             <label className="mb-3 block text-sm font-medium text-gray-700">
               Prize Amounts
@@ -691,7 +749,7 @@ const LotteryConfig = () => {
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 
-              {/* FIRST */}
+              {/* 1ST */}
 
               <div>
 
@@ -711,12 +769,13 @@ const LotteryConfig = () => {
                   min="0"
                   step="0.01"
                   placeholder="Enter 1st prize"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
 
               </div>
 
-              {/* SECOND */}
+              {/* 2ND */}
 
               <div>
 
@@ -736,12 +795,13 @@ const LotteryConfig = () => {
                   min="0"
                   step="0.01"
                   placeholder="Enter 2nd prize"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
 
               </div>
 
-              {/* THIRD */}
+              {/* 3RD */}
 
               <div>
 
@@ -761,7 +821,8 @@ const LotteryConfig = () => {
                   min="0"
                   step="0.01"
                   placeholder="Enter 3rd prize"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-blue-500"
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
 
               </div>
@@ -774,12 +835,12 @@ const LotteryConfig = () => {
               CREATE BUTTON
           ================================================= */}
 
-          <div className="mt-5 flex justify-end">
+          <div className="mt-6 flex justify-end">
 
             <button
               type="submit"
               disabled={createLoading}
-              className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {createLoading
                 ? "Creating..."
@@ -797,6 +858,8 @@ const LotteryConfig = () => {
       ================================================= */}
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+
+        {/* HEADER */}
 
         <div className="border-b border-gray-200 p-5">
 
@@ -849,7 +912,7 @@ const LotteryConfig = () => {
 
             <div className="overflow-x-auto">
 
-              <table className="w-full min-w-[950px]">
+              <table className="w-full min-w-[1050px]">
 
                 <thead>
 
@@ -901,11 +964,13 @@ const LotteryConfig = () => {
                     (config, index) => {
 
                       const id =
-                        config._id;
+                        config?._id;
 
                       return (
                         <tr
-                          key={id}
+                          key={
+                            id || index
+                          }
                           className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
                         >
 
@@ -920,7 +985,7 @@ const LotteryConfig = () => {
                           <td className="px-4 py-4">
 
                             <div className="font-semibold text-gray-900">
-                              {config.marketName ||
+                              {config?.marketName ||
                                 "-"}
                             </div>
 
@@ -930,7 +995,7 @@ const LotteryConfig = () => {
 
                           <td className="px-4 py-4 text-sm font-medium text-gray-900">
                             {formatDate(
-                              config.drawDate
+                              config?.drawDate
                             )}
                           </td>
 
@@ -939,42 +1004,42 @@ const LotteryConfig = () => {
                           <td className="px-4 py-4">
 
                             <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700">
-                              {config.drawTime ||
+                              {config?.drawTime ||
                                 "-"}
                             </span>
 
                           </td>
 
-                          {/* FIRST */}
+                          {/* FIRST PRIZE */}
 
                           <td className="px-4 py-4 text-sm font-semibold text-gray-900">
                             ₹
                             {Number(
-                              config.prizes
+                              config?.prizes
                                 ?.first || 0
                             ).toLocaleString(
                               "en-IN"
                             )}
                           </td>
 
-                          {/* SECOND */}
+                          {/* SECOND PRIZE */}
 
                           <td className="px-4 py-4 text-sm font-semibold text-gray-900">
                             ₹
                             {Number(
-                              config.prizes
+                              config?.prizes
                                 ?.second || 0
                             ).toLocaleString(
                               "en-IN"
                             )}
                           </td>
 
-                          {/* THIRD */}
+                          {/* THIRD PRIZE */}
 
                           <td className="px-4 py-4 text-sm font-semibold text-gray-900">
                             ₹
                             {Number(
-                              config.prizes
+                              config?.prizes
                                 ?.third || 0
                             ).toLocaleString(
                               "en-IN"
@@ -985,7 +1050,7 @@ const LotteryConfig = () => {
 
                           <td className="px-4 py-4">
 
-                            {config.isActive ? (
+                            {config?.isActive ? (
                               <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
                                 Active
                               </span>
@@ -1003,7 +1068,9 @@ const LotteryConfig = () => {
 
                             <div className="flex justify-end gap-2">
 
-                              {config.isActive ? (
+                              {/* ACTIVE -> DEACTIVATE */}
+
+                              {config?.isActive ? (
 
                                 <button
                                   type="button"
@@ -1015,7 +1082,7 @@ const LotteryConfig = () => {
                                   disabled={
                                     deactivateLoading
                                   }
-                                  className="rounded-lg border border-orange-300 bg-white px-3 py-2 text-xs font-medium text-orange-600 hover:bg-orange-50 disabled:opacity-50"
+                                  className="rounded-lg border border-orange-300 bg-white px-3 py-2 text-xs font-medium text-orange-600 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                   {deactivateLoading
                                     ? "..."
@@ -1023,6 +1090,8 @@ const LotteryConfig = () => {
                                 </button>
 
                               ) : (
+
+                                /* INACTIVE -> ACTIVATE */
 
                                 <button
                                   type="button"
@@ -1034,7 +1103,7 @@ const LotteryConfig = () => {
                                   disabled={
                                     activateLoading
                                   }
-                                  className="rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                                  className="rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                   {activateLoading
                                     ? "..."
@@ -1042,6 +1111,8 @@ const LotteryConfig = () => {
                                 </button>
 
                               )}
+
+                              {/* DELETE */}
 
                               <button
                                 type="button"
@@ -1053,7 +1124,7 @@ const LotteryConfig = () => {
                                 disabled={
                                   deleteLoading
                                 }
-                                className="rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                                className="rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 Delete
                               </button>
@@ -1103,7 +1174,8 @@ const LotteryConfig = () => {
                 onClick={
                   handleCloseDelete
                 }
-                className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                disabled={deleteLoading}
+                className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1112,7 +1184,7 @@ const LotteryConfig = () => {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleteLoading}
-                className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {deleteLoading
                   ? "Deleting..."

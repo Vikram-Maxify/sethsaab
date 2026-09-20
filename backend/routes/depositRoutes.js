@@ -5,6 +5,7 @@ const {
   getMyDeposits,
   onlinePayCallback,
   getMyTurnoverHistory,
+  getAllDepositsForAdmin,
 } = require("../controllers/depositecontroller");
 
 
@@ -50,6 +51,12 @@ router.get(
   "/deposit",
   authMiddleware,
   getMyDeposits
+);
+
+router.get(
+  "/deposits",
+  authMiddleware,
+  getAllDepositsForAdmin
 );
 
 // =====================================================
