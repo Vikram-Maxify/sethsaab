@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const LotteryConfig = require("../models/LotteryConfig");
+const User = require("../models/userModel"); 
 
 // =====================================================
 // GET USER ID FROM JWT
