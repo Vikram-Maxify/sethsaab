@@ -39,14 +39,35 @@ const getFrontendUrl = () => {
 const redirectPaymentPage = (
   res,
   page,
-  { orderId = "", amount = "", number = "", status = "" } = {}
+  {
+    orderId = "",
+    amount = "",
+    number = "",
+    status = "",
+    configId = "",
+  } = {}
 ) => {
   const params = new URLSearchParams();
 
-  if (orderId !== "") params.set("order_id", String(orderId));
-  if (amount !== "") params.set("amount", String(amount));
-  if (number !== "") params.set("number", String(number));
-  if (status !== "") params.set("status", String(status));
+  if (orderId !== "") {
+    params.set("order_id", String(orderId));
+  }
+
+  if (amount !== "") {
+    params.set("amount", String(amount));
+  }
+
+  if (number !== "") {
+    params.set("number", String(number));
+  }
+
+  if (status !== "") {
+    params.set("status", String(status));
+  }
+
+  if (configId !== "") {
+    params.set("config_id", String(configId));
+  }
 
   return res.redirect(
     `${getFrontendUrl()}/${page}?${params.toString()}`

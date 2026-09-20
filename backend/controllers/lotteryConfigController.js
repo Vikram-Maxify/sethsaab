@@ -575,7 +575,11 @@ const createLotteryConfig = async (req, res) => {
 
 const addUserLotteryEntry = async (req, res) => {
   try {
-    const { number, amount } = req.body;
+    // =====================================================
+    // GET DATA FROM REQUEST
+    // =====================================================
+
+    const { configId, number, amount } = req.body;
 
     // =====================================================
     // GET USER ID
@@ -587,6 +591,24 @@ const addUserLotteryEntry = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: "User ID not found in token",
+      });
+    }
+
+    // =====================================================
+    // VALIDATE CONFIG ID
+    // =====================================================
+
+    if (!configId) {
+      return res.status(400).json({
+        success: false,
+        message: "configId is required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(configId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid configId",
       });
     }
 
@@ -617,19 +639,34 @@ const addUserLotteryEntry = async (req, res) => {
     }
 
     // =====================================================
-    // HELPER
+    // FIND LOTTERY CONFIG BY CONFIG ID
     // =====================================================
-    //
-    // IMPORTANT:
-    //
-    // DB:
-    // 2026-09-20T18:30:00.000Z
-    //
-    // We intentionally take UTC calendar date:
-    // 2026-09-20
-    //
-    // We DO NOT convert drawDate to IST here.
-    //
+
+    const config = await LotteryConfig.findById(configId);
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Lottery configuration not found",
+        configId,
+      });
+    }
+
+    // =====================================================
+    // CHECK ACTIVE
+    // =====================================================
+
+    if (!config.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "This lottery is not active",
+        configId: config._id,
+        marketName: config.marketName,
+      });
+    }
+
+    // =====================================================
+    // GET DRAW DATE
     // =====================================================
 
     const getDBDateString = (date) => {
@@ -646,136 +683,13 @@ const addUserLotteryEntry = async (req, res) => {
       return d.toISOString().slice(0, 10);
     };
 
-    // =====================================================
-    // GET TODAY DATE IN INDIA / IST
-    // =====================================================
-
-    const getTodayIST = () => {
-      const parts = new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Asia/Kolkata",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).formatToParts(new Date());
-
-      const result = {};
-
-      parts.forEach((part) => {
-        if (part.type !== "literal") {
-          result[part.type] = part.value;
-        }
-      });
-
-      return `${result.year}-${result.month}-${result.day}`;
-    };
-
-    // =====================================================
-    // CURRENT TIME
-    // =====================================================
-
-    const now = new Date();
-
-    const todayString = getTodayIST();
-
-    console.log("==============================================");
-    console.log("LOTTERY ENTRY");
-    console.log("CURRENT UTC :", now.toISOString());
-    console.log("CURRENT IST :", new Intl.DateTimeFormat("en-IN", {
-      timeZone: "Asia/Kolkata",
-      dateStyle: "full",
-      timeStyle: "medium",
-    }).format(now));
-    console.log("TODAY IST   :", todayString);
-    console.log("==============================================");
-
-    // =====================================================
-    // GET ACTIVE LOTTERIES
-    // =====================================================
-
-    const activeConfigs = await LotteryConfig.find({
-      isActive: true,
-    }).sort({
-      drawDate: 1,
-    });
-
-    if (!activeConfigs || activeConfigs.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No active lottery ticket available",
-      });
-    }
-
-    // =====================================================
-    // FIND TODAY'S LOTTERY
-    // =====================================================
-
-    let config = null;
-
-    for (const lottery of activeConfigs) {
-      const lotteryDate = getDBDateString(
-        lottery.drawDate
-      );
-
-      console.log("Checking lottery:", {
-        id: lottery._id,
-        marketName: lottery.marketName,
-        dbDrawDate: lottery.drawDate,
-        lotteryDate,
-        todayString,
-        drawTime: lottery.drawTime,
-        isActive: lottery.isActive,
-      });
-
-      if (lotteryDate === todayString) {
-        config = lottery;
-        break;
-      }
-    }
-
-    // =====================================================
-    // NO TODAY'S LOTTERY
-    // =====================================================
-
-    if (!config) {
-      return res.status(404).json({
-        success: false,
-        message: "No active lottery ticket available for today",
-        today: todayString,
-        activeLotteries: activeConfigs.map((lottery) => ({
-          id: lottery._id,
-          marketName: lottery.marketName,
-          drawDate: getDBDateString(lottery.drawDate),
-          drawTime: lottery.drawTime,
-        })),
-      });
-    }
-
-    // =====================================================
-    // DRAW DATE
-    // =====================================================
-
-    const dateString = getDBDateString(
-      config.drawDate
-    );
+    const dateString = getDBDateString(config.drawDate);
 
     if (!dateString) {
       return res.status(500).json({
         success: false,
         message: "Invalid draw date in lottery configuration",
-      });
-    }
-
-    // =====================================================
-    // CHECK DATE
-    // =====================================================
-
-    if (dateString !== todayString) {
-      return res.status(400).json({
-        success: false,
-        message: "Lottery ticket is not available for today",
-        drawDate: dateString,
-        todayDate: todayString,
-        drawTime: config.drawTime,
+        configId: config._id,
       });
     }
 
@@ -791,13 +705,19 @@ const addUserLotteryEntry = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid draw time in lottery configuration",
+        configId: config._id,
         drawDate: dateString,
         drawTime: config.drawTime,
       });
     }
 
-    const [drawHour, drawMinute] =
-      config.drawTime.split(":").map(Number);
+    // =====================================================
+    // PARSE DRAW TIME
+    // =====================================================
+
+    const [drawHour, drawMinute] = config.drawTime
+      .split(":")
+      .map(Number);
 
     if (
       Number.isNaN(drawHour) ||
@@ -810,6 +730,7 @@ const addUserLotteryEntry = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid draw time in lottery configuration",
+        configId: config._id,
         drawDate: dateString,
         drawTime: config.drawTime,
       });
@@ -819,15 +740,13 @@ const addUserLotteryEntry = async (req, res) => {
     // CREATE DRAW DATETIME
     // =====================================================
     //
-    // drawDate = 2026-09-20
-    // drawTime = 18:50
+    // Example:
     //
-    // Treat as:
+    // drawDate = 2026-10-11
+    // drawTime = 19:11
     //
-    // 20 September 2026
-    // 18:50 IST
-    //
-    // +05:30 is explicitly added.
+    // Means:
+    // 11 October 2026 19:11 IST
     //
     // =====================================================
 
@@ -839,28 +758,24 @@ const addUserLotteryEntry = async (req, res) => {
       return res.status(500).json({
         success: false,
         message: "Unable to calculate lottery draw time",
+        configId: config._id,
       });
     }
 
     // =====================================================
-    // LOG DRAW INFORMATION
+    // CURRENT TIME
     // =====================================================
 
+    const now = new Date();
+
     console.log("==============================================");
-    console.log("SELECTED LOTTERY");
-    console.log("Lottery ID       :", config._id);
-    console.log("Market Name      :", config.marketName);
-    console.log("DB Draw Date     :", config.drawDate);
-    console.log("Lottery Date     :", dateString);
-    console.log("Draw Time IST    :", config.drawTime);
-    console.log(
-      "Draw DateTime UTC:",
-      drawDateTime.toISOString()
-    );
-    console.log(
-      "Current UTC      :",
-      now.toISOString()
-    );
+    console.log("LOTTERY ENTRY");
+    console.log("CONFIG ID       :", config._id);
+    console.log("MARKET NAME     :", config.marketName);
+    console.log("DRAW DATE       :", dateString);
+    console.log("DRAW TIME IST   :", config.drawTime);
+    console.log("DRAW DATETIME   :", drawDateTime.toISOString());
+    console.log("CURRENT UTC     :", now.toISOString());
     console.log("==============================================");
 
     // =====================================================
@@ -871,6 +786,8 @@ const addUserLotteryEntry = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Lottery ticket sale time has ended",
+        configId: config._id,
+        marketName: config.marketName,
         drawDate: dateString,
         drawTime: config.drawTime,
       });
@@ -897,8 +814,8 @@ const addUserLotteryEntry = async (req, res) => {
     if (existingEntry) {
       return res.status(409).json({
         success: false,
-        message:
-          "You already have a lottery entry for this draw",
+        message: "You already have a lottery entry for this draw",
+        configId: config._id,
         data: existingEntry,
       });
     }
@@ -930,7 +847,7 @@ const addUserLotteryEntry = async (req, res) => {
     });
 
     // =====================================================
-    // SAVE
+    // SAVE CONFIG
     // =====================================================
 
     await config.save();
@@ -952,6 +869,8 @@ const addUserLotteryEntry = async (req, res) => {
       message: "Lottery entry submitted successfully",
 
       data: {
+        configId: config._id,
+
         lotteryId: config._id,
 
         marketName: config.marketName,
@@ -967,6 +886,10 @@ const addUserLotteryEntry = async (req, res) => {
         isActive: config.isActive,
 
         entryDate: dateString,
+
+        number: numberValidation.number,
+
+        amount: amountValidation.amount,
 
         entry: newEntry,
       },
