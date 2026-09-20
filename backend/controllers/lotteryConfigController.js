@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const LotteryConfig = require("../models/LotteryConfig");
-const User = require("../models/userModel"); 
+const User = require("../models/userModel");
 
 // =====================================================
 // GET USER ID FROM JWT
@@ -952,6 +952,7 @@ const getMyLotteryEntries = async (req, res) => {
       });
     }
 
+    // userId token me ObjectId string ya uuid — dono handle karo
     const configs = await LotteryConfig.find({
       "users.userId": String(userId),
     })
@@ -961,69 +962,46 @@ const getMyLotteryEntries = async (req, res) => {
     const entries = [];
 
     configs.forEach((config) => {
-      if (!Array.isArray(config.users)) {
-        return;
-      }
+      if (!Array.isArray(config.users)) return;
 
+      // ek user ke saare tickets nikaalo (multi-ticket support)
       config.users
-        .filter(
-          (entry) => String(entry.userId) === String(userId)
-        )
+        .filter((entry) => String(entry.userId) === String(userId))
         .forEach((entry) => {
           entries.push({
             lotteryId: config._id,
-
             entryId: entry._id,
 
             marketName: config.marketName,
-
             month: config.month,
-
             year: config.year,
-
             drawDate: config.drawDate,
-
             drawTime: config.drawTime,
-
             isActive: config.isActive,
-
             prizes: config.prizes,
 
             entry: {
               _id: entry._id,
-
               userId: entry.userId,
-
               entryDate: entry.entryDate,
-
               number: entry.number,
-
               amount: entry.amount,
-
               isBuy: entry.isBuy,
-
               prize: {
                 first: entry.prize?.first || 0,
-
                 second: entry.prize?.second || 0,
-
                 third: entry.prize?.third || 0,
               },
-
               prizeType: entry.prizeType || null,
-
               status: entry.status || "pending",
-
               createdAt: entry.createdAt,
-
               updatedAt: entry.updatedAt,
             },
           });
         });
     });
 
-    // ---- NEW: fetch full user data ----
-    // Support both ObjectId-string users and uuid-string users.
+    // ---- Full user data fetch (ek hi baar) ----
     const userIds = [...new Set(entries.map((e) => String(e.entry.userId)))];
 
     const users = await User.find({
@@ -1033,47 +1011,40 @@ const getMyLotteryEntries = async (req, res) => {
       ],
     }).lean();
 
-    // Map by both _id and uuid so lookups work for either form
     const userMap = new Map();
     users.forEach((u) => {
       userMap.set(String(u._id), u);
       if (u.uuid) userMap.set(String(u.uuid), u);
     });
 
-    // Attach full user object to each entry
+    // Har ticket ke saath user data attach karo (multi-ticket me bhi same user repeat hoga)
     entries.forEach((e) => {
       const u = userMap.get(String(e.entry.userId)) || null;
       e.user = u
         ? {
-            _id: u._id,
-            uuid: u.uuid,
-            name: u.name,
-            mobile: u.mobile,
-            role: u.role,
-            wallet: u.wallet,
-            createdAt: u.createdAt,
-            updatedAt: u.updatedAt,
-          }
+          _id: u._id,
+          uuid: u.uuid,
+          name: u.name,
+          mobile: u.mobile,
+          role: u.role,
+          wallet: u.wallet,
+          createdAt: u.createdAt,
+          updatedAt: u.updatedAt,
+        }
         : null;
     });
-    // ---- END NEW ----
+    // ---- END ----
 
-    entries.sort(
-      (a, b) => new Date(b.drawDate) - new Date(a.drawDate)
-    );
+    entries.sort((a, b) => new Date(b.drawDate) - new Date(a.drawDate));
 
     return res.status(200).json({
       success: true,
-
       message: "User lottery entries fetched successfully",
-
       totalEntries: entries.length,
-
       data: entries,
     });
   } catch (error) {
     console.error("Get my lottery entries error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
