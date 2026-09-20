@@ -6,7 +6,6 @@ const User = require("../models/userModel");
 const TransactionHistory = require("../models/TransactionHistory");
 const AdminGateway = require("../models/AdminGateway");
 const LotteryConfig = require("../models/LotteryConfig");
-const { addUserLotteryEntry } = require("./lotteryConfigController.js");
 
 // =====================================================
 // HELPER: GATEWAY HEADERS
@@ -533,6 +532,7 @@ const onlinePayCallback = async (req, res) => {
         amount: deposit.amount,
         number: deposit.number || "",
         status: "success",
+        configId: deposit.configId ? String(deposit.configId) : "",
       });
     }
 
@@ -607,6 +607,7 @@ const onlinePayCallback = async (req, res) => {
         amount: deposit.amount,
         number: deposit.number || "",
         status: "failed",
+        configId: deposit.configId ? String(deposit.configId) : "",
       });
     }
 
@@ -674,6 +675,7 @@ const onlinePayCallback = async (req, res) => {
         amount: deposit.amount,
         number: deposit.number || "",
         status: "failed",
+        configId: deposit.configId ? String(deposit.configId) : "",
       });
     }
 
@@ -715,6 +717,7 @@ const onlinePayCallback = async (req, res) => {
         amount: deposit.amount,
         number: deposit.number || "",
         status: "failed",
+        configId: deposit.configId ? String(deposit.configId) : "",
       });
     }
 
@@ -749,6 +752,7 @@ const onlinePayCallback = async (req, res) => {
         amount: deposit.amount,
         number: deposit.number || "",
         status: "failed",
+        configId: deposit.configId ? String(deposit.configId) : "",
       });
     }
 
@@ -841,191 +845,151 @@ const onlinePayCallback = async (req, res) => {
     */
 
     // =====================================================
-    // UPDATE LOTTERY CONFIG
+    // FIND CONFIG AND ADD / CONFIRM LOTTERY ENTRY
     // =====================================================
 
-    if (
-      deposit.configId &&
-      deposit.entryId
-    ) {
+    // IMPORTANT:
+    // Payment success ke baad deposit.configId se exact
+    // LotteryConfig find ki jayegi. Kisi active/today config ko
+    // randomly select nahi kiya jayega.
+
+    if (deposit.configId) {
       try {
-        // Validate ObjectIds
-        if (
-          !mongoose.Types.ObjectId.isValid(
-            deposit.configId
-          )
-        ) {
-          console.warn(
-            "Invalid configId:",
-            deposit.configId
+        if (!mongoose.Types.ObjectId.isValid(deposit.configId)) {
+          throw new Error(`Invalid configId: ${deposit.configId}`);
+        }
+
+        const config = await LotteryConfig.findById(deposit.configId);
+
+        if (!config) {
+          throw new Error(
+            `LotteryConfig not found for configId: ${deposit.configId}`
           );
+        }
+
+        if (!Array.isArray(config.users)) {
+          config.users = [];
+        }
+
+        const ticketNumber = String(deposit.number || "").trim();
+        const ticketAmount = Number(creditAmount);
+
+        if (!ticketNumber) {
+          throw new Error("Lottery number is missing in deposit");
+        }
+
+        if (!Number.isFinite(ticketAmount) || ticketAmount <= 0) {
+          throw new Error("Invalid lottery amount");
+        }
+
+        // =====================================================
+        // FIND EXISTING ENTRY
+        // =====================================================
+
+        let entry = null;
+
+        // First priority: entryId saved in deposit
+        if (deposit.entryId) {
+          entry = config.users.find(
+            (item) => String(item._id) === String(deposit.entryId)
+          );
+        }
+
+        // Second priority: same user + same number
+        if (!entry) {
+          entry = config.users.find(
+            (item) =>
+              String(item.userId) === String(deposit.userId) &&
+              String(item.number) === ticketNumber
+          );
+        }
+
+        // =====================================================
+        // UPDATE EXISTING ENTRY
+        // =====================================================
+
+        if (entry) {
+          entry.amount = ticketAmount;
+          entry.number = ticketNumber;
+          entry.isBuy = true;
+
+          // Payment success ke baad pending rakho.
+          // Agar result already process ho chuka hai to status
+          // win/lost ko overwrite nahi karenge.
+          if (!entry.status || !["win", "won", "lost"].includes(String(entry.status).toLowerCase())) {
+            entry.status = "pending";
+          }
+
+          console.log("LOTTERY ENTRY UPDATED:", {
+            configId: String(config._id),
+            entryId: entry._id ? String(entry._id) : null,
+            userId: String(deposit.userId),
+            number: ticketNumber,
+            amount: ticketAmount,
+          });
         } else {
-          const config =
-            await LotteryConfig.findById(
-              deposit.configId
-            );
+          // =====================================================
+          // CREATE NEW ENTRY
+          // =====================================================
 
-          if (!config) {
-            console.warn(
-              "LotteryConfig not found:",
-              deposit.configId
-            );
-          } else {
-            // =====================================================
-            // FIND USER ENTRY
-            // =====================================================
+          let entryDate = new Date().toISOString().slice(0, 10);
 
-            let entry = null;
+          if (config.drawDate) {
+            const drawDate = new Date(config.drawDate);
 
-            if (
-              config.users &&
-              typeof config.users.id === "function"
-            ) {
-              entry = config.users.id(
-                deposit.entryId
-              );
-            }
-
-            // =====================================================
-            // FALLBACK
-            // =====================================================
-
-            if (!entry && Array.isArray(config.users)) {
-              entry =
-                config.users.find(
-                  (item) =>
-                    String(item._id) ===
-                    String(deposit.entryId)
-                ) || null;
-            }
-
-            if (!entry) {
-              console.warn(
-                "Lottery entry not found:",
-                deposit.entryId
-              );
-            } else {
-              // =====================================================
-              // MARK PURCHASED
-              // =====================================================
-
-              entry.isBuy = true;
-
-              // =====================================================
-              // OPTIONAL WIN CHECK
-              // =====================================================
-
-              if (
-                config.winningNumber !== undefined &&
-                config.winningNumber !== null &&
-                entry.number !== undefined &&
-                entry.number !== null
-              ) {
-                if (
-                  String(entry.number) ===
-                  String(config.winningNumber)
-                ) {
-                  entry.status = "win";
-
-                  entry.prizeType = "1st";
-
-                  if (!entry.prize) {
-                    entry.prize = {};
-                  }
-
-                  entry.prize.first =
-                    config.prizes?.first || 0;
-                } else {
-                  entry.status = "lost";
-                }
-              }
-
-              await config.save();
-
-              console.log(
-                "===================================="
-              );
-
-              console.log(
-                "LOTTERY ENTRY UPDATED"
-              );
-
-              console.log(
-                "Config:",
-                deposit.configId
-              );
-
-              console.log(
-                "Entry:",
-                deposit.entryId
-              );
-
-              console.log(
-                "isBuy:",
-                entry.isBuy
-              );
-
-              console.log(
-                "===================================="
-              );
+            if (!Number.isNaN(drawDate.getTime())) {
+              entryDate = drawDate.toISOString().slice(0, 10);
             }
           }
-        }
-      } catch (lotteryError) {
-        console.error(
-          "LOTTERY isBuy UPDATE ERROR:",
-          lotteryError
-        );
 
-        // Payment already successful.
-        // Don't mark payment as failed.
+          config.users.push({
+            userId: String(deposit.userId),
+            entryDate,
+            number: ticketNumber,
+            amount: ticketAmount,
+            isBuy: true,
+            prize: {
+              first: 0,
+              second: 0,
+              third: 0,
+            },
+            prizeType: null,
+            status: "pending",
+          });
+
+          entry = config.users[config.users.length - 1];
+
+          console.log("LOTTERY ENTRY CREATED:", {
+            configId: String(config._id),
+            entryId: entry._id ? String(entry._id) : null,
+            userId: String(deposit.userId),
+            number: ticketNumber,
+            amount: ticketAmount,
+          });
+        }
+
+        await config.save();
+
+        console.log("====================================");
+        console.log("LOTTERY PAYMENT ENTRY SAVED");
+        console.log("Config ID:", String(config._id));
+        console.log("Market:", config.marketName);
+        console.log("Number:", ticketNumber);
+        console.log("Amount:", ticketAmount);
+        console.log("Entry ID:", entry?._id ? String(entry._id) : "N/A");
+        console.log("====================================");
+      } catch (lotteryError) {
+        console.error("LOTTERY ENTRY UPDATE ERROR:", lotteryError);
+
+        // Payment successful hai, isliye payment ko failed nahi karna.
+        // Error log hoga taaki admin issue trace kar sake.
       }
     } else {
-      console.warn(
-        "Deposit has no configId/entryId. Cannot update lottery entry.",
-        {
-          depositId: deposit._id,
-          configId: deposit.configId,
-          entryId: deposit.entryId,
-        }
-      );
-    }
-
-    // =====================================================
-    // ADD USER LOTTERY ENTRY
-    //
-    // ONLY AFTER PAYMENT SUCCESS
-    // =====================================================
-
-    if (
-      deposit.number !== undefined &&
-      deposit.number !== null &&
-      String(deposit.number).trim() !== ""
-    ) {
-      try {
-
-        await addUserLotteryEntry(
-          deposit.number,
-          creditAmount,
-          user._id
-        );
-
-        console.log(
-          "addUserLotteryEntry SUCCESS:",
-          {
-            number: deposit.number,
-            amount: creditAmount,
-          }
-        );
-      } catch (entryError) {
-        console.error(
-          "addUserLotteryEntry ERROR:",
-          entryError.message
-        );
-
-        // Payment already successful.
-        // Do not reverse payment.
-      }
+      console.warn("Deposit has no configId. Lottery entry cannot be created.", {
+        depositId: deposit._id,
+        orderId: deposit.orderId,
+        number: deposit.number,
+      });
     }
 
     // =====================================================
@@ -1078,6 +1042,7 @@ const onlinePayCallback = async (req, res) => {
       amount: creditAmount,
       number: deposit.number || "",
       status: "success",
+      configId: deposit.configId ? String(deposit.configId) : "",
     });
   } catch (error) {
     console.error(
