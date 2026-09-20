@@ -802,20 +802,30 @@ const addUserLotteryEntry = async (req, res) => {
     }
 
     // =====================================================
-    // CHECK EXISTING ENTRY
+    // CHECK EXISTING ENTRY (SAME USER + SAME DRAW + SAME NUMBER)
+    // =====================================================
+    //
+    // ✅ Same user multiple tickets kharid sakta hai
+    // ❌ Lekin same number dobara nahi kharid sakta
+    //
     // =====================================================
 
     const existingEntry = config.users.find(
       (entry) =>
         String(entry.userId) === String(userId) &&
-        String(entry.entryDate) === String(dateString)
+        String(entry.entryDate) === String(dateString) &&
+        Number(entry.number) === Number(numberValidation.number)
     );
 
     if (existingEntry) {
       return res.status(409).json({
         success: false,
-        message: "You already have a lottery entry for this draw",
+        message:
+          "You already have a ticket with this number for this draw",
         configId: config._id,
+        marketName: config.marketName,
+        drawDate: dateString,
+        number: numberValidation.number,
         data: existingEntry,
       });
     }
@@ -856,8 +866,17 @@ const addUserLotteryEntry = async (req, res) => {
     // GET NEW ENTRY
     // =====================================================
 
-    const newEntry =
-      config.users[config.users.length - 1];
+    const newEntry = config.users[config.users.length - 1];
+
+    // =====================================================
+    // GET ALL ENTRIES OF THIS USER FOR THIS DRAW
+    // =====================================================
+
+    const userEntries = config.users.filter(
+      (entry) =>
+        String(entry.userId) === String(userId) &&
+        String(entry.entryDate) === String(dateString)
+    );
 
     // =====================================================
     // SUCCESS RESPONSE
@@ -891,7 +910,14 @@ const addUserLotteryEntry = async (req, res) => {
 
         amount: amountValidation.amount,
 
+        // 👇 new entry
         entry: newEntry,
+
+        // 👇 total tickets count of this user for this draw
+        totalTickets: userEntries.length,
+
+        // 👇 all tickets of this user for this draw
+        allEntries: userEntries,
       },
     });
   } catch (error) {
@@ -916,6 +942,10 @@ const addUserLotteryEntry = async (req, res) => {
 
 const getMyLotteryEntries = async (req, res) => {
   try {
+    // =====================================================
+    // GET USER ID
+    // =====================================================
+
     const userId = getUserId(req);
 
     if (!userId) {
@@ -925,11 +955,19 @@ const getMyLotteryEntries = async (req, res) => {
       });
     }
 
+    // =====================================================
+    // FETCH ALL CONFIGS WHERE USER HAS ENTRIES
+    // =====================================================
+
     const configs = await LotteryConfig.find({
       "users.userId": String(userId),
     })
       .sort({ drawDate: -1 })
       .lean();
+
+    // =====================================================
+    // BUILD FLAT ENTRIES ARRAY
+    // =====================================================
 
     const entries = [];
 
@@ -940,8 +978,7 @@ const getMyLotteryEntries = async (req, res) => {
 
       config.users
         .filter(
-          (entry) =>
-            String(entry.userId) === String(userId)
+          (entry) => String(entry.userId) === String(userId)
         )
         .forEach((entry) => {
           entries.push({
@@ -996,10 +1033,120 @@ const getMyLotteryEntries = async (req, res) => {
         });
     });
 
+    // =====================================================
+    // SORT BY DRAW DATE (LATEST FIRST)
+    // =====================================================
+
     entries.sort(
       (a, b) =>
         new Date(b.drawDate) - new Date(a.drawDate)
     );
+
+    // =====================================================
+    // GROUP ENTRIES BY DRAW (lotteryId + entryDate)
+    // =====================================================
+    //
+    // Same draw ke saare tickets ek group mein rahenge.
+    // Example:
+    //
+    // Draw: 2026-10-11 | Market: XYZ
+    //   - Ticket 1: number 123, amount 10
+    //   - Ticket 2: number 456, amount 20
+    //   - Ticket 3: number 789, amount 10
+    //
+    // =====================================================
+
+    const groupedMap = new Map();
+
+    entries.forEach((item) => {
+      // group key = lotteryId + drawDate
+      const key = `${item.lotteryId}_${item.entry.entryDate}`;
+
+      if (!groupedMap.has(key)) {
+        groupedMap.set(key, {
+          lotteryId: item.lotteryId,
+
+          marketName: item.marketName,
+
+          month: item.month,
+
+          year: item.year,
+
+          drawDate: item.drawDate,
+
+          drawTime: item.drawTime,
+
+          isActive: item.isActive,
+
+          prizes: item.prizes,
+
+          entryDate: item.entry.entryDate,
+
+          totalTickets: 0,
+
+          totalAmount: 0,
+
+          tickets: [],
+        });
+      }
+
+      const group = groupedMap.get(key);
+
+      group.totalTickets += 1;
+
+      group.totalAmount += Number(item.entry.amount) || 0;
+
+      group.tickets.push({
+        entryId: item.entryId,
+
+        number: item.entry.number,
+
+        amount: item.entry.amount,
+
+        isBuy: item.entry.isBuy,
+
+        prize: item.entry.prize,
+
+        prizeType: item.entry.prizeType,
+
+        status: item.entry.status,
+
+        createdAt: item.entry.createdAt,
+
+        updatedAt: item.entry.updatedAt,
+      });
+    });
+
+    // =====================================================
+    // CONVERT MAP TO ARRAY + SORT BY DRAW DATE
+    // =====================================================
+
+    const groupedEntries = Array.from(
+      groupedMap.values()
+    ).sort(
+      (a, b) =>
+        new Date(b.drawDate) - new Date(a.drawDate)
+    );
+
+    // =====================================================
+    // OVERALL SUMMARY
+    // =====================================================
+
+    const summary = {
+      totalEntries: entries.length,
+
+      totalDraws: groupedEntries.length,
+
+      totalAmount: entries.reduce(
+        (sum, e) =>
+          sum + (Number(e.entry.amount) || 0),
+        0
+      ),
+    };
+
+    // =====================================================
+    // SUCCESS RESPONSE
+    // =====================================================
 
     return res.status(200).json({
       success: true,
@@ -1007,9 +1154,15 @@ const getMyLotteryEntries = async (req, res) => {
       message:
         "User lottery entries fetched successfully",
 
+      summary,
+
       totalEntries: entries.length,
 
+      // 👇 flat list (har ticket alag)
       data: entries,
+
+      // 👇 grouped list (draw-wise tickets)
+      groupedData: groupedEntries,
     });
   } catch (error) {
     console.error(
