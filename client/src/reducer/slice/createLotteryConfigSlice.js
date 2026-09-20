@@ -128,7 +128,7 @@ export const createLotteryConfig = createAsyncThunk(
 
       return rejectWithValue(
         data?.message ||
-          "Failed to create lottery configuration"
+        "Failed to create lottery configuration"
       );
     }
   }
@@ -155,7 +155,7 @@ export const getActiveLotteryConfig = createAsyncThunk(
 
       return rejectWithValue(
         error.response?.data?.message ||
-          "Failed to fetch active lottery configuration"
+        "Failed to fetch active lottery configuration"
       );
     }
   }
@@ -187,17 +187,58 @@ export const getMyLotteryEntries = createAsyncThunk(
 
 export const addUserLotteryEntry = createAsyncThunk(
   "createLotteryConfig/addUserLotteryEntry",
-  async ({ number, amount }, { rejectWithValue }) => {
+  async (
+    { configId, number, amount },
+    { rejectWithValue }
+  ) => {
     try {
-      if (number === undefined || number === null || number === "") {
-        return rejectWithValue("6 digit lottery number is required");
+      // ==========================================
+      // CONFIG ID VALIDATION
+      // ==========================================
+
+      if (
+        configId === undefined ||
+        configId === null ||
+        configId === ""
+      ) {
+        return rejectWithValue(
+          "Lottery configId is required"
+        );
+      }
+
+      const lotteryConfigId = String(configId).trim();
+
+      if (!lotteryConfigId) {
+        return rejectWithValue(
+          "Lottery configId is required"
+        );
+      }
+
+      // ==========================================
+      // NUMBER VALIDATION
+      // ==========================================
+
+      if (
+        number === undefined ||
+        number === null ||
+        number === ""
+      ) {
+        return rejectWithValue(
+          "6 digit lottery number is required"
+        );
       }
 
       const lotteryNumber = String(number).trim();
 
       if (!/^\d{6}$/.test(lotteryNumber)) {
-        return rejectWithValue("Lottery number must be exactly 6 digits");
+        return rejectWithValue(
+          "Lottery number must be exactly 6 digits"
+        );
       }
+
+      // ==========================================
+      // AMOUNT VALIDATION
+      // ==========================================
 
       if (
         amount === undefined ||
@@ -205,24 +246,53 @@ export const addUserLotteryEntry = createAsyncThunk(
         amount === "" ||
         Number.isNaN(Number(amount))
       ) {
-        return rejectWithValue("Valid amount is required");
+        return rejectWithValue(
+          "Valid amount is required"
+        );
       }
 
       const lotteryAmount = Number(amount);
 
-      if (lotteryAmount < 0) {
-        return rejectWithValue("Amount cannot be negative");
+      if (!Number.isFinite(lotteryAmount)) {
+        return rejectWithValue(
+          "Valid amount is required"
+        );
       }
 
-      const response = await api.post("/lottery/entry", {
-        number: lotteryNumber,
-        amount: lotteryAmount,
-      });
+      if (lotteryAmount <= 0) {
+        return rejectWithValue(
+          "Amount must be greater than 0"
+        );
+      }
+
+      // ==========================================
+      // API REQUEST
+      // ==========================================
+
+      const response = await api.post(
+        "/lottery/entry",
+        {
+          configId: lotteryConfigId,
+          number: lotteryNumber,
+          amount: lotteryAmount,
+        }
+      );
+
+      // ==========================================
+      // SUCCESS
+      // ==========================================
 
       return response.data;
+
     } catch (error) {
+      console.error(
+        "addUserLotteryEntry error:",
+        error
+      );
+
       return rejectWithValue(
-        error.response?.data?.message || "Failed to purchase lottery ticket"
+        error.response?.data?.message ||
+        "Failed to purchase lottery ticket"
       );
     }
   }
