@@ -791,10 +791,11 @@ const BuyTicket = () => {
         {/* =================================================
             LOTTERY INFO
         ================================================= */}
-
         <section
+          id="nvc164"
           className="
     relative
+    w-full
     rounded-[18px]
     border border-[#d7b838]/80
     bg-[#040505]
@@ -802,46 +803,118 @@ const BuyTicket = () => {
     shadow-[0_0_20px_rgba(215,184,56,0.10),inset_0_0_35px_rgba(215,184,56,0.04)]
   "
         >
-          {/* GOLD AMBIENT GLOW */}
-          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_50%,rgba(245,206,84,0.10),transparent_35%),radial-gradient(circle_at_82%_50%,rgba(245,206,84,0.08),transparent_35%)]" />
+          {/* Background Glow */}
+          <div
+            className="
+      absolute inset-0
+      pointer-events-none
+      bg-[radial-gradient(circle_at_18%_50%,rgba(245,206,84,0.10),transparent_35%),radial-gradient(circle_at_82%_50%,rgba(245,206,84,0.08),transparent_35%)]
+    "
+          />
 
-          {/* TOP GOLD LINE */}
-          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#f5ce54] to-transparent opacity-80" />
+          {/* Top Gold Line */}
+          <div
+            className="
+      absolute
+      top-0
+      left-0
+      right-0
+      h-[1px]
+      bg-gradient-to-r
+      from-transparent
+      via-[#f5ce54]
+      to-transparent
+      opacity-80
+    "
+          />
 
-          <div className="relative grid grid-cols-2 min-h-[124px]">
+          <div
+            className="
+      relative
+      grid
+      grid-cols-2
+      min-h-[104px]
+      min-[400px]:min-h-[112px]
+      min-[450px]:min-h-[124px]
+    "
+          >
+            {/* =====================================================
+        LEFT — NEXT DRAW
+    ===================================================== */}
+            <div
+              className="
+        min-w-0
+        flex
+        items-center
+        gap-[6px]
+        px-[6px]
+        border-r
+        border-[#d7b838]/25
 
-            {/* =================================================
-        NEXT DRAW
-    ================================================= */}
-            <div className="flex items-center gap-4 px-2 border-r border-[#d7b838]/25">
+        min-[400px]:gap-[9px]
+        min-[400px]:px-[9px]
 
+        min-[450px]:gap-3
+        min-[450px]:px-3
+      "
+            >
+              {/* Calendar */}
               <div className="shrink-0 flex items-center justify-center">
                 <CalendarIcon
-                  size={31}
+                  size={21}
                   strokeWidth={2.5}
                   className="
             text-[#f5ce54]
-            drop-shadow-[0_0_5px_rgba(245,206,84,1)]
-            drop-shadow-[0_0_12px_rgba(245,206,84,0.95)]
-            drop-shadow-[0_0_24px_rgba(245,206,84,0.75)]
-            drop-shadow-[0_0_38px_rgba(245,206,84,0.5)]
+            w-[21px]
+            h-[21px]
+
+            min-[400px]:w-[25px]
+            min-[400px]:h-[25px]
+
+            min-[450px]:w-[32px]
+            min-[450px]:h-[32px]
+
+            drop-shadow-[0_0_4px_rgba(245,206,84,1)]
+            drop-shadow-[0_0_9px_rgba(245,206,84,0.95)]
+            drop-shadow-[0_0_17px_rgba(245,206,84,0.65)]
           "
                 />
               </div>
 
-              <div className="min-w-0">
-                <p className="text-[18px] font-medium text-white/95">
+              {/* Draw Text */}
+              <div className="min-w-0 flex-1">
+                <p
+                  className="
+            text-[14px]
+            leading-[1.2]
+            font-medium
+            text-white/95
+            whitespace-nowrap
+
+            min-[400px]:text-[16px]
+
+            min-[450px]:text-[19px]
+          "
+                >
                   अगला ड्रॉ (लकी ड्रॉ)
                 </p>
 
                 <p
                   className="
-            text-[21px]
+            mt-[4px]
+            text-[14px]
+            leading-[1.2]
             font-extrabold
             text-[#f5ce54]
-            mt-1
             whitespace-nowrap
-            drop-shadow-[0_0_8px_rgba(245,206,84,0.55)]
+            truncate
+            drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+
+            min-[400px]:text-[17px]
+            min-[400px]:mt-[4px]
+
+            min-[450px]:text-[18px]
+            min-[450px]:mt-[6px]
           "
                 >
                   {activeLoading ? "लोड हो रहा है..." : drawDateText}
@@ -849,41 +922,98 @@ const BuyTicket = () => {
               </div>
             </div>
 
-            {/* =================================================
-        LIVE COUNTDOWN
-    ================================================= */}
-            <div className="flex flex-col justify-center px-8">
+            {/* =====================================================
+        RIGHT — COUNTDOWN
+    ===================================================== */}
+            <div
+              className="
+        min-w-0
+        flex
+        flex-col
+        justify-center
+        px-[6px]
 
-              <div className="flex items-center gap-2">
+        min-[400px]:px-[9px]
 
-                <ClockIcon
-                  size={29}
-                  strokeWidth={2.5}
+        min-[450px]:px-4
+      "
+            >
+              {/* Countdown Heading */}
+              <div
+                className="
+          flex
+          items-center
+          gap-[4px]
+          min-w-0
+
+          min-[400px]:gap-[6px]
+
+          min-[450px]:gap-2
+        "
+              >
+                <div className="shrink-0 flex items-center justify-center">
+                  <ClockIcon
+                    size={20}
+                    strokeWidth={2.5}
+                    className="
+              text-[#f5ce54]
+              w-[20px]
+              h-[20px]
+
+              min-[400px]:w-[23px]
+              min-[400px]:h-[23px]
+
+              min-[450px]:w-[30px]
+              min-[450px]:h-[30px]
+
+              drop-shadow-[0_0_4px_rgba(245,206,84,1)]
+              drop-shadow-[0_0_9px_rgba(245,206,84,0.95)]
+              drop-shadow-[0_0_17px_rgba(245,206,84,0.65)]
+            "
+                  />
+                </div>
+
+                <span
                   className="
-            text-[#f5ce54]
-            drop-shadow-[0_0_5px_rgba(245,206,84,1)]
-            drop-shadow-[0_0_12px_rgba(245,206,84,0.95)]
-            drop-shadow-[0_0_24px_rgba(245,206,84,0.75)]
-            drop-shadow-[0_0_38px_rgba(245,206,84,0.5)]
-          "
-                />
+           
+            text-[14px]
+            leading-[1.2]
+            font-medium
+            text-white/95
+            whitespace-nowrap
 
-                <span className="text-[20px] font-medium text-white/95">
-                  {countdown.expired
-                    ? "लकी ड्रॉ"
-                    : "ड्रा शुरू होने में"}
+            min-[400px]:text-[17px]
+
+            min-[450px]:text-[20px]
+          "
+                >
+                  {countdown.expired ? "लकी ड्रॉ" : "ड्रा शुरू होने में"}
                 </span>
               </div>
 
-              <div className="mt-3 px-2">
+              {/* Countdown */}
+              <div
+                className="
+          mt-[6px]
+          w-full
+          min-w-0
 
+          min-[400px]:mt-[10px]
+
+          min-[450px]:mt-[12px]
+        "
+              >
                 {!countdown.available ? (
                   <p
                     className="
-              text-[21px]
+              text-[10px]
               font-bold
               text-[#f5ce54]
-              drop-shadow-[0_0_8px_rgba(245,206,84,0.6)]
+              whitespace-nowrap
+
+              min-[400px]:text-[12px]
+
+              min-[450px]:text-[17px]
             "
                   >
                     टाइमर उपलब्ध नहीं
@@ -891,137 +1021,303 @@ const BuyTicket = () => {
                 ) : countdown.expired ? (
                   <p
                     className="
-              text-[20px]
+              text-[10px]
               font-extrabold
               text-[#f5ce54]
-              drop-shadow-[0_0_8px_rgba(245,206,84,0.6)]
+              whitespace-nowrap
+
+              min-[400px]:text-[12px]
+
+              min-[450px]:text-[17px]
             "
                   >
                     ड्रा शुरू हो गया
                   </p>
                 ) : (
-                  <div className="flex items-center gap-[3px]">
+                  <div
+                    className="
+              flex
+              items-center
+              justify-center
+              w-full
+              min-w-0
+              gap-[2px]
 
-                    {/* DAYS */}
-                    <div className="flex flex-col items-center">
-                      <span
+              min-[400px]:gap-[3px]
+
+              min-[450px]:gap-0
+            "
+                  >
+                    {/* ================= DAYS ================= */}
+                    <div
+                      className="
+                shrink-0
+                w-[27px]
+                text-center
+
+                min-[400px]:w-[34px]
+
+                min-[450px]:flex-1
+                min-[450px]:w-auto
+              "
+                    >
+                      <div
                         className="
-                  text-[22px]
+                  text-[15px]
+                  leading-none
                   font-extrabold
                   text-[#f5ce54]
-                  leading-none
-                  drop-shadow-[0_0_8px_rgba(245,206,84,0.75)]
+                  drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+
+                  min-[400px]:text-[18px]
+
+                  min-[450px]:text-[25px]
                 "
                       >
                         {String(countdown.days).padStart(2, "0")}
-                      </span>
+                      </div>
 
-                      <span className="text-[8px] text-[#f5ce54]/55 mt-1">
+                      <div
+                        className="
+                  mt-[3px]
+                  text-[5px]
+                  leading-none
+                  font-medium
+                  text-white/65
+
+                  min-[400px]:text-[6px]
+
+                  min-[450px]:text-[9px]
+                "
+                      >
                         दिन
-                      </span>
+                      </div>
                     </div>
 
+                    {/* ================= COLON ================= */}
                     <span
                       className="
-                text-[#f5ce54]
-                text-[17px]
+                shrink-0
+                flex
+                items-center
+                justify-center
+                w-[8px]
+                h-[22px]
+                text-[11px]
+                leading-none
                 font-bold
-                mb-3
-                drop-shadow-[0_0_7px_rgba(245,206,84,0.8)]
+                text-[#f5ce54]
+
+                min-[400px]:w-[10px]
+                min-[400px]:h-[25px]
+                min-[400px]:text-[14px]
+
+                min-[450px]:w-auto
+                min-[450px]:h-auto
+                min-[450px]:px-[1px]
+                min-[450px]:text-[20px]
               "
                     >
                       :
                     </span>
 
-                    {/* HOURS */}
-                    <div className="flex flex-col items-center">
-                      <span
+                    {/* ================= HOURS ================= */}
+                    <div
+                      className="
+                shrink-0
+                w-[27px]
+                text-center
+
+                min-[400px]:w-[34px]
+
+                min-[450px]:flex-1
+                min-[450px]:w-auto
+              "
+                    >
+                      <div
                         className="
-                  text-[22px]
+                  text-[15px]
+                  leading-none
                   font-extrabold
                   text-[#f5ce54]
-                  leading-none
-                  drop-shadow-[0_0_8px_rgba(245,206,84,0.75)]
+                  drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+
+                  min-[400px]:text-[18px]
+
+                  min-[450px]:text-[25px]
                 "
                       >
                         {String(countdown.hours).padStart(2, "0")}
-                      </span>
+                      </div>
 
-                      <span className="text-[8px] text-[#f5ce54]/55 mt-1">
+                      <div
+                        className="
+                  mt-[3px]
+                  text-[5px]
+                  leading-none
+                  font-medium
+                  text-white/65
+
+                  min-[400px]:text-[6px]
+
+                  min-[450px]:text-[9px]
+                "
+                      >
                         घंटे
-                      </span>
+                      </div>
                     </div>
 
+                    {/* ================= COLON ================= */}
                     <span
                       className="
-                text-[#f5ce54]
-                text-[17px]
+                shrink-0
+                flex
+                items-center
+                justify-center
+                w-[8px]
+                h-[22px]
+                text-[11px]
+                leading-none
                 font-bold
-                mb-3
-                drop-shadow-[0_0_7px_rgba(245,206,84,0.8)]
+                text-[#f5ce54]
+
+                min-[400px]:w-[10px]
+                min-[400px]:h-[25px]
+                min-[400px]:text-[14px]
+
+                min-[450px]:w-auto
+                min-[450px]:h-auto
+                min-[450px]:px-[1px]
+                min-[450px]:text-[20px]
               "
                     >
                       :
                     </span>
 
-                    {/* MINUTES */}
-                    <div className="flex flex-col items-center">
-                      <span
+                    {/* ================= MINUTES ================= */}
+                    <div
+                      className="
+                shrink-0
+                w-[27px]
+                text-center
+
+                min-[400px]:w-[34px]
+
+                min-[450px]:flex-1
+                min-[450px]:w-auto
+              "
+                    >
+                      <div
                         className="
-                  text-[22px]
+                  text-[15px]
+                  leading-none
                   font-extrabold
                   text-[#f5ce54]
-                  leading-none
-                  drop-shadow-[0_0_8px_rgba(245,206,84,0.75)]
+                  drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+
+                  min-[400px]:text-[18px]
+
+                  min-[450px]:text-[25px]
                 "
                       >
                         {String(countdown.minutes).padStart(2, "0")}
-                      </span>
+                      </div>
 
-                      <span className="text-[8px] text-[#f5ce54]/55 mt-1">
+                      <div
+                        className="
+                  mt-[3px]
+                  text-[5px]
+                  leading-none
+                  font-medium
+                  text-white/65
+
+                  min-[400px]:text-[6px]
+
+                  min-[450px]:text-[9px]
+                "
+                      >
                         मिनट
-                      </span>
+                      </div>
                     </div>
 
+                    {/* ================= COLON ================= */}
                     <span
                       className="
-                text-[#f5ce54]
-                text-[17px]
+                shrink-0
+                flex
+                items-center
+                justify-center
+                w-[8px]
+                h-[22px]
+                text-[11px]
+                leading-none
                 font-bold
-                mb-3
-                drop-shadow-[0_0_7px_rgba(245,206,84,0.8)]
+                text-[#f5ce54]
+
+                min-[400px]:w-[10px]
+                min-[400px]:h-[25px]
+                min-[400px]:text-[14px]
+
+                min-[450px]:w-auto
+                min-[450px]:h-auto
+                min-[450px]:px-[1px]
+                min-[450px]:text-[20px]
               "
                     >
                       :
                     </span>
 
-                    {/* SECONDS */}
-                    <div className="flex flex-col items-center">
-                      <span
+                    {/* ================= SECONDS ================= */}
+                    <div
+                      className="
+                shrink-0
+                w-[27px]
+                text-center
+
+                min-[400px]:w-[34px]
+
+                min-[450px]:flex-1
+                min-[450px]:w-auto
+              "
+                    >
+                      <div
                         className="
-                  text-[22px]
+                  text-[15px]
+                  leading-none
                   font-extrabold
                   text-[#f5ce54]
-                  leading-none
-                  drop-shadow-[0_0_8px_rgba(245,206,84,0.75)]
+                  drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+
+                  min-[400px]:text-[18px]
+
+                  min-[450px]:text-[25px]
                 "
                       >
                         {String(countdown.seconds).padStart(2, "0")}
-                      </span>
+                      </div>
 
-                      <span className="text-[8px] text-[#f5ce54]/55 mt-1">
+                      <div
+                        className="
+                  mt-[3px]
+                  text-[5px]
+                  leading-none
+                  font-medium
+                  text-white/65
+
+                  min-[400px]:text-[6px]
+
+                  min-[450px]:text-[9px]
+                "
+                      >
                         सेकंड
-                      </span>
+                      </div>
                     </div>
-
                   </div>
                 )}
-
               </div>
             </div>
           </div>
         </section>
-
         {/* =================================================
             PRIZES
         ================================================= */}

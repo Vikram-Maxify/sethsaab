@@ -241,6 +241,8 @@ const ProfilePage = () => {
   // WHATSAPP SUPPORT
   // ========================================================
 
+  const WHATSAPP_NUMBER = "917234806209";
+
   const handleWhatsAppSupport = () => {
     const message = encodeURIComponent(
       "Hello, mujhe support chahiye."
@@ -297,18 +299,17 @@ const ProfilePage = () => {
           <LotusDecoration />
         </div>
 
-        <div className="relative flex items-center gap-4">
+        <div className="relative flex items-center gap-3 min-[450px]:gap-4">
 
           {/* PROFILE ICON */}
+          <div className="w-[82px] h-[82px] min-[400px]:w-[92px] min-[400px]:h-[92px] min-[450px]:w-[112px] min-[450px]:h-[112px] rounded-full border-[3px] border-[#f5c542] flex-shrink-0 flex items-center justify-center">
 
-          <div className="w-[112px] h-[112px] rounded-full border-[3px] border-[#f5c542] flex-shrink-0 flex items-center justify-center">
-
-            <div className="w-[98px] h-[98px] rounded-full bg-black/50 flex items-center justify-center overflow-hidden">
+            <div className="w-[70px] h-[70px] min-[400px]:w-[80px] min-[400px]:h-[80px] min-[450px]:w-[98px] min-[450px]:h-[98px] rounded-full bg-black/50 flex items-center justify-center overflow-hidden">
 
               <UserRound
-                size={65}
+                size={48}
+                className="min-[400px]:w-[55px] min-[400px]:h-[55px] min-[450px]:w-[65px] min-[450px]:h-[65px] text-[#f5c542]"
                 strokeWidth={1.4}
-                className="text-[#f5c542]"
                 style={GLOW_STYLE}
               />
 
@@ -316,31 +317,62 @@ const ProfilePage = () => {
           </div>
 
           {/* USER INFO */}
+          <div className="min-w-0 flex-1 pr-[75px] min-[400px]:pr-[85px] min-[450px]:pr-0">
 
-          <div className="min-w-0 flex-1">
-
-            <p className="text-[#bcbcbc] text-[16px]">
+            <p className="text-[#bcbcbc] text-[13px] min-[400px]:text-[14px] min-[450px]:text-[16px]">
               नमस्ते,
             </p>
 
-            <h1 className="text-white text-[27px] font-extrabold leading-tight truncate">
+            <h1 className="text-white text-[21px] min-[400px]:text-[24px] min-[450px]:text-[27px] font-extrabold leading-[1.3] truncate">
               {user?.name || "उपयोगकर्ता"}
             </h1>
 
-            <p className="text-[#c9c9c9] text-[16px] mt-1">
+            <p className="text-[#c9c9c9] text-[13px] min-[400px]:text-[14px] min-[450px]:text-[16px] mt-1">
               +91 {user?.mobile || "----------"}
             </p>
 
           </div>
 
           {/* EDIT BUTTON */}
-
           <button
             type="button"
             onClick={handleOpenEditProfile}
-            className="absolute mt-2 right-0 top-[68px] border border-[#f5c542] text-[#f5c542] rounded-xl px-3 py-2 flex items-center gap-2 text-[13px] font-semibold active:scale-95 transition"
+            className="
+      absolute
+      right-0
+      top-[48px]
+      min-[400px]:top-[54px]
+      min-[450px]:top-[68px]
+      border
+      border-[#f5c542]
+      text-[#f5c542]
+      rounded-lg
+      min-[450px]:rounded-xl
+      px-2
+      py-1.5
+      min-[400px]:px-2.5
+      min-[400px]:py-1.5
+      min-[450px]:px-3
+      min-[450px]:py-2
+      flex
+      items-center
+      gap-1
+      min-[400px]:gap-1.5
+      min-[450px]:gap-2
+      text-[10px]
+      min-[400px]:text-[11px]
+      min-[450px]:text-[13px]
+      font-semibold
+      whitespace-nowrap
+      active:scale-95
+      transition
+    "
           >
-            <Edit3 size={16} style={GLOW_STYLE} />
+            <Edit3
+              size={13}
+              className="min-[400px]:w-[14px] min-[400px]:h-[14px] min-[450px]:w-[16px] min-[450px]:h-[16px]"
+              style={GLOW_STYLE}
+            />
             संपादित करें
           </button>
 
