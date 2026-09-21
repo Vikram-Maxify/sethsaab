@@ -34,7 +34,7 @@ const Login = () => {
   if (isAuthenticated) {
     return (
       <Navigate
-        to="/dashboard"
+        to="/admin/dashboard"
         replace
       />
     );
