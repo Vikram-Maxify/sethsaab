@@ -57,7 +57,7 @@ const Login = () => {
     if (adminLogin.fulfilled.match(result)) {
       const from =
         location.state?.from?.pathname ||
-        "/dashboard";
+        "/admin/dashboard";
 
       navigate(from, {
         replace: true,
