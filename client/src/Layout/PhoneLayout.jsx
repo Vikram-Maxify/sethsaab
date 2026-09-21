@@ -10,7 +10,7 @@ import BottomNavbar from "./BottomNavbar";
 
 // Number country code ke saath, "+" ke bina
 // Example: 919876543210
-const WHATSAPP_NUMBER = "919876543210";
+const WHATSAPP_NUMBER = "917234806209";
 
 // ==========================================================
 // ADMIN ROUTES
