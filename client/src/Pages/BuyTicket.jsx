@@ -15,8 +15,6 @@ import {
 
 import { getAmount } from "../reducer/slice/amountReducer";
 
-import { getGatewaysUser } from "../reducer/slice/gatewaySlice";
-
 import {
   createDeposit,
   clearDepositState,
@@ -202,23 +200,6 @@ const BuyTicket = () => {
   );
 
   // ===================================================
-  // GATEWAY REDUX STATE
-  // ===================================================
-
-  const {
-    gateways = [],
-    loading: gatewayLoading,
-    error: gatewayError,
-  } = useSelector(
-    (state) =>
-      state.gateway || {
-        gateways: [],
-        loading: false,
-        error: null,
-      }
-  );
-
-  // ===================================================
   // DEPOSIT REDUX STATE
   // ===================================================
 
@@ -260,7 +241,6 @@ const BuyTicket = () => {
 
   const [localError, setLocalError] = useState("");
   const [localSuccess, setLocalSuccess] = useState("");
-  const [voterxGateway, setVoterxGateway] = useState(null);
 
   // ===================================================
   // COUNTDOWN STATE
@@ -282,7 +262,6 @@ const BuyTicket = () => {
   useEffect(() => {
     dispatch(getActiveLotteryConfig());
     dispatch(getAmount());
-    dispatch(getGatewaysUser());
   }, [dispatch]);
 
   // ===================================================
@@ -336,37 +315,6 @@ const BuyTicket = () => {
     lotteryConfig?.drawDate,
     lotteryConfig?.drawTime,
   ]);
-
-  // ===================================================
-  // FIND VOTERX GATEWAY
-  // ===================================================
-
-  useEffect(() => {
-    if (!Array.isArray(gateways)) {
-      setVoterxGateway(null);
-      return;
-    }
-
-    const gateway = gateways.find((item) => {
-      const name = String(item?.name || "")
-        .trim()
-        .toLowerCase();
-
-      const mode = String(item?.mode || "")
-        .trim()
-        .toLowerCase();
-
-      const status = Number(item?.status);
-
-      return (
-        name === "voterx" &&
-        mode === "automatic" &&
-        status === 1
-      );
-    });
-
-    setVoterxGateway(gateway || null);
-  }, [gateways]);
 
   // ===================================================
   // DRAW DATE
@@ -601,92 +549,18 @@ const BuyTicket = () => {
       }
 
       // ===============================================
-      // FIND VOTERX
+      // CREATE QWACKPAY PAYMENT
       // ===============================================
 
-      let gateway = voterxGateway;
-
-      if (!gateway) {
-        const result = await dispatch(
-          getGatewaysUser()
-        ).unwrap();
-
-        const gatewayList =
-          Array.isArray(result)
-            ? result
-            : result?.gateways ||
-            result?.data ||
-            [];
-
-        gateway =
-          gatewayList.find((item) => {
-            const name = String(
-              item?.name || ""
-            )
-              .trim()
-              .toLowerCase();
-
-            const mode = String(
-              item?.mode || ""
-            )
-              .trim()
-              .toLowerCase();
-
-            const status = Number(
-              item?.status
-            );
-
-            return (
-              name === "voterx" &&
-              mode === "automatic" &&
-              status === 1
-            );
-          }) || null;
-      }
-
-      // ===============================================
-      // VOTERX NOT FOUND
-      // ===============================================
-
-      if (!gateway?._id) {
-        setLocalError(
-          "VoterX payment gateway अभी उपलब्ध नहीं है"
-        );
-        return;
-      }
-
-      // ===============================================
-      // GATEWAY LIMIT
-      // ===============================================
-
-      const minLimit = Number(
-        gateway.minLimit || 0
-      );
-
-      const maxLimit = Number(
-        gateway.maxLimit ||
-        Number.MAX_SAFE_INTEGER
-      );
-
-      if (
-        amount < minLimit ||
-        amount > maxLimit
-      ) {
-        setLocalError(
-          `इस gateway के लिए amount ${minLimit} से ${maxLimit} के बीच होना चाहिए`
-        );
-        return;
-      }
-
-      // ===============================================
-      // CREATE VOTERX PAYMENT
-      // ===============================================
+      // New QwackPay flow does not use the old
+      // getGatewaysUser / VoterX gateway slice.
+      // Backend resolves the active QwackPay gateway
+      // from channel: "qwackpay".
 
       const response = await dispatch(
         createDeposit({
-          gatewayId: gateway._id,
           paymentMethod: "INR",
-          channel: "voterx",
+          channel: "qwackpay",
           amount,
           utr: "",
           configId: lotteryConfig._id,
@@ -705,7 +579,7 @@ const BuyTicket = () => {
 
       if (!paymentUrl) {
         setLocalError(
-          "VoterX payment URL प्राप्त नहीं हुई"
+          "QwackPay payment URL प्राप्त नहीं हुई"
         );
         return;
       }
@@ -726,7 +600,7 @@ const BuyTicket = () => {
         paymentUrl;
     } catch (error) {
       console.error(
-        "VOTERX PAYMENT ERROR:",
+        "QWACKPAY PAYMENT ERROR:",
         error
       );
 
@@ -735,7 +609,7 @@ const BuyTicket = () => {
           ? error
           : error?.message ||
           error?.payload?.message ||
-          "VoterX payment शुरू नहीं हो सका"
+          "QwackPay payment शुरू नहीं हो सका"
       );
     }
   };
@@ -747,8 +621,7 @@ const BuyTicket = () => {
   const displayError =
     localError ||
     error ||
-    depositError ||
-    gatewayError;
+    depositError;
 
   // ===================================================
   // DISABLE PURCHASE
@@ -758,7 +631,6 @@ const BuyTicket = () => {
     depositLoading ||
     activeLoading ||
     amountLoading ||
-    gatewayLoading ||
     !lotteryConfig?._id ||
     !lotteryConfig?.isActive ||
     !ticketPriceFromApi ||
@@ -1562,7 +1434,7 @@ const BuyTicket = () => {
 
             <span className="relative z-10">
               {depositLoading
-                ? "VoterX खोला जा रहा है..."
+                ? "QwackPay खोला जा रहा है..."
                 : `अभी खरीदें - ₹${TICKET_PRICE}`}
             </span>
 
@@ -1583,7 +1455,7 @@ const BuyTicket = () => {
             <LockIcon />
 
             <span className="text-[12px] text-white/50">
-              सुरक्षित भुगतान | VoterX
+              सुरक्षित भुगतान | QwackPay
             </span>
 
           </div>

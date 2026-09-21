@@ -1,86 +1,119 @@
 const axios = require("axios");
+const crypto = require("crypto");
 const mongoose = require("mongoose");
 
 const Deposit = require("../models/Deposit.js");
 const User = require("../models/userModel");
 const TransactionHistory = require("../models/TransactionHistory");
-const AdminGateway = require("../models/AdminGateway");
 const LotteryConfig = require("../models/LotteryConfig");
+const { addUserLotteryEntry } = require("./lotteryConfigController.js");
 
 // =====================================================
-// HELPER: GATEWAY HEADERS
+// QWACKPAY CONFIG
 // =====================================================
 
-const getGatewayHeaders = (gateway) => {
-  if (!gateway.apiKey || !gateway.secretKey) {
-    throw new Error("Gateway credentials are not configured");
-  }
+const QWACKPAY_BASE_URL =
+  process.env.QWACKPAY_BASE_URL || "https://qwackpay.com/api/v1";
 
-  return {
-    "Content-Type": "application/json",
-    "X-API-Key": gateway.apiKey,
-    "X-API-Secret": gateway.secretKey,
-  };
+const QWACKPAY_MERCHANT_ID =
+  process.env.QWACKPAY_MERCHANT_ID || "636055076";
+
+const QWACKPAY_API_KEY =
+  process.env.QWACKPAY_API_KEY || "DASHBOARD_SE_COPY_KARO";
+
+// =====================================================
+// HELPER: QWACKPAY SIGN GENERATION
+// Screenshot ke rules ke hisaab se:
+// 1. sign exclude
+// 2. null/empty values hatao
+// 3. ASCII ascending sort (ksort)
+// 4. key1=value1&key2=value2
+// 5. &key=API_KEY append
+// 6. MD5 + uppercase
+// =====================================================
+
+const generateQwackPaySign = (params, apiKey) => {
+  // sign exclude karo
+  const clean = { ...params };
+  delete clean.sign;
+
+  // null / undefined / empty string hatao
+  const filtered = {};
+  Object.keys(clean).forEach((key) => {
+    const val = clean[key];
+    if (val !== null && val !== undefined && val !== "") {
+      filtered[key] = val;
+    }
+  });
+
+  // ASCII ascending order mein sort (ksort jaisa)
+  const sortedKeys = Object.keys(filtered).sort();
+
+  // key1=value1&key2=value2 banao
+  const queryString = sortedKeys
+    .map((key) => `${key}=${filtered[key]}`)
+    .join("&");
+
+  // API Key append karo
+  const signString = `${queryString}&key=${apiKey}`;
+
+  // MD5 + uppercase
+  return crypto
+    .createHash("md5")
+    .update(signString)
+    .digest("hex")
+    .toUpperCase();
 };
 
 // =====================================================
-// HELPER: FRONTEND PAYMENT REDIRECT
+// HELPER: QWACKPAY HEADERS
+// =====================================================
+
+const getQwackPayHeaders = () => ({
+  "Content-Type": "application/json",
+  "X-API-Key": QWACKPAY_API_KEY,
+});
+
+// =====================================================
+// HELPER: FRONTEND URL
 // =====================================================
 
 const getFrontendUrl = () => {
   return (
     process.env.FRONTEND_URL ||
     process.env.CLIENT_URL ||
-    "https://lotterry.marinclub.site"
+    "http://localhost:5173"
+  ).replace(/\/$/, "");
+};
+
+// Browser return URL after QwackPay payment
+const getQwackPayReturnUrl = () => {
+  return (
+    process.env.QWACKPAY_RETURN_URL ||
+    `${getFrontendUrl()}/payment-success`
   ).replace(/\/$/, "");
 };
 
 const redirectPaymentPage = (
   res,
   page,
-  {
-    orderId = "",
-    amount = "",
-    number = "",
-    status = "",
-    configId = "",
-  } = {}
+  { orderId = "", amount = "", number = "", status = "" } = {}
 ) => {
   const params = new URLSearchParams();
-
-  if (orderId !== "") {
-    params.set("order_id", String(orderId));
-  }
-
-  if (amount !== "") {
-    params.set("amount", String(amount));
-  }
-
-  if (number !== "") {
-    params.set("number", String(number));
-  }
-
-  if (status !== "") {
-    params.set("status", String(status));
-  }
-
-  if (configId !== "") {
-    params.set("config_id", String(configId));
-  }
-
-  return res.redirect(
-    `${getFrontendUrl()}/${page}?${params.toString()}`
-  );
+  if (orderId !== "") params.set("order_id", String(orderId));
+  if (amount !== "") params.set("amount", String(amount));
+  if (number !== "") params.set("number", String(number));
+  if (status !== "") params.set("status", String(status));
+  return res.redirect(`${getFrontendUrl()}/${page}?${params.toString()}`);
 };
 
 // =====================================================
-// CREATE DEPOSIT REQUEST
+// CREATE DEPOSIT
 // =====================================================
 
 const createDeposit = async (req, res) => {
   try {
     const {
-      gatewayId,
       paymentMethod,
       channel,
       amount,
@@ -93,7 +126,6 @@ const createDeposit = async (req, res) => {
     // =====================================================
     // VALIDATE AMOUNT
     // =====================================================
-
     if (amount === undefined || amount === null || amount === "") {
       return res.status(400).json({
         success: false,
@@ -113,11 +145,7 @@ const createDeposit = async (req, res) => {
     // =====================================================
     // USER
     // =====================================================
-
-    const userId =
-      req.user?.id ||
-      req.user?._id ||
-      req.user?.uuid;
+    const userId = req.user?.id || req.user?._id || req.user?.uuid;
 
     if (!userId) {
       return res.status(401).json({
@@ -136,274 +164,303 @@ const createDeposit = async (req, res) => {
     }
 
     // =====================================================
-    // VARIABLES
+    // CHANNEL NORMALIZATION
     // =====================================================
-
-    let finalPaymentMethod = paymentMethod;
-    let finalChannel = channel;
-    let resolvedGatewayId = null;
-
-    const usdRet = 92;
-    let money = 0;
+    const normalizedChannel = String(channel || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]/g, "");
 
     // =====================================================
-    // GATEWAY SELECTED
+    // QWACKPAY DIRECT FLOW
+    //
+    // IMPORTANT:
+    // - No gatewayId
+    // - No AdminGateway
+    // - No gateway configuration from admin
+    // - Everything comes from process.env
     // =====================================================
+    if (normalizedChannel === "qwackpay") {
+      const finalPaymentMethod = "INR";
+      const finalChannel = "qwackpay";
+      const money = numericAmount;
 
-    if (gatewayId) {
-      const gateway = await AdminGateway.findById(gatewayId);
+      const orderId = `DEP${Date.now()}`;
 
-      if (!gateway) {
-        return res.status(404).json({
-          success: false,
-          message: "Payment gateway not found",
-        });
-      }
+      // ---------------------------------------------------
+      // CREATE PENDING DEPOSIT FIRST
+      // ---------------------------------------------------
+      const deposit = await Deposit.create({
+        userId: user._id,
 
-      if (gateway.status !== 1) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Selected payment gateway is currently disabled/inactive",
-        });
-      }
+        // QwackPay is env based, so gatewayId stays null
+        gatewayId: null,
 
-      const minLimit = Number(gateway.minLimit || 0);
-      const maxLimit = Number(gateway.maxLimit || Number.MAX_SAFE_INTEGER);
+        uid: user.uuid,
+        phone: user.mobile,
+        username: user.username,
 
-      if (numericAmount < minLimit || numericAmount > maxLimit) {
-        return res.status(400).json({
-          success: false,
-          message: `Deposit amount must be between ${minLimit} and ${maxLimit} for this gateway.`,
-        });
-      }
+        orderId,
 
-      resolvedGatewayId = gateway._id;
-      finalChannel = gateway.name;
+        paymentMethod: finalPaymentMethod,
+        type: finalPaymentMethod,
+        channel: finalChannel,
 
-      // =====================================================
-      // AUTOMATIC GATEWAY
-      // =====================================================
+        amount: money,
+        exchangeRate: 0,
 
-      if (gateway.mode === "automatic") {
-        finalPaymentMethod = "INR";
-        money = numericAmount;
+        transactionId: orderId,
+        utr: "",
 
-        const orderId = `DEP${Date.now()}`;
+        paymentProof: "",
+        paymentUrl: "",
 
-        const deposit = await Deposit.create({
-          userId: user._id,
-          gatewayId: resolvedGatewayId,
+        status: 0,
 
-          uid: user.uuid,
-          phone: user.mobile,
-          username: user.username,
+        configId: configId || null,
+        entryId: entryId || null,
+        number: number || null,
+      });
 
-          orderId,
+      // ---------------------------------------------------
+      // QWACKPAY CREATE ORDER PAYLOAD
+      // ---------------------------------------------------
+      // ---------------------------------------------------
+      // CUSTOMER EMAIL
+      //
+      // QwackPay requires a valid customer email.
+      // If user has an email, use the real email.
+      // If email is missing, generate a valid fallback
+      // email using setthelife.com.
+      // ---------------------------------------------------
+      const existingEmail = String(user.email || "").trim();
 
-          paymentMethod: finalPaymentMethod,
-          type: paymentMethod || "INR",
-          channel: finalChannel,
+      const customerEmail =
+        existingEmail ||
+        `customer${String(user._id)}@setthelife.com`;
 
-          amount: money,
-          exchangeRate: 0,
+      const orderPayload = {
+        merchant_id: QWACKPAY_MERCHANT_ID,
+        amount: Math.round(numericAmount),
+        order_id: orderId,
+        customer_phone: String(user.mobile || "").trim(),
+        customer_email: customerEmail,
+        // After successful payment, QwackPay should return the browser
+        // to our frontend success page.
+        return_url: getQwackPayReturnUrl(),
+      };
 
-          transactionId: orderId,
+      // ---------------------------------------------------
+      // GENERATE SIGN
+      // ---------------------------------------------------
+      orderPayload.sign = generateQwackPaySign(
+        orderPayload,
+        QWACKPAY_API_KEY
+      );
 
-          utr: "",
+      console.log("====================================");
+      console.log("QWACKPAY CREATE ORDER");
+      console.log("URL:", `${QWACKPAY_BASE_URL}/order/create`);
+      console.log("MERCHANT ID:", QWACKPAY_MERCHANT_ID);
+      console.log("ORDER ID:", orderId);
+      console.log("AMOUNT:", Math.round(numericAmount));
+      console.log("PHONE:", user.mobile || "");
+      console.log("EMAIL:", customerEmail);
+      console.log("RETURN URL:", getQwackPayReturnUrl());
+      console.log("====================================");
 
-          status: 0,
-
-          configId: configId || null,
-          entryId: entryId || null,
-          number: number || null,
-        });
-
-        const callbackUrl =
-          process.env.GATEWAY_CALLBACK_URL ||
-          `${req.protocol}://${req.get("host")}/api/deposit/callback`;
-
-        const gatewayBaseUrl =
-          gateway.gatewayUrl || "https://mch.voterx.xyz";
-
-        const payload = {
-          amount: Math.round(numericAmount),
-          order_id: orderId,
-          customer_name:
-            user.username ||
-            user.name ||
-            user.mobile ||
-            "Customer",
-
-          description: `Automatic deposit via ${gateway.name}`,
-
-          callback_url: callbackUrl,
-
-          // Browser return URL (used only if the gateway supports it).
-          return_url: `${getFrontendUrl()}/payment-success`,
-        };
-
-        console.log("====================================");
-        console.log("GATEWAY CREATE ORDER");
-        console.log("URL:", `${gatewayBaseUrl}/api/create-order`);
-        console.log("PAYLOAD:", payload);
-        console.log("====================================");
-
-        try {
-          const { data: gatewayResponse } =
-            await axios.post(
-              `${gatewayBaseUrl}/api/create-order`,
-              payload,
-              {
-                headers: getGatewayHeaders(gateway),
-                timeout: 30000,
-              }
-            );
-
-          console.log(
-            "GATEWAY CREATE ORDER RESPONSE:",
-            gatewayResponse
-          );
-
-          // =====================================================
-          // SUCCESS
-          // =====================================================
-
-          if (
-            gatewayResponse?.status === "success" &&
-            gatewayResponse?.data?.payment_url
-          ) {
-            deposit.paymentUrl = gatewayResponse.data.payment_url;
-
-            if (gatewayResponse.data.order_id) {
-              deposit.orderId = String(gatewayResponse.data.order_id);
-            }
-
-            await deposit.save();
-
-            // =====================================================
-            // TRANSACTION HISTORY
-            // =====================================================
-
-            await TransactionHistory.create({
-              orderId: deposit.orderId,
-
-              userId: user._id,
-              uid: user.uuid,
-              phone: user.mobile,
-
-              type: "Deposit",
-
-              amount: money,
-
-              status: 0,
-
-              remark: `Pending automatic deposit initiated via ${finalChannel}`,
-            });
-
-            return res.status(201).json({
-              success: true,
-
-              message:
-                "Automatic payment order created successfully.",
-
-              paymentUrl: gatewayResponse.data.payment_url,
-
-              orderId: deposit.orderId,
-
-              deposit,
-
-              gatewayResponse,
-            });
+      try {
+        const { data: gatewayResponse } = await axios.post(
+          `${QWACKPAY_BASE_URL}/order/create`,
+          orderPayload,
+          {
+            headers: getQwackPayHeaders(),
+            timeout: 30000,
           }
+        );
 
-          // =====================================================
-          // CREATE ORDER FAILED
-          // =====================================================
+        console.log(
+          "QWACKPAY CREATE ORDER RESPONSE:",
+          JSON.stringify(gatewayResponse, null, 2)
+        );
+        console.log(
+          "QWACKPAY PAYMENT URL:",
+          gatewayResponse?.data?.payment_url ||
+            gatewayResponse?.data?.paymentUrl ||
+            gatewayResponse?.payment_url ||
+            gatewayResponse?.paymentUrl ||
+            ""
+        );
 
-          deposit.status = 2;
+        // -------------------------------------------------
+        // EXTRACT PAYMENT URL
+        // -------------------------------------------------
+        const paymentUrl =
+          gatewayResponse?.data?.payment_url ||
+          gatewayResponse?.data?.paymentUrl ||
+          gatewayResponse?.payment_url ||
+          gatewayResponse?.paymentUrl ||
+          "";
+
+        // -------------------------------------------------
+        // EXTRACT RETURNED ORDER ID
+        // -------------------------------------------------
+        const returnedOrderId =
+          gatewayResponse?.data?.merchant_order_id ||
+          gatewayResponse?.data?.order_id ||
+          gatewayResponse?.merchant_order_id ||
+          gatewayResponse?.order_id ||
+          orderId;
+
+        const qwackOrderId =
+          gatewayResponse?.data?.qwack_order_id ||
+          gatewayResponse?.qwack_order_id ||
+          "";
+
+        // -------------------------------------------------
+        // QWACKPAY SUCCESS
+        //
+        // QwackPay returns:
+        // {
+        //   code: 200,
+        //   message: "success",
+        //   data: {
+        //     qwack_order_id: "...",
+        //     merchant_order_id: "...",
+        //     payment_url: "..."
+        //   }
+        // }
+        //
+        // Do NOT check gatewayResponse.status here.
+        // -------------------------------------------------
+        if (Number(gatewayResponse?.code) === 200 && paymentUrl) {
+          deposit.paymentUrl = String(paymentUrl);
+          deposit.orderId = String(returnedOrderId);
+          deposit.transactionId =
+            String(qwackOrderId || returnedOrderId);
+          deposit.status = 0;
+
           await deposit.save();
 
-          return res.status(400).json({
-            success: false,
+          await TransactionHistory.create({
+            orderId: deposit.orderId,
+            userId: user._id,
+            uid: user.uuid,
+            phone: user.mobile,
+            type: "Deposit",
+            amount: money,
+            status: 0,
+            remark: "Pending QwackPay payment",
+          });
 
-            message:
-              gatewayResponse?.error ||
-              gatewayResponse?.message ||
-              "Failed to create payment order on gateway",
+          console.log("====================================");
+          console.log("QWACKPAY PAYMENT URL CREATED");
+          console.log("PAYMENT URL:", paymentUrl);
+          console.log("ORDER ID:", deposit.orderId);
+          console.log("====================================");
 
+          return res.status(201).json({
+            success: true,
+            message: "QwackPay payment order created successfully.",
+            paymentUrl: String(paymentUrl),
+            successUrl: getQwackPayReturnUrl(),
+            orderId: deposit.orderId,
+            amount: money,
+            number: deposit.number || "",
+            status: "pending",
+            deposit,
             gatewayResponse,
           });
-        } catch (gatewayErr) {
-          deposit.status = 2;
-          await deposit.save();
-
-          console.error(
-            "Gateway Create-Order Error:",
-            gatewayErr.response?.data || gatewayErr.message
-          );
-
-          return res.status(502).json({
-            success: false,
-
-            message:
-              "Payment gateway request failed. Please try again.",
-
-            error:
-              gatewayErr.response?.data || gatewayErr.message,
-          });
         }
-      }
 
-      // =====================================================
-      // MANUAL GATEWAY
-      // =====================================================
+        // -------------------------------------------------
+        // QWACKPAY RESPONSE DID NOT CONTAIN PAYMENT URL
+        // -------------------------------------------------
+        deposit.status = 2;
+        await deposit.save();
 
-      if (gateway.type === "Crypto") {
-        finalPaymentMethod = "USDT";
-        money = numericAmount * usdRet;
-      } else {
-        finalPaymentMethod = "INR";
-        money = numericAmount;
-      }
-    } else {
-      // =====================================================
-      // OLD FRONTEND FALLBACK
-      // =====================================================
+        console.error(
+          "QWACKPAY PAYMENT URL NOT RECEIVED:",
+          JSON.stringify(gatewayResponse, null, 2)
+        );
 
-      if (!paymentMethod || !channel) {
         return res.status(400).json({
           success: false,
           message:
-            "gatewayId (or paymentMethod and channel) is required",
+            gatewayResponse?.error ||
+            gatewayResponse?.message ||
+            gatewayResponse?.data?.message ||
+            "QwackPay payment URL not received",
+          paymentUrl: "",
+          orderId: deposit.orderId,
+          gatewayResponse,
+        });
+      } catch (gatewayErr) {
+        deposit.status = 2;
+        await deposit.save();
+
+        console.error(
+          "===================================="
+        );
+        console.error(
+          "QWACKPAY CREATE ORDER ERROR:",
+          gatewayErr.response?.data || gatewayErr.message
+        );
+        console.error(
+          "===================================="
+        );
+
+        return res.status(502).json({
+          success: false,
+          message: "QwackPay payment request failed.",
+          paymentUrl: "",
+          orderId: deposit.orderId,
+          error:
+            gatewayErr.response?.data ||
+            gatewayErr.message,
         });
       }
-
-      finalPaymentMethod = paymentMethod;
-      finalChannel = channel;
-
-      money =
-        finalPaymentMethod === "INR"
-          ? numericAmount
-          : numericAmount * usdRet;
     }
 
     // =====================================================
-    // CREATE MANUAL DEPOSIT
+    // OLD / MANUAL DEPOSIT FLOW
+    //
+    // QwackPay never comes here.
+    // This is only for non-QwackPay/manual deposits.
     // =====================================================
+    if (!paymentMethod || !channel) {
+      return res.status(400).json({
+        success: false,
+        message: "paymentMethod and channel are required",
+      });
+    }
+
+    const usdRet = 92;
+
+    const finalPaymentMethod = paymentMethod;
+    const finalChannel = channel;
+
+    let money =
+      String(finalPaymentMethod).toUpperCase() === "INR"
+        ? numericAmount
+        : numericAmount * usdRet;
 
     const orderId = `DEP${Date.now()}`;
 
     let imageUrl = "";
 
-    if (req.files && req.files.image && req.files.image[0]) {
+    if (
+      req.files &&
+      req.files.image &&
+      req.files.image[0]
+    ) {
       imageUrl = req.files.image[0].path;
     }
 
     const deposit = await Deposit.create({
       userId: user._id,
 
-      gatewayId: resolvedGatewayId,
+      gatewayId: null,
 
       uid: user.uuid,
       phone: user.mobile,
@@ -412,21 +469,20 @@ const createDeposit = async (req, res) => {
       orderId,
 
       paymentMethod: finalPaymentMethod,
-
       type: paymentMethod || finalPaymentMethod,
-
       channel: finalChannel,
 
       amount: money,
-
       exchangeRate:
-        finalPaymentMethod === "USDT" ? usdRet : 0,
+        String(finalPaymentMethod).toUpperCase() === "USDT"
+          ? usdRet
+          : 0,
 
       transactionId: orderId,
 
       utr: utr || "",
-
       paymentProof: imageUrl,
+      paymentUrl: "",
 
       status: 0,
 
@@ -435,31 +491,22 @@ const createDeposit = async (req, res) => {
       number: number || null,
     });
 
-    // =====================================================
-    // TRANSACTION HISTORY
-    // =====================================================
-
     await TransactionHistory.create({
       orderId,
-
       userId: user._id,
       uid: user.uuid,
       phone: user.mobile,
-
       type: "Deposit",
-
       amount: money,
-
       status: 0,
-
       remark: `Deposit request submitted via ${finalChannel}`,
     });
 
     return res.status(201).json({
       success: true,
-
       message: "Deposit request submitted successfully.",
-
+      paymentUrl: "",
+      orderId,
       deposit,
     });
   } catch (error) {
@@ -467,619 +514,238 @@ const createDeposit = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-
       message: "Server Error",
-
       error: error.message,
     });
   }
 };
 
 // =====================================================
-// ONLINE PAYMENT CALLBACK
+// WEBHOOK / CALLBACK
+// QwackPay webhook bhejta hai:
+// { merchant_order_id, qwack_order_id, amount, status, utr, sign }
+// Aur hamein PLAIN TEXT "success" return karna hai
 // =====================================================
 
 const onlinePayCallback = async (req, res) => {
   console.log("====================================");
-  console.log("GATEWAY CALLBACK RECEIVED");
-  console.log("QUERY:", req.query);
+  console.log("QWACKPAY WEBHOOK RECEIVED");
   console.log("BODY:", req.body);
   console.log("====================================");
 
   try {
-    // =====================================================
-    // GET ORDER ID
-    // =====================================================
+    const {
+      merchant_order_id,
+      qwack_order_id,
+      amount,
+      status,
+      utr,
+      sign,
+    } = req.body;
 
-    const resolvedOrderId =
-      req.query?.order_id ||
-      req.body?.order_id;
-
-    if (!resolvedOrderId) {
-      return res.status(400).json({
-        success: false,
-        message: "Order ID missing",
-      });
+    if (!merchant_order_id) {
+      return res.status(400).send("order id missing");
     }
 
-    // =====================================================
-    // FIND DEPOSIT
-    // =====================================================
+    // ============ VERIFY SIGN ============
+    const webhookPayload = {
+      merchant_order_id,
+      qwack_order_id,
+      amount,
+      status,
+      utr,
+    };
 
+    const expectedSign = generateQwackPaySign(webhookPayload, QWACKPAY_API_KEY);
+
+    if (expectedSign !== sign) {
+      console.error("WEBHOOK SIGN MISMATCH", { expectedSign, received: sign });
+      return res.status(400).send("invalid sign");
+    }
+
+    // ============ FIND DEPOSIT ============
     const deposit = await Deposit.findOne({
-      orderId: String(resolvedOrderId),
+      orderId: String(merchant_order_id),
     });
 
     if (!deposit) {
-      console.log(
-        "Deposit not found:",
-        resolvedOrderId
-      );
-
-      return res.status(404).json({
-        success: false,
-        message: "Deposit record not found",
-      });
+      console.log("Deposit not found:", merchant_order_id);
+      return res.send("success"); // plain text
     }
 
-    // =====================================================
-    // ALREADY PROCESSED
-    // =====================================================
-
+    // ============ ALREADY PROCESSED ============
     if (Number(deposit.status) === 1) {
-      return redirectPaymentPage(res, "payment-success", {
+      return res.send("success"); // plain text
+    }
+
+    // ============ PAYMENT FAILED ============
+    if (String(status).toLowerCase() !== "success") {
+      deposit.status = 2;
+      await deposit.save();
+
+      await TransactionHistory.create({
         orderId: deposit.orderId,
-        amount: deposit.amount,
-        number: deposit.number || "",
-        status: "success",
-        configId: deposit.configId ? String(deposit.configId) : "",
-      });
-    }
-
-    // =====================================================
-    // FIND GATEWAY
-    // =====================================================
-
-    const gateway = await AdminGateway.findById(
-      deposit.gatewayId
-    );
-
-    if (!gateway) {
-      return res.status(404).json({
-        success: false,
-        message:
-          "Associated payment gateway not found",
-      });
-    }
-
-    // =====================================================
-    // GATEWAY BASE URL
-    // =====================================================
-
-    const gatewayBaseUrl =
-      gateway.gatewayUrl ||
-      "https://mch.voterx.xyz";
-
-    // =====================================================
-    // VERIFY PAYMENT
-    // =====================================================
-
-    console.log("====================================");
-    console.log("CHECK PAYMENT STATUS");
-    console.log("ORDER ID:", resolvedOrderId);
-    console.log(
-      "URL:",
-      `${gatewayBaseUrl}/api/check-status`
-    );
-    console.log("====================================");
-
-    let verificationData;
-
-    try {
-      const verificationResponse =
-        await axios.post(
-          `${gatewayBaseUrl}/api/check-status`,
-          {
-            order_id: String(resolvedOrderId),
-          },
-          {
-            headers: getGatewayHeaders(gateway),
-            timeout: 30000,
-          }
-        );
-
-      verificationData =
-        verificationResponse.data;
-
-      console.log(
-        "PAYMENT VERIFICATION RESPONSE:",
-        verificationData
-      );
-    } catch (verifyError) {
-      console.error(
-        "PAYMENT VERIFY API ERROR:",
-        verifyError.response?.data ||
-        verifyError.message
-      );
-
-      return redirectPaymentPage(res, "payment-failed", {
-        orderId: resolvedOrderId,
-        amount: deposit.amount,
-        number: deposit.number || "",
-        status: "failed",
-        configId: deposit.configId ? String(deposit.configId) : "",
-      });
-    }
-
-    // =====================================================
-    // VERIFY GATEWAY RESPONSE
-    //
-    // YOUR GATEWAY RESPONSE:
-    //
-    // {
-    //   status: "success",
-    //   order_id: "DEP1789830110564",
-    //   utr: "662883325905"
-    // }
-    // =====================================================
-
-    const gatewayStatus =
-      String(
-        verificationData?.status || ""
-      ).toLowerCase();
-
-    // =====================================================
-    // VERIFY ORDER ID
-    // =====================================================
-
-    const gatewayOrderId =
-      verificationData?.order_id ||
-      verificationData?.data?.order_id ||
-      null;
-
-    if (
-      gatewayOrderId &&
-      String(gatewayOrderId) !==
-      String(resolvedOrderId)
-    ) {
-      console.error(
-        "ORDER ID MISMATCH",
-        {
-          expected: resolvedOrderId,
-          received: gatewayOrderId,
-        }
-      );
-
-      deposit.status = 2;
-      await deposit.save();
-
-      await TransactionHistory.create({
-        orderId: resolvedOrderId,
-
         userId: deposit.userId,
         uid: deposit.uid,
         phone: deposit.phone,
-
         type: "Deposit",
-
         amount: deposit.amount,
-
         status: 2,
-
-        remark:
-          `Payment verification failed: Order ID mismatch. Expected ${resolvedOrderId}, received ${gatewayOrderId}`,
+        remark: `QwackPay payment failed. Status: ${status}`,
       });
 
-      return redirectPaymentPage(res, "payment-failed", {
-        orderId: resolvedOrderId,
-        amount: deposit.amount,
-        number: deposit.number || "",
-        status: "failed",
-        configId: deposit.configId ? String(deposit.configId) : "",
-      });
+      return res.send("success"); // plain text
     }
 
-    // =====================================================
-    // PAYMENT FAILED
-    //
-    // IMPORTANT:
-    // payment_status is NOT required.
-    //
-    // Your gateway only returns:
-    //
-    // status: "success"
-    // =====================================================
-
-    if (gatewayStatus !== "success") {
-      deposit.status = 2;
-
-      await deposit.save();
-
-      await TransactionHistory.create({
-        orderId: resolvedOrderId,
-
-        userId: deposit.userId,
-        uid: deposit.uid,
-        phone: deposit.phone,
-
-        type: "Deposit",
-
-        amount: deposit.amount,
-
-        status: 2,
-
-        remark:
-          "Automatic payment verification failed",
-      });
-
-      return redirectPaymentPage(res, "payment-failed", {
-        orderId: resolvedOrderId,
-        amount: deposit.amount,
-        number: deposit.number || "",
-        status: "failed",
-        configId: deposit.configId ? String(deposit.configId) : "",
-      });
-    }
-
-    // =====================================================
-    // GET UTR
-    // =====================================================
-
-    const gatewayUtr =
-      verificationData?.utr ||
-      verificationData?.data?.utr ||
-      "";
-
-    // =====================================================
-    // GET AMOUNT
-    // =====================================================
-
-    const gatewayAmount =
-      verificationData?.amount ||
-      verificationData?.data?.amount ||
-      deposit.amount;
-
-    const creditAmount = Number(
-      gatewayAmount
-    );
-
-    if (
-      !Number.isFinite(creditAmount) ||
-      creditAmount <= 0
-    ) {
-      return redirectPaymentPage(res, "payment-failed", {
-        orderId: resolvedOrderId,
-        amount: deposit.amount,
-        number: deposit.number || "",
-        status: "failed",
-        configId: deposit.configId ? String(deposit.configId) : "",
-      });
-    }
-
-    // =====================================================
-    // FIND USER
-    // =====================================================
-
-    const user = await User.findById(
-      deposit.userId
-    );
-
+    // ============ FIND USER ============
+    const user = await User.findById(deposit.userId);
     if (!user) {
-      return res.status(404).json({
-        success: false,
-
-        message:
-          "User associated with deposit not found",
-      });
+      return res.send("success");
     }
 
-    // =====================================================
-    // ATOMIC PAYMENT CLAIM
-    //
-    // This prevents duplicate callbacks from
-    // creating duplicate lottery entries.
-    // =====================================================
-
-    const claimed =
-      await Deposit.findOneAndUpdate(
-        {
-          _id: deposit._id,
-
-          status: {
-            $ne: 1,
-          },
+    // ============ ATOMIC CLAIM (prevent duplicate) ============
+    const claimed = await Deposit.findOneAndUpdate(
+      { _id: deposit._id, status: { $ne: 1 } },
+      {
+        $set: {
+          status: 1,
+          utr: utr || deposit.utr || "",
+          transactionId: qwack_order_id || utr || deposit.transactionId,
         },
-
-        {
-          $set: {
-            status: 1,
-
-            utr:
-              gatewayUtr ||
-              deposit.utr ||
-              "",
-
-            transactionId:
-              verificationData?.gateway_txn_id ||
-              verificationData?.data?.gateway_txn_id ||
-              gatewayUtr ||
-              deposit.transactionId,
-          },
-        },
-
-        {
-          new: true,
-        }
-      );
-
-    // =====================================================
-    // CALLBACK ALREADY CLAIMED
-    // =====================================================
+      },
+      { new: true }
+    );
 
     if (!claimed) {
-      return res.status(200).json({
-        success: true,
-
-        message:
-          "Payment already processed.",
-
-        order_id: resolvedOrderId,
-      });
+      return res.send("success"); // already processed
     }
 
-    // =====================================================
-    // IMPORTANT
-    //
-    // NO WALLET CREDIT
-    // =====================================================
-
-    /*
-      user.wallet = Number(
-        (
-          Number(user.wallet || 0) +
-          creditAmount
-        ).toFixed(2)
-      );
-
-      await user.save();
-    */
-
-    // =====================================================
-    // FIND CONFIG AND ADD / CONFIRM LOTTERY ENTRY
-    // =====================================================
-
-    // IMPORTANT:
-    // Payment success ke baad deposit.configId se exact
-    // LotteryConfig find ki jayegi. Kisi active/today config ko
-    // randomly select nahi kiya jayega.
-
-    if (deposit.configId) {
+    // ============ LOTTERY CONFIG UPDATE ============
+    if (deposit.configId && deposit.entryId) {
       try {
         if (!mongoose.Types.ObjectId.isValid(deposit.configId)) {
-          throw new Error(`Invalid configId: ${deposit.configId}`);
-        }
-
-        const config = await LotteryConfig.findById(deposit.configId);
-
-        if (!config) {
-          throw new Error(
-            `LotteryConfig not found for configId: ${deposit.configId}`
-          );
-        }
-
-        if (!Array.isArray(config.users)) {
-          config.users = [];
-        }
-
-        const ticketNumber = String(deposit.number || "").trim();
-        const ticketAmount = Number(creditAmount);
-
-        if (!ticketNumber) {
-          throw new Error("Lottery number is missing in deposit");
-        }
-
-        if (!Number.isFinite(ticketAmount) || ticketAmount <= 0) {
-          throw new Error("Invalid lottery amount");
-        }
-
-        // =====================================================
-        // FIND EXISTING ENTRY
-        // =====================================================
-
-        let entry = null;
-
-        // First priority: entryId saved in deposit
-        if (deposit.entryId) {
-          entry = config.users.find(
-            (item) => String(item._id) === String(deposit.entryId)
-          );
-        }
-
-        // Second priority: same user + same number
-        if (!entry) {
-          entry = config.users.find(
-            (item) =>
-              String(item.userId) === String(deposit.userId) &&
-              String(item.number) === ticketNumber
-          );
-        }
-
-        // =====================================================
-        // UPDATE EXISTING ENTRY
-        // =====================================================
-
-        if (entry) {
-          entry.amount = ticketAmount;
-          entry.number = ticketNumber;
-          entry.isBuy = true;
-
-          // Payment success ke baad pending rakho.
-          // Agar result already process ho chuka hai to status
-          // win/lost ko overwrite nahi karenge.
-          if (!entry.status || !["win", "won", "lost"].includes(String(entry.status).toLowerCase())) {
-            entry.status = "pending";
-          }
-
-          console.log("LOTTERY ENTRY UPDATED:", {
-            configId: String(config._id),
-            entryId: entry._id ? String(entry._id) : null,
-            userId: String(deposit.userId),
-            number: ticketNumber,
-            amount: ticketAmount,
-          });
+          console.warn("Invalid configId:", deposit.configId);
         } else {
-          // =====================================================
-          // CREATE NEW ENTRY
-          // =====================================================
+          const config = await LotteryConfig.findById(deposit.configId);
 
-          let entryDate = new Date().toISOString().slice(0, 10);
+          if (!config) {
+            console.warn("LotteryConfig not found:", deposit.configId);
+          } else {
+            let entry = null;
+            if (config.users && typeof config.users.id === "function") {
+              entry = config.users.id(deposit.entryId);
+            }
+            if (!entry && Array.isArray(config.users)) {
+              entry =
+                config.users.find(
+                  (item) => String(item._id) === String(deposit.entryId)
+                ) || null;
+            }
 
-          if (config.drawDate) {
-            const drawDate = new Date(config.drawDate);
+            if (!entry) {
+              console.warn("Lottery entry not found:", deposit.entryId);
+            } else {
+              entry.isBuy = true;
 
-            if (!Number.isNaN(drawDate.getTime())) {
-              entryDate = drawDate.toISOString().slice(0, 10);
+              if (
+                config.winningNumber !== undefined &&
+                config.winningNumber !== null &&
+                entry.number !== undefined &&
+                entry.number !== null
+              ) {
+                if (String(entry.number) === String(config.winningNumber)) {
+                  entry.status = "win";
+                  entry.prizeType = "1st";
+                  if (!entry.prize) entry.prize = {};
+                  entry.prize.first = config.prizes?.first || 0;
+                } else {
+                  entry.status = "lost";
+                }
+              }
+
+              await config.save();
+              console.log("LOTTERY ENTRY UPDATED:", deposit.entryId);
             }
           }
-
-          config.users.push({
-            userId: String(deposit.userId),
-            entryDate,
-            number: ticketNumber,
-            amount: ticketAmount,
-            isBuy: true,
-            prize: {
-              first: 0,
-              second: 0,
-              third: 0,
-            },
-            prizeType: null,
-            status: "pending",
-          });
-
-          entry = config.users[config.users.length - 1];
-
-          console.log("LOTTERY ENTRY CREATED:", {
-            configId: String(config._id),
-            entryId: entry._id ? String(entry._id) : null,
-            userId: String(deposit.userId),
-            number: ticketNumber,
-            amount: ticketAmount,
-          });
         }
-
-        await config.save();
-
-        console.log("====================================");
-        console.log("LOTTERY PAYMENT ENTRY SAVED");
-        console.log("Config ID:", String(config._id));
-        console.log("Market:", config.marketName);
-        console.log("Number:", ticketNumber);
-        console.log("Amount:", ticketAmount);
-        console.log("Entry ID:", entry?._id ? String(entry._id) : "N/A");
-        console.log("====================================");
       } catch (lotteryError) {
-        console.error("LOTTERY ENTRY UPDATE ERROR:", lotteryError);
-
-        // Payment successful hai, isliye payment ko failed nahi karna.
-        // Error log hoga taaki admin issue trace kar sake.
+        console.error("LOTTERY isBuy UPDATE ERROR:", lotteryError);
       }
-    } else {
-      console.warn("Deposit has no configId. Lottery entry cannot be created.", {
-        depositId: deposit._id,
-        orderId: deposit.orderId,
-        number: deposit.number,
-      });
     }
 
-    // =====================================================
-    // UPDATE DEPOSIT AGAIN
-    // =====================================================
+    // ============ ADD USER LOTTERY ENTRY ============
+    if (
+      deposit.number !== undefined &&
+      deposit.number !== null &&
+      String(deposit.number).trim() !== ""
+    ) {
+      try {
+        await addUserLotteryEntry(
+          deposit.number,
+          Number(amount),
+          user._id
+        );
+        console.log("addUserLotteryEntry SUCCESS");
+      } catch (entryError) {
+        console.error("addUserLotteryEntry ERROR:", entryError.message);
+      }
+    }
 
-    claimed.utr =
-      gatewayUtr ||
-      claimed.utr ||
-      "";
-
-    claimed.transactionId =
-      verificationData?.gateway_txn_id ||
-      verificationData?.data?.gateway_txn_id ||
-      gatewayUtr ||
-      claimed.transactionId;
-
+    // ============ FINAL SAVE ============
+    claimed.utr = utr || claimed.utr || "";
+    claimed.transactionId = qwack_order_id || utr || claimed.transactionId;
     claimed.status = 1;
-
     await claimed.save();
 
-    // =====================================================
-    // SUCCESS TRANSACTION HISTORY
-    // =====================================================
-
+    // ============ TRANSACTION HISTORY ============
     await TransactionHistory.create({
-      orderId: resolvedOrderId,
-
+      orderId: merchant_order_id,
       userId: user._id,
       uid: user.uuid,
       phone: user.mobile,
-
       type: "Lottery Ticket Purchase",
-
-      amount: creditAmount,
-
+      amount: Number(amount),
       status: 1,
-
-      remark:
-        `Lottery ticket purchase successful via ${gateway.name}. UTR: ${gatewayUtr || "N/A"
-        }. isBuy set to true. No wallet credit.`,
+      remark: `Lottery ticket purchase successful via QwackPay. UTR: ${utr || "N/A"}. isBuy set to true. No wallet credit.`,
     });
 
-    // =====================================================
-    // SUCCESS RESPONSE
-    // =====================================================
-
-    return redirectPaymentPage(res, "payment-success", {
-      orderId: resolvedOrderId,
-      amount: creditAmount,
-      number: deposit.number || "",
-      status: "success",
-      configId: deposit.configId ? String(deposit.configId) : "",
-    });
+    // ============ PLAIN TEXT SUCCESS RESPONSE ============
+    return res.send("success");
   } catch (error) {
-    console.error(
-      "===================================="
-    );
-
-    console.error(
-      "GATEWAY CALLBACK ERROR:",
-      error
-    );
-
-    console.error(
-      "===================================="
-    );
-
-    const failedOrderId =
-      req.query?.order_id ||
-      req.body?.order_id ||
-      "";
-
-    if (failedOrderId) {
-      return redirectPaymentPage(res, "payment-failed", {
-        orderId: failedOrderId,
-        status: "failed",
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: "Callback failed",
-      error: error.message,
-    });
+    console.error("QWACKPAY WEBHOOK ERROR:", error);
+    // Error pe bhi plain text success return karo, warna QwackPay retry karega
+    return res.send("success");
   }
 };
 
 // =====================================================
-// GET MY DEPOSIT HISTORY
+// CHECK ORDER STATUS (QwackPay /order/query)
+// =====================================================
+
+const checkQwackPayOrderStatus = async (orderId) => {
+  try {
+    const payload = {
+      merchant_id: QWACKPAY_MERCHANT_ID,
+      order_id: orderId,
+    };
+    payload.sign = generateQwackPaySign(payload, QWACKPAY_API_KEY);
+
+    const { data } = await axios.post(
+      `${QWACKPAY_BASE_URL}/order/query`,
+      payload,
+      { headers: getQwackPayHeaders(), timeout: 30000 }
+    );
+
+    console.log("QWACKPAY QUERY RESPONSE:", data);
+    return data;
+  } catch (error) {
+    console.error("QwackPay Query Error:", error.response?.data || error.message);
+    return null;
+  }
+};
+
+// =====================================================
+// GET MY DEPOSITS
 // =====================================================
 
 const getMyDeposits = async (req, res) => {
@@ -1093,251 +759,72 @@ const getMyDeposits = async (req, res) => {
       orderId,
       transactionId,
       utr,
-
       fromDate,
       toDate,
-
       minAmount,
       maxAmount,
-
       page = 1,
       limit = 10,
-
       sort = "desc",
     } = req.query;
 
-    const userId =
-      req.user?.id ||
-      req.user?._id;
-
+    const userId = req.user?.id || req.user?._id;
     if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required",
-      });
+      return res.status(401).json({ success: false, message: "Authentication required" });
     }
 
-    const query = {
-      userId,
-    };
+    const query = { userId };
 
-    // =====================================================
-    // STATUS
-    // =====================================================
+    if (status !== undefined && status !== "") query.status = status;
+    if (paymentMethod && paymentMethod.trim()) query.paymentMethod = paymentMethod;
+    if (channel && channel.trim()) query.channel = channel;
+    if (phone) query.phone = { $regex: phone, $options: "i" };
+    if (username) query.username = { $regex: username, $options: "i" };
+    if (orderId) query.orderId = { $regex: orderId, $options: "i" };
+    if (transactionId) query.transactionId = { $regex: transactionId, $options: "i" };
+    if (utr) query.utr = { $regex: utr, $options: "i" };
 
-    if (status !== undefined && status !== "") {
-      query.status = status;
-    }
-
-    // =====================================================
-    // PAYMENT METHOD
-    // =====================================================
-
-    if (
-      paymentMethod &&
-      paymentMethod.trim()
-    ) {
-      query.paymentMethod = paymentMethod;
-    }
-
-    // =====================================================
-    // CHANNEL
-    // =====================================================
-
-    if (
-      channel &&
-      channel.trim()
-    ) {
-      query.channel = channel;
-    }
-
-    // =====================================================
-    // PHONE
-    // =====================================================
-
-    if (phone) {
-      query.phone = {
-        $regex: phone,
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // USERNAME
-    // =====================================================
-
-    if (username) {
-      query.username = {
-        $regex: username,
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // ORDER ID
-    // =====================================================
-
-    if (orderId) {
-      query.orderId = {
-        $regex: orderId,
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // TRANSACTION ID
-    // =====================================================
-
-    if (transactionId) {
-      query.transactionId = {
-        $regex: transactionId,
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // UTR
-    // =====================================================
-
-    if (utr) {
-      query.utr = {
-        $regex: utr,
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // AMOUNT
-    // =====================================================
-
-    if (
-      minAmount !== undefined ||
-      maxAmount !== undefined
-    ) {
+    if (minAmount !== undefined || maxAmount !== undefined) {
       query.amount = {};
-
-      if (
-        minAmount !== undefined &&
-        minAmount !== ""
-      ) {
-        query.amount.$gte =
-          Number(minAmount);
-      }
-
-      if (
-        maxAmount !== undefined &&
-        maxAmount !== ""
-      ) {
-        query.amount.$lte =
-          Number(maxAmount);
-      }
+      if (minAmount !== undefined && minAmount !== "") query.amount.$gte = Number(minAmount);
+      if (maxAmount !== undefined && maxAmount !== "") query.amount.$lte = Number(maxAmount);
     }
-
-    // =====================================================
-    // DATE
-    // =====================================================
 
     if (fromDate || toDate) {
       query.createdAt = {};
-
       if (fromDate) {
-        const startDate =
-          new Date(fromDate);
-
-        if (!isNaN(startDate.getTime())) {
-          query.createdAt.$gte =
-            startDate;
-        }
+        const startDate = new Date(fromDate);
+        if (!isNaN(startDate.getTime())) query.createdAt.$gte = startDate;
       }
-
       if (toDate) {
-        const endDate =
-          new Date(toDate);
-
+        const endDate = new Date(toDate);
         if (!isNaN(endDate.getTime())) {
-          endDate.setHours(
-            23,
-            59,
-            59,
-            999
-          );
-
-          query.createdAt.$lte =
-            endDate;
+          endDate.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = endDate;
         }
       }
     }
 
-    // =====================================================
-    // PAGINATION
-    // =====================================================
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const perPage = Math.min(Math.max(Number(limit) || 10, 1), 100);
+    const total = await Deposit.countDocuments(query);
+    const sortDirection = String(sort).toLowerCase() === "asc" ? 1 : -1;
 
-    const currentPage =
-      Math.max(Number(page) || 1, 1);
-
-    const perPage =
-      Math.min(
-        Math.max(Number(limit) || 10, 1),
-        100
-      );
-
-    const total =
-      await Deposit.countDocuments(
-        query
-      );
-
-    // =====================================================
-    // SORT
-    // =====================================================
-
-    const sortDirection =
-      String(sort).toLowerCase() ===
-        "asc"
-        ? 1
-        : -1;
-
-    const deposits =
-      await Deposit.find(query)
-        .sort({
-          createdAt: sortDirection,
-        })
-        .skip(
-          (currentPage - 1) *
-          perPage
-        )
-        .limit(perPage);
-
-    // =====================================================
-    // RESPONSE
-    // =====================================================
+    const deposits = await Deposit.find(query)
+      .sort({ createdAt: sortDirection })
+      .skip((currentPage - 1) * perPage)
+      .limit(perPage);
 
     return res.status(200).json({
       success: true,
-
       total,
-
       currentPage,
-
-      totalPages:
-        Math.ceil(
-          total / perPage
-        ),
-
+      totalPages: Math.ceil(total / perPage),
       deposits,
     });
   } catch (error) {
-    console.error(
-      "GET MY DEPOSITS ERROR:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-
-      message: "Server Error",
-
-      error: error.message,
-    });
+    console.error("GET MY DEPOSITS ERROR:", error);
+    return res.status(500).json({ success: false, message: "Server Error", error: error.message });
   }
 };
 
@@ -1345,249 +832,91 @@ const getMyDeposits = async (req, res) => {
 // GET MY TURNOVER HISTORY
 // =====================================================
 
-const getMyTurnoverHistory = async (
-  req,
-  res
-) => {
+const getMyTurnoverHistory = async (req, res) => {
   try {
-    const userId =
-      req.user?.id ||
-      req.user?._id;
-
+    const userId = req.user?.id || req.user?._id;
     if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required",
-      });
+      return res.status(401).json({ success: false, message: "Authentication required" });
     }
 
-    const user =
-      await User.findById(userId);
-
+    const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // =====================================================
-    // DOWNLINE COUNT
-    // =====================================================
+    const downlineCount = await User.countDocuments({ referral: user.refCode });
 
-    const downlineCount =
-      await User.countDocuments({
-        referral: user.refCode,
-      });
+    const commissions = await TransactionHistory.find({
+      userId: userId.toString(),
+      type: "Referral Bonus",
+      status: 1,
+    }).sort({ createdAt: -1 });
 
-    // =====================================================
-    // COMMISSIONS
-    // =====================================================
+    const formattedCommissions = commissions.map((c) => {
+      const match = c.remark ? c.remark.match(/from deposit of (.+)/) : null;
+      const referredUsername = match ? match[1] : "Referred User";
+      const rechargeAmount = Number((Number(c.amount || 0) * 10).toFixed(2));
 
-    const commissions =
-      await TransactionHistory.find({
-        userId: userId.toString(),
-
-        type: "Referral Bonus",
-
-        status: 1,
-      }).sort({
-        createdAt: -1,
-      });
-
-    // =====================================================
-    // FORMAT
-    // =====================================================
-
-    const formattedCommissions =
-      commissions.map((c) => {
-        const match = c.remark
-          ? c.remark.match(
-            /from deposit of (.+)/
-          )
-          : null;
-
-        const referredUsername =
-          match
-            ? match[1]
-            : "Referred User";
-
-        const rechargeAmount =
-          Number(
-            (
-              Number(c.amount || 0) *
-              10
-            ).toFixed(2)
-          );
-
-        return {
-          id: c._id,
-
-          amount: c.amount,
-
-          rechargeAmount,
-
-          referredUsername,
-
-          date: c.createdAt
-            ? new Date(
-              c.createdAt
-            ).toLocaleDateString(
-              "en-GB",
-              {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              }
-            )
-            : "-",
-
-          createdAt: c.createdAt,
-        };
-      });
-
-    // =====================================================
-    // DATE RANGE
-    // =====================================================
+      return {
+        id: c._id,
+        amount: c.amount,
+        rechargeAmount,
+        referredUsername,
+        date: c.createdAt
+          ? new Date(c.createdAt).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : "-",
+        createdAt: c.createdAt,
+      };
+    });
 
     const now = new Date();
-
-    const oneWeekAgo =
-      new Date();
-
-    oneWeekAgo.setDate(
-      now.getDate() - 7
-    );
-
-    const oneMonthAgo =
-      new Date();
-
-    oneMonthAgo.setDate(
-      now.getDate() - 30
-    );
-
-    // =====================================================
-    // COMMISSION CALCULATION
-    // =====================================================
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(now.getDate() - 7);
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setDate(now.getDate() - 30);
 
     let weeklyCommission = 0;
     let monthlyCommission = 0;
     let totalCommission = 0;
 
-    formattedCommissions.forEach(
-      (c) => {
-        const amount =
-          Number(c.amount || 0);
+    formattedCommissions.forEach((c) => {
+      const amount = Number(c.amount || 0);
+      totalCommission += amount;
+      const cDate = new Date(c.createdAt);
+      if (cDate >= oneWeekAgo) weeklyCommission += amount;
+      if (cDate >= oneMonthAgo) monthlyCommission += amount;
+    });
 
-        totalCommission += amount;
+    totalCommission = Number(totalCommission.toFixed(2));
+    weeklyCommission = Number(weeklyCommission.toFixed(2));
+    monthlyCommission = Number(monthlyCommission.toFixed(2));
 
-        const cDate =
-          new Date(
-            c.createdAt
-          );
-
-        if (
-          cDate >= oneWeekAgo
-        ) {
-          weeklyCommission +=
-            amount;
-        }
-
-        if (
-          cDate >= oneMonthAgo
-        ) {
-          monthlyCommission +=
-            amount;
-        }
-      }
-    );
-
-    // =====================================================
-    // ROUND
-    // =====================================================
-
-    totalCommission =
-      Number(
-        totalCommission.toFixed(2)
-      );
-
-    weeklyCommission =
-      Number(
-        weeklyCommission.toFixed(2)
-      );
-
-    monthlyCommission =
-      Number(
-        monthlyCommission.toFixed(2)
-      );
-
-    // =====================================================
-    // TURNOVER
-    // =====================================================
-
-    const totalTurnover =
-      Number(
-        (
-          totalCommission * 10
-        ).toFixed(2)
-      );
-
-    const weeklyTurnover =
-      Number(
-        (
-          weeklyCommission * 10
-        ).toFixed(2)
-      );
-
-    const monthlyTurnover =
-      Number(
-        (
-          monthlyCommission * 10
-        ).toFixed(2)
-      );
-
-    // =====================================================
-    // RESPONSE
-    // =====================================================
+    const totalTurnover = Number((totalCommission * 10).toFixed(2));
+    const weeklyTurnover = Number((weeklyCommission * 10).toFixed(2));
+    const monthlyTurnover = Number((monthlyCommission * 10).toFixed(2));
 
     return res.status(200).json({
       success: true,
-
       downlineCount,
-
       stats: {
         totalCommission,
-
         weeklyCommission,
-
         monthlyCommission,
-
         totalTurnover,
-
         weeklyTurnover,
-
         monthlyTurnover,
       },
-
-      commissions:
-        formattedCommissions,
+      commissions: formattedCommissions,
     });
   } catch (error) {
-    console.error(
-      "GET TURNOVER HISTORY ERROR:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-
-      message: "Server Error",
-
-      error: error.message,
-    });
+    console.error("GET TURNOVER HISTORY ERROR:", error);
+    return res.status(500).json({ success: false, message: "Server Error", error: error.message });
   }
 };
-
 
 // =====================================================
 // ADMIN: GET ALL DEPOSITS
@@ -1605,268 +934,89 @@ const getAllDepositsForAdmin = async (req, res) => {
       orderId,
       transactionId,
       utr,
-
       fromDate,
       toDate,
-
       minAmount,
       maxAmount,
-
       page = 1,
       limit = 20,
-
       sort = "desc",
     } = req.query;
 
-    // =====================================================
-    // BUILD QUERY
-    // =====================================================
-
     const query = {};
 
-    // =====================================================
-    // STATUS
-    // 0 = Pending
-    // 1 = Success
-    // 2 = Failed
-    // =====================================================
+    if (status !== undefined && status !== "") query.status = Number(status);
+    if (paymentMethod && paymentMethod.trim())
+      query.paymentMethod = { $regex: paymentMethod.trim(), $options: "i" };
+    if (channel && channel.trim())
+      query.channel = { $regex: channel.trim(), $options: "i" };
+    if (phone && phone.trim())
+      query.phone = { $regex: phone.trim(), $options: "i" };
+    if (username && username.trim())
+      query.username = { $regex: username.trim(), $options: "i" };
+    if (uid && uid.trim()) query.uid = { $regex: uid.trim(), $options: "i" };
+    if (orderId && orderId.trim())
+      query.orderId = { $regex: orderId.trim(), $options: "i" };
+    if (transactionId && transactionId.trim())
+      query.transactionId = { $regex: transactionId.trim(), $options: "i" };
+    if (utr && utr.trim()) query.utr = { $regex: utr.trim(), $options: "i" };
 
-    if (status !== undefined && status !== "") {
-      query.status = Number(status);
-    }
-
-    // =====================================================
-    // PAYMENT METHOD
-    // =====================================================
-
-    if (paymentMethod && paymentMethod.trim()) {
-      query.paymentMethod = {
-        $regex: paymentMethod.trim(),
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // CHANNEL
-    // =====================================================
-
-    if (channel && channel.trim()) {
-      query.channel = {
-        $regex: channel.trim(),
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // PHONE
-    // =====================================================
-
-    if (phone && phone.trim()) {
-      query.phone = {
-        $regex: phone.trim(),
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // USERNAME
-    // =====================================================
-
-    if (username && username.trim()) {
-      query.username = {
-        $regex: username.trim(),
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // UID
-    // =====================================================
-
-    if (uid && uid.trim()) {
-      query.uid = {
-        $regex: uid.trim(),
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // ORDER ID
-    // =====================================================
-
-    if (orderId && orderId.trim()) {
-      query.orderId = {
-        $regex: orderId.trim(),
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // TRANSACTION ID
-    // =====================================================
-
-    if (transactionId && transactionId.trim()) {
-      query.transactionId = {
-        $regex: transactionId.trim(),
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // UTR
-    // =====================================================
-
-    if (utr && utr.trim()) {
-      query.utr = {
-        $regex: utr.trim(),
-        $options: "i",
-      };
-    }
-
-    // =====================================================
-    // AMOUNT FILTER
-    // =====================================================
-
-    if (
-      minAmount !== undefined ||
-      maxAmount !== undefined
-    ) {
+    if (minAmount !== undefined || maxAmount !== undefined) {
       query.amount = {};
-
-      if (
-        minAmount !== undefined &&
-        minAmount !== ""
-      ) {
+      if (minAmount !== undefined && minAmount !== "") {
         const min = Number(minAmount);
-
-        if (Number.isFinite(min)) {
-          query.amount.$gte = min;
-        }
+        if (Number.isFinite(min)) query.amount.$gte = min;
       }
-
-      if (
-        maxAmount !== undefined &&
-        maxAmount !== ""
-      ) {
+      if (maxAmount !== undefined && maxAmount !== "") {
         const max = Number(maxAmount);
-
-        if (Number.isFinite(max)) {
-          query.amount.$lte = max;
-        }
+        if (Number.isFinite(max)) query.amount.$lte = max;
       }
-
-      // Agar amount object empty hai to remove kar do
-      if (Object.keys(query.amount).length === 0) {
-        delete query.amount;
-      }
+      if (Object.keys(query.amount).length === 0) delete query.amount;
     }
-
-    // =====================================================
-    // DATE FILTER
-    // =====================================================
 
     if (fromDate || toDate) {
       query.createdAt = {};
-
       if (fromDate) {
         const startDate = new Date(fromDate);
-
         if (!isNaN(startDate.getTime())) {
           startDate.setHours(0, 0, 0, 0);
           query.createdAt.$gte = startDate;
         }
       }
-
       if (toDate) {
         const endDate = new Date(toDate);
-
         if (!isNaN(endDate.getTime())) {
           endDate.setHours(23, 59, 59, 999);
           query.createdAt.$lte = endDate;
         }
       }
-
-      if (Object.keys(query.createdAt).length === 0) {
-        delete query.createdAt;
-      }
+      if (Object.keys(query.createdAt).length === 0) delete query.createdAt;
     }
 
-    // =====================================================
-    // PAGINATION
-    // =====================================================
-
-    const currentPage = Math.max(
-      Number(page) || 1,
-      1
-    );
-
-    const perPage = Math.min(
-      Math.max(Number(limit) || 20, 1),
-      100
-    );
-
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const perPage = Math.min(Math.max(Number(limit) || 20, 1), 100);
     const skip = (currentPage - 1) * perPage;
-
-    // =====================================================
-    // SORT
-    // =====================================================
-
-    const sortDirection =
-      String(sort).toLowerCase() === "asc"
-        ? 1
-        : -1;
-
-    // =====================================================
-    // TOTAL COUNT
-    // =====================================================
+    const sortDirection = String(sort).toLowerCase() === "asc" ? 1 : -1;
 
     const total = await Deposit.countDocuments(query);
-
-    // =====================================================
-    // GET DEPOSITS
-    // =====================================================
-
     const deposits = await Deposit.find(query)
-      .sort({
-        createdAt: sortDirection,
-      })
+      .sort({ createdAt: sortDirection })
       .skip(skip)
       .limit(perPage)
       .lean();
 
-    // =====================================================
-    // RESPONSE
-    // =====================================================
-
     return res.status(200).json({
       success: true,
-
       message: "All deposits fetched successfully",
-
       total,
-
       currentPage,
-
       perPage,
-
-      totalPages: Math.ceil(
-        total / perPage
-      ),
-
+      totalPages: Math.ceil(total / perPage),
       deposits,
     });
-
   } catch (error) {
-    console.error(
-      "GET ALL DEPOSITS FOR ADMIN ERROR:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message: "Server Error",
-      error: error.message,
-    });
+    console.error("GET ALL DEPOSITS FOR ADMIN ERROR:", error);
+    return res.status(500).json({ success: false, message: "Server Error", error: error.message });
   }
 };
 
@@ -1879,5 +1029,7 @@ module.exports = {
   onlinePayCallback,
   getMyDeposits,
   getMyTurnoverHistory,
-  getAllDepositsForAdmin
+  getAllDepositsForAdmin,
+  checkQwackPayOrderStatus,
+  generateQwackPaySign,
 };
