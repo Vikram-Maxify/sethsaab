@@ -33,7 +33,7 @@ import WithdrawalManagement from "./admin/adminPages/WithdrawalManagement";
 // ==========================================================
 // WHATSAPP SUPPORT NUMBER
 // ==========================================================
-const WHATSAPP_NUMBER = "91XXXXXXXXXX";
+const WHATSAPP_NUMBER = "+917234806209";
 
 // ==========================================================
 // ADMIN ROUTES LIST (WhatsApp hide karne ke liye)
