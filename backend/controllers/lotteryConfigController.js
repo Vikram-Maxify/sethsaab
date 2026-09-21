@@ -943,7 +943,8 @@ const addUserLotteryEntry = async (req, res) => {
 
 const getMyLotteryEntries = async (req, res) => {
   try {
-    const userId = getUserId(req); // token se aata hai (ObjectId string ya uuid)
+    const userId = getUserId(req);
+    console.log("STEP 0 userId:", userId);
 
     if (!userId) {
       return res.status(401).json({
@@ -952,7 +953,7 @@ const getMyLotteryEntries = async (req, res) => {
       });
     }
 
-    // ---- STEP 1: User ko dono tarike se dhoondo (_id ya uuid) ----
+    // ---- User dhoondo _id ya uuid se ----
     const isObjectId = /^[a-f\d]{24}$/i.test(String(userId));
 
     const user = await User.findOne({
@@ -962,6 +963,8 @@ const getMyLotteryEntries = async (req, res) => {
       ],
     }).lean();
 
+    console.log("STEP 1 user:", user ? { _id: user._id, uuid: user.uuid } : null);
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -969,81 +972,60 @@ const getMyLotteryEntries = async (req, res) => {
       });
     }
 
-    // ---- STEP 2: User ke saare possible identifiers banao ----
-    // Ticket DB me _id se ho ya uuid se — dono match karne chahiye
+    // ---- Dono identifiers banao: _id + uuid ----
     const identifiers = [
       String(user._id),
       ...(user.uuid ? [String(user.uuid)] : []),
-      String(userId), // token wala bhi include karo safety ke liye
+      String(userId),
     ];
     const uniqueIdentifiers = [...new Set(identifiers)];
+    console.log("STEP 2 identifiers:", uniqueIdentifiers);
 
-    // ---- STEP 3: Saare lottery configs laao jisme in identifiers me se koi bhi ho ----
+    // ---- Dono se search: users.userId in [_id, uuid] ----
     const configs = await LotteryConfig.find({
       "users.userId": { $in: uniqueIdentifiers },
     })
       .sort({ drawDate: -1 })
       .lean();
 
+    console.log("STEP 3 configs count:", configs.length);
+
+    // ---- Flatten: sirf is user ki entries ----
     const entries = [];
 
-    configs.forEach((config) => {
-      if (!Array.isArray(config.users)) return;
+    for (const config of configs) {
+      const userEntries = (config.users || []).filter((u) =>
+        uniqueIdentifiers.includes(String(u.userId))
+      );
 
-      // Har ticket jo is user ka hai (chahe _id se match ho ya uuid se)
-      config.users
-        .filter((entry) =>
-          uniqueIdentifiers.includes(String(entry.userId))
-        )
-        .forEach((entry) => {
-          entries.push({
-            lotteryId: config._id,
-            entryId: entry._id,
-
-            marketName: config.marketName,
-            month: config.month,
-            year: config.year,
-            drawDate: config.drawDate,
-            drawTime: config.drawTime,
-            isActive: config.isActive,
-            prizes: config.prizes,
-
-            entry: {
-              _id: entry._id,
-              userId: entry.userId,
-              entryDate: entry.entryDate,
-              number: entry.number,
-              amount: entry.amount,
-              isBuy: entry.isBuy,
-              prize: {
-                first: entry.prize?.first || 0,
-                second: entry.prize?.second || 0,
-                third: entry.prize?.third || 0,
-              },
-              prizeType: entry.prizeType || null,
-              status: entry.status || "pending",
-              createdAt: entry.createdAt,
-              updatedAt: entry.updatedAt,
-            },
-
-            // ---- User ka full data (password hata ke) ----
-            user: {
-              _id: user._id,
-              uuid: user.uuid,
-              name: user.name,
-              mobile: user.mobile,
-              role: user.role,
-              wallet: user.wallet,
-              createdAt: user.createdAt,
-              updatedAt: user.updatedAt,
-            },
-          });
+      for (const u of userEntries) {
+        entries.push({
+          configId: config._id,
+          marketName: config.marketName,
+          month: config.month,
+          year: config.year,
+          drawDate: config.drawDate,
+          drawTime: config.drawTime,
+          prizes: config.prizes,
+          isActive: config.isActive,
+          entryId: u._id,
+          userId: u.userId,
+          entryDate: u.entryDate,
+          number: u.number,
+          amount: u.amount,
+          isBuy: u.isBuy,
+          prize: u.prize,
+          prizeType: u.prizeType,
+          status: u.status,
+          createdAt: u.createdAt,
+          updatedAt: u.updatedAt,
         });
-    });
+      }
+    }
 
-    entries.sort(
-      (a, b) => new Date(b.drawDate) - new Date(a.drawDate)
-    );
+    console.log("STEP 5 total entries:", entries.length);
+
+    entries.sort((a, b) => new Date(b.drawDate) - new Date(a.drawDate));
 
     return res.status(200).json({
       success: true,

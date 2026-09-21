@@ -31,7 +31,7 @@ const navItems = [
 
 const BottomNavbar = () => {
   return (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-50">
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[490px] z-50">
       <div className="relative bg-[#0b0b0b]/98 backdrop-blur-xl border-t border-[#2a2a2a] shadow-[0_-8px_30px_rgba(0,0,0,0.6)]">
         {/* Top golden glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-px bg-[#f5c542] shadow-[0_0_12px_rgba(245,197,66,0.8)]" />

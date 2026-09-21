@@ -33,7 +33,6 @@ const PrivateRoute = () => {
     checkProfile();
   }, [dispatch]);
 
-  console.log("isAuthenticated:", isAuthenticated);
 
   // Profile API check hone tak loading
   if (!checked || loading) {
