@@ -34,7 +34,7 @@ const Login = () => {
   if (isAuthenticated) {
     return (
       <Navigate
-        to="/admin/dashboard"
+        to="/dashboard"
         replace
       />
     );
@@ -57,7 +57,7 @@ const Login = () => {
     if (adminLogin.fulfilled.match(result)) {
       const from =
         location.state?.from?.pathname ||
-        "/admin/dashboard";
+        "/dashboard";
 
       navigate(from, {
         replace: true,
