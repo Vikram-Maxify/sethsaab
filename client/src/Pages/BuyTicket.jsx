@@ -1,3 +1,4 @@
+
 import { Ticket } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -937,6 +938,7 @@ const BuyTicket = () => {
               >
 
                 {!countdown.available ? (
+
                   <p
                     className="
                       text-[10px]
@@ -949,7 +951,9 @@ const BuyTicket = () => {
                   >
                     टाइमर उपलब्ध नहीं
                   </p>
+
                 ) : countdown.expired ? (
+
                   <p
                     className="
                       text-[10px]
@@ -962,7 +966,9 @@ const BuyTicket = () => {
                   >
                     ड्रा शुरू हो गया
                   </p>
+
                 ) : (
+
                   <div
                     className="
                       flex
@@ -1427,7 +1433,6 @@ const BuyTicket = () => {
         </section>
 
       </main>
-
     </div>
   );
 };
@@ -1625,7 +1630,6 @@ const CalendarIcon = () => (
     strokeWidth="1.8"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={iconGlow}
   >
     <rect
       x="3"
@@ -1653,7 +1657,6 @@ const ClockIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="1.8"
-    className={iconGlow}
   >
     <circle
       cx="12"
@@ -1677,7 +1680,6 @@ const TrophyIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="1.8"
-    className={iconGlow}
   >
     <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z" />
 
@@ -1697,7 +1699,6 @@ const TargetIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="1.8"
-    className={iconGlow}
   >
     <circle
       cx="12"
@@ -1734,7 +1735,6 @@ const ShuffleIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="2"
-    className={iconGlow}
   >
     <path d="M3 7h3c4 0 6 10 10 10h5" />
 
@@ -1760,7 +1760,7 @@ const InfoIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="2"
-    className={`${iconGlow} shrink-0`}
+    className="shrink-0"
   >
     <circle
       cx="12"
@@ -1784,7 +1784,6 @@ const TicketIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="1.7"
-    className={iconGlow}
   >
     <path d="M3 8a2 2 0 002-2h14a2 2 0 002 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z" />
 
@@ -1802,7 +1801,6 @@ const LockIcon = () => (
     height="15"
     viewBox="0 0 24 24"
     fill="#f5ce54"
-    className={iconGlow}
   >
     <path d="M17 9V7a5 5 0 00-10 0v2H5v12h14V9h-2zm-8 0V7a3 3 0 016 0v2H9z" />
   </svg>
@@ -1820,7 +1818,6 @@ const ShieldIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="1.8"
-    className={iconGlow}
   >
     <path d="M12 2l8 4v6c0 5-3.2 8.7-8 10-4.8-1.3-8-5-8-10V6l8-4z" />
 
@@ -1838,7 +1835,6 @@ const ZapIcon = () => (
     height="29"
     viewBox="0 0 24 24"
     fill="#f5ce54"
-    className={iconGlow}
   >
     <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" />
   </svg>
@@ -1854,7 +1850,6 @@ const UsersIcon = () => (
     height="29"
     viewBox="0 0 24 24"
     fill="#f5ce54"
-    className={iconGlow}
   >
     <circle
       cx="9"
@@ -1889,7 +1884,6 @@ const SupportIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="1.8"
-    className={iconGlow}
   >
     <path d="M4 13a8 8 0 0116 0" />
 
@@ -1900,3 +1894,4 @@ const SupportIcon = () => (
 );
 
 export default BuyTicket;
+

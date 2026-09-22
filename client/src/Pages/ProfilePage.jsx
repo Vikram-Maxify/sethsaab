@@ -31,23 +31,6 @@ import {
 } from "../reducer/slice/createLotteryConfigSlice";
 
 // ==========================================================
-// WHATSAPP SUPPORT NUMBER
-// IMPORTANT: Country code ke saath number likhein.
-// Example India: 919876543210
-// ==========================================================
-
-const WHATSAPP_NUMBER = "91XXXXXXXXXX";
-
-// ==========================================================
-// GLOW STYLE (yellow highlight for icons)
-// ==========================================================
-
-const GLOW_STYLE = {
-  filter:
-    "drop-shadow(0 0 7px rgba(245,197,66,0.95)) drop-shadow(0 0 18px rgba(245,197,66,0.7)) drop-shadow(0 0 30px rgba(245,197,66,0.4))",
-};
-
-// ==========================================================
 // PROFILE PAGE
 // ==========================================================
 
@@ -163,9 +146,7 @@ const ProfilePage = () => {
     e.preventDefault();
 
     const name = formData.name.trim();
-
     const mobile = formData.mobile.trim();
-
     const password = formData.password;
 
     // ======================================================
@@ -302,21 +283,22 @@ const ProfilePage = () => {
         <div className="relative flex items-center gap-3 min-[450px]:gap-4">
 
           {/* PROFILE ICON */}
+
           <div className="w-[82px] h-[82px] min-[400px]:w-[92px] min-[400px]:h-[92px] min-[450px]:w-[112px] min-[450px]:h-[112px] rounded-full border-[3px] border-[#f5c542] flex-shrink-0 flex items-center justify-center">
 
             <div className="w-[70px] h-[70px] min-[400px]:w-[80px] min-[400px]:h-[80px] min-[450px]:w-[98px] min-[450px]:h-[98px] rounded-full bg-black/50 flex items-center justify-center overflow-hidden">
 
               <UserRound
-                size={48}
+                size={40}
                 className="min-[400px]:w-[55px] min-[400px]:h-[55px] min-[450px]:w-[65px] min-[450px]:h-[65px] text-[#f5c542]"
                 strokeWidth={1.4}
-                style={GLOW_STYLE}
               />
 
             </div>
           </div>
 
           {/* USER INFO */}
+
           <div className="min-w-0 flex-1 pr-[75px] min-[400px]:pr-[85px] min-[450px]:pr-0">
 
             <p className="text-[#bcbcbc] text-[13px] min-[400px]:text-[14px] min-[450px]:text-[16px]">
@@ -334,44 +316,44 @@ const ProfilePage = () => {
           </div>
 
           {/* EDIT BUTTON */}
+
           <button
             type="button"
             onClick={handleOpenEditProfile}
             className="
-      absolute
-      right-0
-      top-[48px]
-      min-[400px]:top-[54px]
-      min-[450px]:top-[68px]
-      border
-      border-[#f5c542]
-      text-[#f5c542]
-      rounded-lg
-      min-[450px]:rounded-xl
-      px-2
-      py-1.5
-      min-[400px]:px-2.5
-      min-[400px]:py-1.5
-      min-[450px]:px-3
-      min-[450px]:py-2
-      flex
-      items-center
-      gap-1
-      min-[400px]:gap-1.5
-      min-[450px]:gap-2
-      text-[10px]
-      min-[400px]:text-[11px]
-      min-[450px]:text-[13px]
-      font-semibold
-      whitespace-nowrap
-      active:scale-95
-      transition
-    "
+              absolute
+              right-0
+              top-[48px]
+              min-[400px]:top-[54px]
+              min-[450px]:top-[68px]
+              border
+              border-[#f5c542]
+              text-[#f5c542]
+              rounded-lg
+              min-[450px]:rounded-xl
+              px-2
+              py-1.5
+              min-[400px]:px-2.5
+              min-[400px]:py-1.5
+              min-[450px]:px-3
+              min-[450px]:py-2
+              flex
+              items-center
+              gap-1
+              min-[400px]:gap-1.5
+              min-[450px]:gap-2
+              text-[10px]
+              min-[400px]:text-[11px]
+              min-[450px]:text-[13px]
+              font-semibold
+              whitespace-nowrap
+              active:scale-95
+              transition
+            "
           >
             <Edit3
               size={13}
               className="min-[400px]:w-[14px] min-[400px]:h-[14px] min-[450px]:w-[16px] min-[450px]:h-[16px]"
-              style={GLOW_STYLE}
             />
             संपादित करें
           </button>
@@ -394,7 +376,6 @@ const ProfilePage = () => {
                 size={28}
                 fill="#f5c542"
                 className="text-[#f5c542]"
-                style={GLOW_STYLE}
               />
 
             </div>
@@ -411,7 +392,6 @@ const ProfilePage = () => {
                   <Loader2
                     size={24}
                     className="text-[#f5c542] animate-spin"
-                    style={GLOW_STYLE}
                   />
                 ) : (
                   totalTickets
@@ -435,7 +415,6 @@ const ProfilePage = () => {
                 size={29}
                 fill="#f5c542"
                 className="text-[#f5c542]"
-                style={GLOW_STYLE}
               />
 
             </div>
@@ -478,7 +457,6 @@ const ProfilePage = () => {
               size={31}
               fill="#f5c542"
               className="text-[#f5c542]"
-              style={GLOW_STYLE}
             />
 
           </div>
@@ -571,13 +549,11 @@ const ProfilePage = () => {
               <Loader2
                 size={29}
                 className="text-[#f5c542] animate-spin"
-                style={GLOW_STYLE}
               />
             ) : (
               <LogOut
                 size={31}
                 className="text-[#f5c542]"
-                style={GLOW_STYLE}
               />
             )}
 
@@ -852,16 +828,17 @@ const ProfileMenu = ({
       onClick={onClick}
       className="w-full rounded-[18px] border border-[#303030] bg-[#0b0c0c] px-7 py-4 flex items-center gap-5 text-left transition active:scale-[0.99]"
     >
+
       <div className="w-[60px] h-[60px] rounded-full border border-[#80631f] bg-black/50 flex items-center justify-center flex-shrink-0">
-        <span
-          className="text-[#f5c542] inline-flex"
-          style={GLOW_STYLE}
-        >
+
+        <span className="text-[#f5c542] inline-flex">
           {icon}
         </span>
+
       </div>
 
       <div className="flex-1 min-w-0">
+
         <p className="text-white text-[21px] font-extrabold">
           {title}
         </p>
@@ -869,12 +846,14 @@ const ProfileMenu = ({
         <p className="text-[#bcbcbc] text-[14px] mt-1 truncate">
           {description}
         </p>
+
       </div>
 
       <ChevronRight
         size={31}
         className="text-white flex-shrink-0"
       />
+
     </button>
   );
 };
@@ -972,3 +951,4 @@ const LotusSmall = () => (
 );
 
 export default ProfilePage;
+

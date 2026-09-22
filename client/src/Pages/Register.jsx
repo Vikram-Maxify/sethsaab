@@ -1,3 +1,4 @@
+
 import {
   ArrowRight,
   Eye,
@@ -16,9 +17,6 @@ import { useNavigate } from "react-router-dom";
 
 import { register } from "../reducer/slice/authSlice";
 import registerBanner from "../assets/1ban.png";
-
-const ICON_GLOW =
-  "drop-shadow-[0_0_5px_rgba(245,197,66,1)] drop-shadow-[0_0_11px_rgba(245,197,66,0.95)] drop-shadow-[0_0_22px_rgba(245,197,66,0.75)] drop-shadow-[0_0_35px_rgba(245,197,66,0.45)]";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -108,7 +106,8 @@ const Register = () => {
     <div className="w-full bg-[#050707] text-white">
       <div className="w-full max-w-[768px] mx-auto">
 
-        {/* BANNER */}
+        {/* ================= BANNER ================= */}
+
         <div className="w-full overflow-hidden">
           <img
             src={registerBanner}
@@ -117,10 +116,11 @@ const Register = () => {
           />
         </div>
 
-        {/* REGISTER SECTION */}
+        {/* ================= REGISTER SECTION ================= */}
+
         <section className="relative px-[18px] pt-[18px] pb-[20px]">
 
-          {/* Golden glow */}
+          {/* Golden background glow */}
           <div
             className="
               absolute
@@ -135,7 +135,8 @@ const Register = () => {
             "
           />
 
-          {/* CARD */}
+          {/* ================= CARD ================= */}
+
           <div
             className="
               relative
@@ -154,8 +155,10 @@ const Register = () => {
             "
           >
 
-            {/* HEADING */}
+            {/* ================= HEADING ================= */}
+
             <div className="text-center mb-[15px]">
+
               <h1
                 className="
                   text-white
@@ -165,18 +168,26 @@ const Register = () => {
                 "
               >
                 अपना अकाउंट{" "}
-                <span className="text-[#f5c542]">बनाएं</span>
+                <span className="text-[#f5c542]">
+                  बनाएं
+                </span>
               </h1>
 
               <p className="mt-[5px] text-[#999] text-[12px]">
                 अभी जुड़ें और जीत की अपनी यात्रा शुरू करें
               </p>
+
             </div>
 
-            {/* FORM */}
-            <form onSubmit={handleSubmit} className="flex flex-col gap-[9px]">
+            {/* ================= FORM ================= */}
 
-              {/* MOBILE */}
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-col gap-[9px]"
+            >
+
+              {/* ================= MOBILE ================= */}
+
               <div
                 className="
                   h-[52px]
@@ -192,27 +203,28 @@ const Register = () => {
                   transition-all
                 "
               >
-                <div className="w-[45px] flex justify-center text-[#f5c542]">
+
+                <div className="w-[45px] flex justify-center text-[#f5c542] shrink-0">
                   <Smartphone
                     size={20}
                     strokeWidth={2.3}
-                    className={ICON_GLOW}
                   />
                 </div>
 
-                <div className="h-[30px] w-px bg-[#353a3a]" />
+                <div className="h-[30px] w-px bg-[#353a3a] shrink-0" />
 
                 <div
                   className="
                     h-full
                     flex
                     items-center
-                    px-[11px]
+                    px-[15px]
                     text-white
                     text-[14px]
                     font-medium
                     border-r
                     border-[#353a3a]
+                    shrink-0
                   "
                 >
                   +91
@@ -225,6 +237,7 @@ const Register = () => {
                   value={form.number}
                   onChange={handleChange}
                   placeholder="अपना मोबाइल नंबर दर्ज करें"
+                  autoComplete="tel"
                   disabled={registerLoading}
                   className="
                     flex-1
@@ -235,12 +248,26 @@ const Register = () => {
                     text-white
                     text-[13px]
                     placeholder:text-[#777]
+                    outline-none
                     focus:outline-none
+                    focus-visible:outline-none
+                    focus:ring-0
+                    border-none
+                    appearance-none
+                    [color-scheme:dark]
+                    autofill:bg-transparent
+                    autofill:text-white
                   "
+                  style={{
+                    WebkitBoxShadow: "0 0 0 1000px #090d0d inset",
+                    WebkitTextFillColor: "#ffffff",
+                  }}
                 />
+
               </div>
 
-              {/* NAME */}
+              {/* ================= NAME ================= */}
+
               <div
                 className="
                   h-[52px]
@@ -256,15 +283,15 @@ const Register = () => {
                   transition-all
                 "
               >
-                <div className="w-[45px] flex justify-center text-[#f5c542]">
+
+                <div className="w-[45px] flex justify-center text-[#f5c542] shrink-0">
                   <User
                     size={20}
                     strokeWidth={2.3}
-                    className={ICON_GLOW}
                   />
                 </div>
 
-                <div className="h-[30px] w-px bg-[#353a3a]" />
+                <div className="h-[30px] w-px bg-[#353a3a] shrink-0" />
 
                 <input
                   type="text"
@@ -272,6 +299,7 @@ const Register = () => {
                   value={form.name}
                   onChange={handleChange}
                   placeholder="अपना पूरा नाम दर्ज करें"
+                  autoComplete="name"
                   disabled={registerLoading}
                   className="
                     flex-1
@@ -282,12 +310,26 @@ const Register = () => {
                     text-white
                     text-[13px]
                     placeholder:text-[#777]
+                    outline-none
                     focus:outline-none
+                    focus-visible:outline-none
+                    focus:ring-0
+                    border-none
+                    appearance-none
+                    [color-scheme:dark]
+                    autofill:bg-transparent
+                    autofill:text-white
                   "
+                  style={{
+                    WebkitBoxShadow: "0 0 0 1000px #090d0d inset",
+                    WebkitTextFillColor: "#ffffff",
+                  }}
                 />
+
               </div>
 
-              {/* PASSWORD */}
+              {/* ================= PASSWORD ================= */}
+
               <div
                 className="
                   h-[52px]
@@ -303,15 +345,15 @@ const Register = () => {
                   transition-all
                 "
               >
-                <div className="w-[45px] flex justify-center text-[#f5c542]">
+
+                <div className="w-[45px] flex justify-center text-[#f5c542] shrink-0">
                   <Lock
                     size={20}
                     strokeWidth={2.3}
-                    className={ICON_GLOW}
                   />
                 </div>
 
-                <div className="h-[30px] w-px bg-[#353a3a]" />
+                <div className="h-[30px] w-px bg-[#353a3a] shrink-0" />
 
                 <input
                   type={showPass ? "text" : "password"}
@@ -319,6 +361,7 @@ const Register = () => {
                   value={form.password}
                   onChange={handleChange}
                   placeholder="पासवर्ड बनाएं"
+                  autoComplete="new-password"
                   disabled={registerLoading}
                   className="
                     flex-1
@@ -329,8 +372,20 @@ const Register = () => {
                     text-white
                     text-[13px]
                     placeholder:text-[#777]
+                    outline-none
                     focus:outline-none
+                    focus-visible:outline-none
+                    focus:ring-0
+                    border-none
+                    appearance-none
+                    [color-scheme:dark]
+                    autofill:bg-transparent
+                    autofill:text-white
                   "
+                  style={{
+                    WebkitBoxShadow: "0 0 0 1000px #090d0d inset",
+                    WebkitTextFillColor: "#ffffff",
+                  }}
                 />
 
                 <button
@@ -343,25 +398,28 @@ const Register = () => {
                     flex
                     items-center
                     justify-center
+                    shrink-0
                   "
                 >
                   {showPass ? (
                     <EyeOff
                       size={19}
                       strokeWidth={2.3}
-                      className={`text-[#f5c542] ${ICON_GLOW}`}
+                      className="text-[#f5c542]"
                     />
                   ) : (
                     <Eye
                       size={19}
                       strokeWidth={2.3}
-                      className={`text-[#f5c542] ${ICON_GLOW}`}
+                      className="text-[#f5c542]"
                     />
                   )}
                 </button>
+
               </div>
 
-              {/* CONFIRM PASSWORD */}
+              {/* ================= CONFIRM PASSWORD ================= */}
+
               <div
                 className="
                   h-[52px]
@@ -377,15 +435,15 @@ const Register = () => {
                   transition-all
                 "
               >
-                <div className="w-[45px] flex justify-center text-[#f5c542]">
+
+                <div className="w-[45px] flex justify-center text-[#f5c542] shrink-0">
                   <Lock
                     size={20}
                     strokeWidth={2.3}
-                    className={ICON_GLOW}
                   />
                 </div>
 
-                <div className="h-[30px] w-px bg-[#353a3a]" />
+                <div className="h-[30px] w-px bg-[#353a3a] shrink-0" />
 
                 <input
                   type={showConfirm ? "text" : "password"}
@@ -393,6 +451,7 @@ const Register = () => {
                   value={form.confirmPassword}
                   onChange={handleChange}
                   placeholder="पासवर्ड दोबारा दर्ज करें"
+                  autoComplete="new-password"
                   disabled={registerLoading}
                   className="
                     flex-1
@@ -403,8 +462,20 @@ const Register = () => {
                     text-white
                     text-[13px]
                     placeholder:text-[#777]
+                    outline-none
                     focus:outline-none
+                    focus-visible:outline-none
+                    focus:ring-0
+                    border-none
+                    appearance-none
+                    [color-scheme:dark]
+                    autofill:bg-transparent
+                    autofill:text-white
                   "
+                  style={{
+                    WebkitBoxShadow: "0 0 0 1000px #090d0d inset",
+                    WebkitTextFillColor: "#ffffff",
+                  }}
                 />
 
                 <button
@@ -417,25 +488,28 @@ const Register = () => {
                     flex
                     items-center
                     justify-center
+                    shrink-0
                   "
                 >
                   {showConfirm ? (
                     <EyeOff
                       size={19}
                       strokeWidth={2.3}
-                      className={`text-[#f5c542] ${ICON_GLOW}`}
+                      className="text-[#f5c542]"
                     />
                   ) : (
                     <Eye
                       size={19}
                       strokeWidth={2.3}
-                      className={`text-[#f5c542] ${ICON_GLOW}`}
+                      className="text-[#f5c542]"
                     />
                   )}
                 </button>
+
               </div>
 
-              {/* ERROR */}
+              {/* ================= ERROR ================= */}
+
               {(error || registerError) && (
                 <div
                   className="
@@ -454,7 +528,8 @@ const Register = () => {
                 </div>
               )}
 
-              {/* REGISTER BUTTON */}
+              {/* ================= REGISTER BUTTON ================= */}
+
               <button
                 type="submit"
                 disabled={registerLoading}
@@ -482,6 +557,7 @@ const Register = () => {
                     "0 4px 16px rgba(245,197,66,0.25), inset 0 1px 0 rgba(255,255,255,0.6)",
                 }}
               >
+
                 {registerLoading ? (
                   <>
                     <Loader2
@@ -494,6 +570,7 @@ const Register = () => {
                 ) : (
                   <>
                     अभी रजिस्टर करें
+
                     <ArrowRight
                       size={21}
                       strokeWidth={2.8}
@@ -501,11 +578,15 @@ const Register = () => {
                     />
                   </>
                 )}
+
               </button>
+
             </form>
 
-            {/* LOTUS DIVIDER */}
+            {/* ================= LOTUS DIVIDER ================= */}
+
             <div className="flex items-center gap-[10px] my-[16px]">
+
               <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[#80651b]" />
 
               <svg
@@ -513,7 +594,6 @@ const Register = () => {
                 height="14"
                 viewBox="0 0 24 14"
                 fill="#f5c542"
-                className="drop-shadow-[0_0_7px_rgba(245,197,66,0.9)]"
               >
                 <path d="M12 2c-1.5 0-2.5 1-2.5 2s1 2 2.5 2 2.5-1 2.5-2-1-2-2.5-2z" />
                 <path d="M12 6c-3 0-6 1.5-8 4 2 1.5 5 2.5 8 2.5s6-1 8-2.5c-2-2.5-5-4-8-4z" />
@@ -521,13 +601,17 @@ const Register = () => {
               </svg>
 
               <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[#80651b]" />
+
             </div>
 
-            {/* FEATURES */}
+            {/* ================= FEATURES ================= */}
+
             <div className="grid grid-cols-3">
 
-              {/* FAST */}
+              {/* ================= FAST ================= */}
+
               <div className="flex flex-col items-center text-center">
+
                 <div
                   className="
                     w-[42px]
@@ -540,14 +624,12 @@ const Register = () => {
                     justify-center
                     text-[#f5c542]
                     mb-[5px]
-                    shadow-[0_0_8px_rgba(245,197,66,0.55),0_0_20px_rgba(245,197,66,0.25)]
                   "
                 >
                   <Zap
                     size={21}
                     fill="currentColor"
                     strokeWidth={2.2}
-                    className={ICON_GLOW}
                   />
                 </div>
 
@@ -556,9 +638,11 @@ const Register = () => {
                   <br />
                   रजिस्ट्रेशन
                 </p>
+
               </div>
 
-              {/* SECURITY */}
+              {/* ================= SECURITY ================= */}
+
               <div
                 className="
                   flex
@@ -569,6 +653,7 @@ const Register = () => {
                   border-[#292d2d]
                 "
               >
+
                 <div
                   className="
                     w-[42px]
@@ -581,13 +666,11 @@ const Register = () => {
                     justify-center
                     text-[#f5c542]
                     mb-[5px]
-                    shadow-[0_0_8px_rgba(245,197,66,0.55),0_0_20px_rgba(245,197,66,0.25)]
                   "
                 >
                   <ShieldCheck
                     size={21}
                     strokeWidth={2.2}
-                    className={ICON_GLOW}
                   />
                 </div>
 
@@ -596,10 +679,13 @@ const Register = () => {
                   <br />
                   सुरक्षित
                 </p>
+
               </div>
 
-              {/* USERS */}
+              {/* ================= USERS ================= */}
+
               <div className="flex flex-col items-center text-center">
+
                 <div
                   className="
                     w-[42px]
@@ -612,13 +698,11 @@ const Register = () => {
                     justify-center
                     text-[#f5c542]
                     mb-[5px]
-                    shadow-[0_0_8px_rgba(245,197,66,0.55),0_0_20px_rgba(245,197,66,0.25)]
                   "
                 >
                   <Users
                     size={21}
                     strokeWidth={2.2}
-                    className={ICON_GLOW}
                   />
                 </div>
 
@@ -627,9 +711,11 @@ const Register = () => {
                   <br />
                   खिलाड़ी
                 </p>
+
               </div>
 
             </div>
+
           </div>
         </section>
       </div>
@@ -638,3 +724,4 @@ const Register = () => {
 };
 
 export default Register;
+

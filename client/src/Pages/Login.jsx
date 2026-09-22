@@ -1,3 +1,4 @@
+
 import {
   ArrowRight,
   Check,
@@ -18,9 +19,6 @@ import { login } from "../reducer/slice/authSlice";
 
 // 👇 Apne actual banner filename ke according change kar dena
 import loginBanner from "../assets/1ban.png";
-
-const ICON_GLOW =
-  "drop-shadow-[0_0_5px_rgba(245,197,66,1)] drop-shadow-[0_0_11px_rgba(245,197,66,0.95)] drop-shadow-[0_0_22px_rgba(245,197,66,0.75)] drop-shadow-[0_0_35px_rgba(245,197,66,0.45)]";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -191,27 +189,27 @@ const Login = () => {
                 "
               >
 
-                <div className="w-[45px] flex justify-center">
+                <div className="w-[45px] flex justify-center shrink-0">
                   <Smartphone
                     size={20}
                     strokeWidth={2.3}
-                    className={`text-[#f5c542] ${ICON_GLOW}`}
+                    className="text-[#f5c542]"
                   />
                 </div>
 
-                <div className="h-[30px] w-[1px] bg-[#353a3a]" />
+                <div className="h-[30px] w-[1px] bg-[#353a3a] shrink-0" />
 
                 <div
                   className="
                     h-full
                     flex
                     items-center
-                    px-[11px]
-                    text-white
+                    px-[8px]
+                    text-gray-400
                     text-[14px]
                     font-medium
-                    border-r
                     border-[#353a3a]
+                    shrink-0
                   "
                 >
                   +91
@@ -224,12 +222,13 @@ const Login = () => {
                   value={form.number}
                   onChange={handleChange}
                   placeholder="अपना मोबाइल नंबर दर्ज करें"
+                  autoComplete="tel"
                   className="
                     flex-1
                     min-w-0
                     h-full
                     bg-transparent
-                    px-[12px]
+                    
                     text-white
                     text-[13px]
                     placeholder:text-[#777]
@@ -238,7 +237,15 @@ const Login = () => {
                     focus-visible:outline-none
                     focus:ring-0
                     border-none
+                    appearance-none
+                    [color-scheme:dark]
+                    autofill:bg-transparent
+                    autofill:text-white
                   "
+                  style={{
+                    WebkitBoxShadow: "0 0 0 1000px #090d0d inset",
+                    WebkitTextFillColor: "#ffffff",
+                  }}
                   disabled={loginLoading}
                 />
 
@@ -262,15 +269,15 @@ const Login = () => {
                 "
               >
 
-                <div className="w-[45px] flex justify-center">
+                <div className="w-[45px] flex justify-center shrink-0">
                   <Lock
                     size={20}
                     strokeWidth={2.3}
-                    className={`text-[#f5c542] ${ICON_GLOW}`}
+                    className="text-[#f5c542]"
                   />
                 </div>
 
-                <div className="h-[30px] w-[1px] bg-[#353a3a]" />
+                <div className="h-[30px] w-[1px] bg-[#353a3a] shrink-0" />
 
                 <input
                   type={showPass ? "text" : "password"}
@@ -278,6 +285,7 @@ const Login = () => {
                   value={form.password}
                   onChange={handleChange}
                   placeholder="अपना पासवर्ड दर्ज करें"
+                  autoComplete="current-password"
                   className="
                     flex-1
                     min-w-0
@@ -292,7 +300,15 @@ const Login = () => {
                     focus-visible:outline-none
                     focus:ring-0
                     border-none
+                    appearance-none
+                    [color-scheme:dark]
+                    autofill:bg-transparent
+                    autofill:text-white
                   "
+                  style={{
+                    WebkitBoxShadow: "0 0 0 1000px #090d0d inset",
+                    WebkitTextFillColor: "#ffffff",
+                  }}
                   disabled={loginLoading}
                 />
 
@@ -307,6 +323,7 @@ const Login = () => {
                     flex
                     items-center
                     justify-center
+                    shrink-0
                   "
                   disabled={loginLoading}
                 >
@@ -314,13 +331,13 @@ const Login = () => {
                     <EyeOff
                       size={19}
                       strokeWidth={2.3}
-                      className={`text-[#f5c542] ${ICON_GLOW}`}
+                      className="text-[#f5c542]"
                     />
                   ) : (
                     <Eye
                       size={19}
                       strokeWidth={2.3}
-                      className={`text-[#f5c542] ${ICON_GLOW}`}
+                      className="text-[#f5c542]"
                     />
                   )}
                 </button>
@@ -355,10 +372,9 @@ const Login = () => {
                       items-center
                       justify-center
                       border
-                      ${
-                        remember
-                          ? "bg-[#f5c542] border-[#f5c542] text-black shadow-[0_0_10px_rgba(245,197,66,0.45)]"
-                          : "border-[#666] bg-transparent"
+                      ${remember
+                        ? "bg-[#f5c542] border-[#f5c542] text-black shadow-[0_0_10px_rgba(245,197,66,0.45)]"
+                        : "border-[#666] bg-transparent"
                       }
                     `}
                   >
@@ -366,7 +382,6 @@ const Login = () => {
                       <Check
                         size={15}
                         strokeWidth={3}
-                        className={ICON_GLOW}
                       />
                     )}
                   </span>
@@ -508,14 +523,12 @@ const Login = () => {
                     justify-center
                     text-[#f5c542]
                     mb-[5px]
-                    shadow-[0_0_8px_rgba(245,197,66,0.55),0_0_20px_rgba(245,197,66,0.25)]
                   "
                 >
                   <Zap
                     size={21}
                     fill="currentColor"
                     strokeWidth={2.2}
-                    className={ICON_GLOW}
                   />
                 </div>
 
@@ -543,13 +556,11 @@ const Login = () => {
                     justify-center
                     text-[#f5c542]
                     mb-[5px]
-                    shadow-[0_0_8px_rgba(245,197,66,0.55),0_0_20px_rgba(245,197,66,0.25)]
                   "
                 >
                   <ShieldCheck
                     size={21}
                     strokeWidth={2.2}
-                    className={ICON_GLOW}
                   />
                 </div>
 
@@ -577,13 +588,11 @@ const Login = () => {
                     justify-center
                     text-[#f5c542]
                     mb-[5px]
-                    shadow-[0_0_8px_rgba(245,197,66,0.55),0_0_20px_rgba(245,197,66,0.25)]
                   "
                 >
                   <Users
                     size={21}
                     strokeWidth={2.2}
-                    className={ICON_GLOW}
                   />
                 </div>
 

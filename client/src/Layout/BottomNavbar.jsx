@@ -34,7 +34,7 @@ const BottomNavbar = () => {
     <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[490px] z-50">
       <div className="relative bg-[#0b0b0b]/98 backdrop-blur-xl border-t border-[#2a2a2a] shadow-[0_-8px_30px_rgba(0,0,0,0.6)]">
         {/* Top golden glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-px bg-[#f5c542] shadow-[0_0_12px_rgba(245,197,66,0.8)]" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2  bg-[#f5c542] shadow-[0_0_12px_rgba(245,197,66,0.8)]" />
 
         <div className="h-[82px] px-2 flex items-center justify-between">
           {navItems.map((item) => {
@@ -55,7 +55,7 @@ const BottomNavbar = () => {
                   <>
                     {/* Active glow */}
                     {isActive && (
-                      <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-14 h-[2px] bg-[#f5c542] shadow-[0_0_14px_rgba(245,197,66,0.9)]" />
+                      <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 shadow-[0_0_14px_rgba(245,197,66,0.9)]" />
                     )}
 
                     <Icon
