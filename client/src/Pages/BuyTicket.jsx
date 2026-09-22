@@ -201,10 +201,10 @@ const BuyTicket = () => {
 
   const walletBalance = Number(
     user?.balance ??
-      user?.walletBalance ??
-      user?.wallet ??
-      user?.walletAmount ??
-      0
+    user?.walletBalance ??
+    user?.wallet ??
+    user?.walletAmount ??
+    0
   );
 
   // ===================================================
@@ -499,9 +499,9 @@ const BuyTicket = () => {
       previousTickets.map((ticket) =>
         ticket.id === ticketId
           ? {
-              ...ticket,
-              numbers: result,
-            }
+            ...ticket,
+            numbers: result,
+          }
           : ticket
       )
     );
@@ -524,16 +524,16 @@ const BuyTicket = () => {
       previousTickets.map((ticket) =>
         ticket.id === ticketId
           ? {
-              ...ticket,
-              numbers: [
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-              ],
-            }
+            ...ticket,
+            numbers: [
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+            ],
+          }
           : ticket
       )
     );
@@ -753,10 +753,10 @@ const BuyTicket = () => {
       const currentWalletBalance =
         Number(
           user?.balance ??
-            user?.walletBalance ??
-            user?.wallet ??
-            user?.walletAmount ??
-            0
+          user?.walletBalance ??
+          user?.wallet ??
+          user?.walletAmount ??
+          0
         );
 
       console.log(
@@ -809,7 +809,7 @@ const BuyTicket = () => {
           Math.max(
             0,
             totalAmount -
-              currentWalletBalance
+            currentWalletBalance
           );
 
         setLocalSuccess("");
@@ -895,9 +895,9 @@ const BuyTicket = () => {
           "string"
           ? purchaseError
           : purchaseError?.message ||
-              purchaseError?.payload
-                ?.message ||
-              "टिकट खरीदने में समस्या हुई"
+          purchaseError?.payload
+            ?.message ||
+          "टिकट खरीदने में समस्या हुई"
       );
     }
   };
@@ -921,7 +921,7 @@ const BuyTicket = () => {
     !lotteryConfig?.isActive ||
     !ticketPriceFromApi ||
     Number(ticketPriceFromApi) <=
-      0 ||
+    0 ||
     tickets.some((ticket) =>
       ticket.numbers.some(
         (number) => number === ""
@@ -1537,10 +1537,10 @@ const BuyTicket = () => {
             "
           >
             {typeof displayError ===
-            "string"
+              "string"
               ? displayError
               : displayError?.message ||
-                "टिकट खरीदने में समस्या हुई"}
+              "टिकट खरीदने में समस्या हुई"}
           </div>
         )}
 
@@ -1703,18 +1703,17 @@ const BuyTicket = () => {
             </p>
 
             <p
-              className={`text-[17px] font-bold mt-[3px] ${
-                walletBalance >=
-                totalTicketPrice
+              className={`text-[17px] font-bold mt-[3px] ${walletBalance >=
+                  totalTicketPrice
                   ? "text-emerald-400"
                   : "text-red-400"
-              }`}
+                }`}
             >
               ₹
               {Math.max(
                 0,
                 walletBalance -
-                  totalTicketPrice
+                totalTicketPrice
               ).toLocaleString(
                 "en-IN"
               )}
@@ -1972,11 +1971,10 @@ const TicketNumberCard = ({
         <div className="flex items-center gap-[6px]">
 
           <span
-            className={`w-[6px] h-[6px] rounded-full ${
-              isComplete
+            className={`w-[6px] h-[6px] rounded-full ${isComplete
                 ? "bg-emerald-400"
                 : "bg-[#f5ce54]"
-            }`}
+              }`}
           />
 
           <span className="text-[10px] text-white/45">
