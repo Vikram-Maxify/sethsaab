@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 
 import firstPrize from "../assets/1trophy.png";
 import secondPrize from "../assets/2trophy.png";
-import kuberBanner from "../assets/4ban.jpeg";
+import kuberBanner from "../assets/3ban.jpeg";
 import thirdPrize from "../assets/3trophy.png";
 
 import {
@@ -852,11 +852,11 @@ const BuyTicket = () => {
 
       {/* BANNER */}
 
-      <section className="w-full">
+      <section className="w-full px-3">
         <img
           src={kuberBanner}
           alt="Kuber Ticket"
-          className="block w-full aspect-[16/9] object-cover"
+          className="block w-full aspect-[16/8] object-cover rounded-xl"
         />
       </section>
 

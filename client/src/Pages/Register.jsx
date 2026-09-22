@@ -105,7 +105,6 @@ const Register = () => {
   return (
     <div className="w-full bg-[#050707] text-white">
       <div className="w-full max-w-[768px] mx-auto">
-
         {/* ================= BANNER ================= */}
 
         <div className="w-full overflow-hidden">
@@ -119,7 +118,6 @@ const Register = () => {
         {/* ================= REGISTER SECTION ================= */}
 
         <section className="relative px-[18px] pt-[18px] pb-[20px]">
-
           {/* Golden background glow */}
           <div
             className="
@@ -154,11 +152,9 @@ const Register = () => {
               shadow-[0_0_30px_rgba(245,197,66,0.08)]
             "
           >
-
             {/* ================= HEADING ================= */}
 
             <div className="text-center mb-[15px]">
-
               <h1
                 className="
                   text-white
@@ -168,15 +164,12 @@ const Register = () => {
                 "
               >
                 अपना अकाउंट{" "}
-                <span className="text-[#f5c542]">
-                  बनाएं
-                </span>
+                <span className="text-[#f5c542]">बनाएं</span>
               </h1>
 
               <p className="mt-[5px] text-[#999] text-[12px]">
                 अभी जुड़ें और जीत की अपनी यात्रा शुरू करें
               </p>
-
             </div>
 
             {/* ================= FORM ================= */}
@@ -185,7 +178,6 @@ const Register = () => {
               onSubmit={handleSubmit}
               className="flex flex-col gap-[9px]"
             >
-
               {/* ================= MOBILE ================= */}
 
               <div
@@ -203,12 +195,8 @@ const Register = () => {
                   transition-all
                 "
               >
-
                 <div className="w-[45px] flex justify-center text-[#f5c542] shrink-0">
-                  <Smartphone
-                    size={20}
-                    strokeWidth={2.3}
-                  />
+                  <Smartphone size={20} strokeWidth={2.3} />
                 </div>
 
                 <div className="h-[30px] w-px bg-[#353a3a] shrink-0" />
@@ -222,7 +210,6 @@ const Register = () => {
                     text-gray-400
                     text-[14px]
                     font-medium
-                    border-[#353a3a]
                     shrink-0
                   "
                 >
@@ -261,7 +248,6 @@ const Register = () => {
                     WebkitTextFillColor: "#ffffff",
                   }}
                 />
-
               </div>
 
               {/* ================= NAME ================= */}
@@ -281,12 +267,8 @@ const Register = () => {
                   transition-all
                 "
               >
-
                 <div className="w-[45px] flex justify-center text-[#f5c542] shrink-0">
-                  <User
-                    size={20}
-                    strokeWidth={2.3}
-                  />
+                  <User size={20} strokeWidth={2.3} />
                 </div>
 
                 <div className="h-[30px] w-px bg-[#353a3a] shrink-0" />
@@ -323,7 +305,6 @@ const Register = () => {
                     WebkitTextFillColor: "#ffffff",
                   }}
                 />
-
               </div>
 
               {/* ================= PASSWORD ================= */}
@@ -343,12 +324,8 @@ const Register = () => {
                   transition-all
                 "
               >
-
                 <div className="w-[45px] flex justify-center text-[#f5c542] shrink-0">
-                  <Lock
-                    size={20}
-                    strokeWidth={2.3}
-                  />
+                  <Lock size={20} strokeWidth={2.3} />
                 </div>
 
                 <div className="h-[30px] w-px bg-[#353a3a] shrink-0" />
@@ -413,7 +390,6 @@ const Register = () => {
                     />
                   )}
                 </button>
-
               </div>
 
               {/* ================= CONFIRM PASSWORD ================= */}
@@ -433,12 +409,8 @@ const Register = () => {
                   transition-all
                 "
               >
-
                 <div className="w-[45px] flex justify-center text-[#f5c542] shrink-0">
-                  <Lock
-                    size={20}
-                    strokeWidth={2.3}
-                  />
+                  <Lock size={20} strokeWidth={2.3} />
                 </div>
 
                 <div className="h-[30px] w-px bg-[#353a3a] shrink-0" />
@@ -503,7 +475,6 @@ const Register = () => {
                     />
                   )}
                 </button>
-
               </div>
 
               {/* ================= ERROR ================= */}
@@ -555,7 +526,6 @@ const Register = () => {
                     "0 4px 16px rgba(245,197,66,0.25), inset 0 1px 0 rgba(255,255,255,0.6)",
                 }}
               >
-
                 {registerLoading ? (
                   <>
                     <Loader2
@@ -568,7 +538,6 @@ const Register = () => {
                 ) : (
                   <>
                     अभी रजिस्टर करें
-
                     <ArrowRight
                       size={21}
                       strokeWidth={2.8}
@@ -576,15 +545,43 @@ const Register = () => {
                     />
                   </>
                 )}
-
               </button>
 
+              {/* ================= LOGIN — RIGHT SIDE ================= */}
+
+              <div className="flex justify-end -mt-[2px]">
+                <button
+                  type="button"
+                  onClick={() => navigate("/login")}
+                  disabled={registerLoading}
+                  className="
+                    inline-flex
+                    items-center
+                    justify-center
+                    gap-[5px]
+                    text-[#f5c542]
+                    text-[11px]
+                    font-semibold
+                    transition-all
+                    hover:text-[#ffe27a]
+                    active:scale-[0.97]
+                    disabled:opacity-60
+                    disabled:cursor-not-allowed
+                    mt-1
+                  "
+                >
+                  पहले से अकाउंट है? लॉगिन करें
+                  <ArrowRight
+                    size={14}
+                    strokeWidth={2.5}
+                  />
+                </button>
+              </div>
             </form>
 
             {/* ================= LOTUS DIVIDER ================= */}
 
             <div className="flex items-center gap-[10px] my-[16px]">
-
               <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[#80651b]" />
 
               <svg
@@ -599,16 +596,13 @@ const Register = () => {
               </svg>
 
               <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[#80651b]" />
-
             </div>
 
             {/* ================= FEATURES ================= */}
 
             <div className="grid grid-cols-3">
-
               {/* FAST */}
               <div className="flex flex-col items-center text-center">
-
                 <div
                   className="
                     w-[42px]
@@ -635,7 +629,6 @@ const Register = () => {
                   <br />
                   रजिस्ट्रेशन
                 </p>
-
               </div>
 
               {/* SECURITY */}
@@ -649,7 +642,6 @@ const Register = () => {
                   border-[#292d2d]
                 "
               >
-
                 <div
                   className="
                     w-[42px]
@@ -675,12 +667,10 @@ const Register = () => {
                   <br />
                   सुरक्षित
                 </p>
-
               </div>
 
               {/* USERS */}
               <div className="flex flex-col items-center text-center">
-
                 <div
                   className="
                     w-[42px]
@@ -706,55 +696,8 @@ const Register = () => {
                   <br />
                   खिलाड़ी
                 </p>
-
               </div>
-
             </div>
-
-            {/* ================= LOGIN REDIRECT ================= */}
-
-            <div className="mt-[18px] pt-[14px] border-t border-[#292d2d] text-center">
-
-              <p className="text-[#999] text-[12px]">
-                पहले से अकाउंट है?
-              </p>
-
-              <button
-                type="button"
-                onClick={() => navigate("/login")}
-                disabled={registerLoading}
-                className="
-                  mt-[7px]
-                  h-[42px]
-                  px-[24px]
-                  rounded-[10px]
-                  border
-                  border-[#f5c542]
-                  bg-[#f5c542]/[0.06]
-                  text-[#f5c542]
-                  text-[13px]
-                  font-bold
-                  inline-flex
-                  items-center
-                  justify-center
-                  gap-[7px]
-                  transition-all
-                  hover:bg-[#f5c542]/[0.12]
-                  hover:border-[#ffe27a]
-                  active:scale-[0.97]
-                  disabled:opacity-60
-                  disabled:cursor-not-allowed
-                "
-              >
-                लॉगिन करें
-                <ArrowRight
-                  size={17}
-                  strokeWidth={2.5}
-                />
-              </button>
-
-            </div>
-
           </div>
         </section>
       </div>

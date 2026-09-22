@@ -393,10 +393,23 @@ const Login = () => {
 
                 <button
                   type="button"
+                  onClick={() => {
+                    const message = encodeURIComponent(
+                      "Hello, mujhe apna password reset karna hai."
+                    );
+
+                    window.open(
+                      `https://wa.me/917234806209?text=${message}`,
+                      "_blank",
+                      "noopener,noreferrer"
+                    );
+                  }}
                   className="text-[#f5c542] text-[12px]"
                 >
                   पासवर्ड भूल गए?
                 </button>
+
+
 
               </div>
 
