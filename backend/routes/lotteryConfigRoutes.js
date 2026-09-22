@@ -12,6 +12,7 @@ const {
   activateLotteryConfig,
   updateEntryStatus,
   deleteLotteryConfig,
+  addBulkUserLotteryEntries,
 } = require("../controllers/lotteryConfigController");
 
 const authMiddleware = require("../middleware/authMiddleware");
@@ -47,6 +48,9 @@ router.post(
   authMiddleware,
   addUserLotteryEntry
 );
+
+router.post("/entry/bulk", authMiddleware, addBulkUserLotteryEntries);
+
 
 // =====================================================
 // ADMIN ROUTES
