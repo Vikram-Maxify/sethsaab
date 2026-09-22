@@ -1,4 +1,5 @@
 const express = require("express");
+
 const router = express.Router();
 
 const {
@@ -14,6 +15,7 @@ const {
 } = require("../controllers/lotteryConfigController");
 
 const authMiddleware = require("../middleware/authMiddleware");
+const adminMiddleware = require("../middleware/adminMiddleware");
 
 // =====================================================
 // PUBLIC ROUTES
@@ -21,8 +23,10 @@ const authMiddleware = require("../middleware/authMiddleware");
 
 // GET active lottery
 // GET /api/lottery-config/active
-router.get("/active", getActiveLotteryConfig);
-
+router.get(
+  "/active",
+  getActiveLotteryConfig
+);
 
 // =====================================================
 // USER ROUTES
@@ -44,7 +48,6 @@ router.post(
   addUserLotteryEntry
 );
 
-
 // =====================================================
 // ADMIN ROUTES
 // =====================================================
@@ -54,14 +57,16 @@ router.post(
 router.post(
   "/",
   authMiddleware,
+  adminMiddleware,
   createLotteryConfig
 );
 
 // GET all lottery configs
-// GET /api/lottery-config
+// GET /api/lottery-config/all
 router.get(
   "/all",
   authMiddleware,
+  adminMiddleware,
   getAllLotteryConfigs
 );
 
@@ -70,6 +75,7 @@ router.get(
 router.get(
   "/:id",
   authMiddleware,
+  adminMiddleware,
   getLotteryConfigById
 );
 
@@ -78,6 +84,7 @@ router.get(
 router.patch(
   "/:id/activate",
   authMiddleware,
+  adminMiddleware,
   activateLotteryConfig
 );
 
@@ -86,6 +93,7 @@ router.patch(
 router.patch(
   "/:configId/entry/:entryId/status",
   authMiddleware,
+  adminMiddleware,
   updateEntryStatus
 );
 
@@ -94,6 +102,7 @@ router.patch(
 router.delete(
   "/:id",
   authMiddleware,
+  adminMiddleware,
   deleteLotteryConfig
 );
 

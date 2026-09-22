@@ -12,6 +12,7 @@ const {
 } = require("../controllers/lotteryResultController");
 
 const authMiddleware = require("../middleware/authMiddleware");
+const adminMiddleware = require("../middleware/adminMiddleware");
 
 const router = express.Router();
 
@@ -23,6 +24,7 @@ const router = express.Router();
 router.post(
   "/create",
   authMiddleware,
+  adminMiddleware,
   createResult
 );
 
@@ -30,6 +32,7 @@ router.post(
 router.get(
   "/all",
   authMiddleware,
+  adminMiddleware,
   getAllResults
 );
 
@@ -37,6 +40,7 @@ router.get(
 router.post(
   "/check-number",
   authMiddleware,
+  adminMiddleware,
   checkNumber
 );
 
@@ -44,6 +48,7 @@ router.post(
 router.get(
   "/:id",
   authMiddleware,
+  adminMiddleware,
   getResultById
 );
 
@@ -51,6 +56,7 @@ router.get(
 router.patch(
   "/:id",
   authMiddleware,
+  adminMiddleware,
   updateResult
 );
 
@@ -58,6 +64,7 @@ router.patch(
 router.patch(
   "/:id/publish",
   authMiddleware,
+  adminMiddleware,
   publishResult
 );
 
@@ -65,6 +72,7 @@ router.patch(
 router.patch(
   "/:id/unpublish",
   authMiddleware,
+  adminMiddleware,
   unpublishResult
 );
 
@@ -72,6 +80,7 @@ router.patch(
 router.delete(
   "/:id",
   authMiddleware,
+  adminMiddleware,
   deleteResult
 );
 
