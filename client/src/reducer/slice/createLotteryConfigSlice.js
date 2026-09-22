@@ -130,7 +130,7 @@ export const createLotteryConfig = createAsyncThunk(
 
       return rejectWithValue(
         data?.message ||
-        "Failed to create lottery configuration"
+          "Failed to create lottery configuration"
       );
     }
   }
@@ -152,7 +152,6 @@ export const getActiveLotteryConfig = createAsyncThunk(
 
       return response.data;
     } catch (error) {
-      // No active lottery is not an actual error
       if (error.response?.status === 404) {
         return {
           success: true,
@@ -162,7 +161,7 @@ export const getActiveLotteryConfig = createAsyncThunk(
 
       return rejectWithValue(
         error.response?.data?.message ||
-        "Failed to fetch active lottery configuration"
+          "Failed to fetch active lottery configuration"
       );
     }
   }
@@ -183,7 +182,7 @@ export const getMyLotteryEntries = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message ||
-        "Failed to fetch your lottery entries"
+          "Failed to fetch your lottery entries"
       );
     }
   }
@@ -192,8 +191,6 @@ export const getMyLotteryEntries = createAsyncThunk(
 // =====================================================
 // ADD USER LOTTERY ENTRY / SINGLE PURCHASE
 // POST /api/lottery/entry
-//
-// Existing single-ticket functionality.
 // =====================================================
 
 export const addUserLotteryEntry = createAsyncThunk(
@@ -302,35 +299,33 @@ export const addUserLotteryEntry = createAsyncThunk(
 
       return rejectWithValue(
         error.response?.data?.message ||
-        "Failed to purchase lottery ticket"
+          "Failed to purchase lottery ticket"
       );
     }
   }
 );
 
 // =====================================================
-// ADD MULTIPLE USER LOTTERY ENTRIES / MULTIPLE PURCHASE
+// ADD MULTIPLE USER LOTTERY ENTRIES
+// MULTIPLE TICKET PURCHASE
 //
-// This is for BuyTicket page.
+// This works with the existing backend endpoint:
 //
-// Expected payload:
+// POST /api/lottery/entry
+//
+// Payload from BuyTicket:
 //
 // {
-//   configId: "lottery_config_id",
-//   tickets: [
-//     "123456",
-//     "456789",
-//     "789012"
-//   ],
+//   configId: "lottery_id",
+//   tickets: ["123456", "456789", "789012"],
 //   amount: 100
 // }
 //
 // `amount` = price of ONE ticket.
 //
-// The thunk automatically purchases every ticket
-// one-by-one using the existing:
+// Total amount = amount × tickets.length
 //
-// POST /api/lottery/entry
+// Each ticket is sent separately to the existing API.
 // =====================================================
 
 export const addMultipleUserLotteryEntries = createAsyncThunk(
@@ -363,10 +358,16 @@ export const addMultipleUserLotteryEntries = createAsyncThunk(
       }
 
       // ==========================================
-      // TICKETS ARRAY VALIDATION
+      // TICKETS VALIDATION
       // ==========================================
 
-      if (!Array.isArray(tickets) || tickets.length === 0) {
+      if (!Array.isArray(tickets)) {
+        return rejectWithValue(
+          "Tickets must be an array"
+        );
+      }
+
+      if (tickets.length === 0) {
         return rejectWithValue(
           "At least one lottery ticket is required"
         );
@@ -384,15 +385,14 @@ export const addMultipleUserLotteryEntries = createAsyncThunk(
       // VALIDATE EVERY TICKET
       // ==========================================
 
-      const invalidTicketIndex =
-        normalizedTickets.findIndex(
-          (ticket) => !/^\d{6}$/.test(ticket)
-        );
+      for (let index = 0; index < normalizedTickets.length; index++) {
+        const ticket = normalizedTickets[index];
 
-      if (invalidTicketIndex !== -1) {
-        return rejectWithValue(
-          `Ticket ${invalidTicketIndex + 1} must be exactly 6 digits`
-        );
+        if (!/^\d{6}$/.test(ticket)) {
+          return rejectWithValue(
+            `Ticket ${index + 1} must be exactly 6 digits`
+          );
+        }
       }
 
       // ==========================================
@@ -425,13 +425,22 @@ export const addMultipleUserLotteryEntries = createAsyncThunk(
       }
 
       // ==========================================
-      // PURCHASE EACH TICKET
+      // TOTAL AMOUNT
+      // ==========================================
+
+      const totalAmount =
+        lotteryAmount * normalizedTickets.length;
+
+      // ==========================================
+      // PURCHASE TICKETS ONE BY ONE
       // ==========================================
 
       const purchasedEntries = [];
-      let purchasedCount = 0;
+      const failedTickets = [];
 
-      for (const lotteryNumber of normalizedTickets) {
+      for (let index = 0; index < normalizedTickets.length; index++) {
+        const lotteryNumber = normalizedTickets[index];
+
         try {
           const response = await api.post(
             "/lottery/entry",
@@ -442,54 +451,98 @@ export const addMultipleUserLotteryEntries = createAsyncThunk(
             }
           );
 
-          purchasedCount += 1;
+          const responseData = response.data;
 
-          const responseData = response.data?.data;
+          // ==========================================
+          // STORE SUCCESSFUL ENTRY
+          // ==========================================
 
-          if (responseData?.entry) {
+          if (responseData?.data?.entry) {
+            purchasedEntries.push(
+              responseData.data.entry
+            );
+          } else if (responseData?.entry) {
             purchasedEntries.push(
               responseData.entry
             );
           }
+
         } catch (error) {
           console.error(
-            `Failed to purchase ticket ${lotteryNumber}:`,
+            `Failed to purchase ticket ${index + 1}:`,
             error
           );
 
-          // ==========================================
-          // PARTIAL PURCHASE ERROR
-          // ==========================================
-
-          return rejectWithValue({
+          failedTickets.push({
+            ticket: lotteryNumber,
+            ticketIndex: index + 1,
             message:
               error.response?.data?.message ||
-              `Failed to purchase ticket ${lotteryNumber}`,
-            purchasedCount,
-            totalTickets: normalizedTickets.length,
-            purchasedEntries,
-            failedTicket: lotteryNumber,
+              "Failed to purchase this ticket",
           });
+
+          // Stop here so we don't continue charging
+          // remaining tickets after an API failure.
+          break;
         }
       }
 
       // ==========================================
-      // ALL TICKETS PURCHASED
+      // IF ANY TICKET FAILED
+      // ==========================================
+
+      if (failedTickets.length > 0) {
+        const successfulCount =
+          purchasedEntries.length;
+
+        return rejectWithValue({
+          message:
+            successfulCount > 0
+              ? `${successfulCount} ticket(s) purchased successfully. Ticket ${failedTickets[0].ticketIndex} could not be purchased.`
+              : failedTickets[0].message,
+
+          purchasedCount: successfulCount,
+
+          totalTickets:
+            normalizedTickets.length,
+
+          purchasedEntries,
+
+          failedTickets,
+
+          totalAmount,
+
+          amountPerTicket: lotteryAmount,
+        });
+      }
+
+      // ==========================================
+      // ALL TICKETS SUCCESSFUL
       // ==========================================
 
       return {
         success: true,
-        message: `${purchasedCount} lottery ${purchasedCount === 1
-            ? "ticket"
-            : "tickets"
-          } purchased successfully`,
-        purchasedCount,
-        totalTickets: normalizedTickets.length,
+
+        message:
+          normalizedTickets.length === 1
+            ? "Lottery ticket purchased successfully"
+            : `${normalizedTickets.length} lottery tickets purchased successfully`,
+
+        purchasedCount:
+          normalizedTickets.length,
+
+        totalTickets:
+          normalizedTickets.length,
+
+        tickets:
+          normalizedTickets,
+
         purchasedEntries,
-        tickets: normalizedTickets,
-        amountPerTicket: lotteryAmount,
-        totalAmount:
-          lotteryAmount * normalizedTickets.length,
+
+        amountPerTicket:
+          lotteryAmount,
+
+        totalAmount,
       };
     } catch (error) {
       console.error(
@@ -499,7 +552,7 @@ export const addMultipleUserLotteryEntries = createAsyncThunk(
 
       return rejectWithValue(
         error.response?.data?.message ||
-        "Failed to purchase lottery tickets"
+          "Failed to purchase lottery tickets"
       );
     }
   }
@@ -541,7 +594,7 @@ const createLotteryConfigSlice = createSlice({
     },
 
     // =================================================
-    // CLEAR MY ENTRIES
+    // CLEAR MY LOTTERY ENTRIES
     // =================================================
 
     clearMyLotteryEntries: (state) => {
@@ -550,7 +603,7 @@ const createLotteryConfigSlice = createSlice({
     },
 
     // =================================================
-    // RESET
+    // RESET LOTTERY CONFIG
     // =================================================
 
     resetLotteryConfig: () => initialState,
@@ -578,6 +631,8 @@ const createLotteryConfigSlice = createSlice({
           state.createLoading = false;
 
           // Backend returns data as ARRAY
+          // because insertMany is used.
+
           const createdArray =
             action.payload?.data;
 
@@ -676,7 +731,10 @@ const createLotteryConfigSlice = createSlice({
           }
 
           // Backend returns:
-          // { totalEntries, data: [...] }
+          // {
+          //   totalEntries,
+          //   data: [...]
+          // }
 
           const entriesArray =
             Array.isArray(data)
@@ -726,6 +784,10 @@ const createLotteryConfigSlice = createSlice({
           const responseData =
             action.payload?.data;
 
+          // ==============================================
+          // UPDATE CONFIG
+          // ==============================================
+
           if (responseData) {
             state.config = {
               ...(state.config || {}),
@@ -755,7 +817,10 @@ const createLotteryConfigSlice = createSlice({
                 state.config?.isActive,
             };
 
-            // Add newly purchased entry
+            // ==============================================
+            // ADD NEW ENTRY
+            // ==============================================
+
             if (responseData.entry) {
               state.myEntries = [
                 responseData.entry,
@@ -823,7 +888,7 @@ const createLotteryConfigSlice = createSlice({
           }
 
           // ==============================================
-          // UPDATE CONFIG
+          // UPDATE CONFIG FROM FIRST ENTRY
           // ==============================================
 
           const firstEntry =
@@ -869,16 +934,21 @@ const createLotteryConfigSlice = createSlice({
         }
       )
 
+      // =================================================
+      // MULTIPLE PURCHASE FAILED / PARTIAL SUCCESS
+      // =================================================
+
       .addCase(
         addMultipleUserLotteryEntries.rejected,
         (state, action) => {
           state.purchaseLoading = false;
 
-          // ==============================================
-          // PARTIAL PURCHASE
-          // ==============================================
+          const payload =
+            action.payload;
 
-          const payload = action.payload;
+          // ==============================================
+          // PARTIAL PURCHASE RESPONSE
+          // ==============================================
 
           if (
             payload &&
@@ -887,8 +957,7 @@ const createLotteryConfigSlice = createSlice({
             const purchasedEntries =
               payload.purchasedEntries;
 
-            // Keep tickets that were successfully
-            // purchased before failure.
+            // Keep successfully purchased entries
             if (
               Array.isArray(purchasedEntries) &&
               purchasedEntries.length > 0
@@ -902,23 +971,9 @@ const createLotteryConfigSlice = createSlice({
                 state.myEntries.length;
             }
 
-            const purchasedCount =
-              payload.purchasedCount || 0;
-
-            const totalTickets =
-              payload.totalTickets || 0;
-
-            if (purchasedCount > 0) {
-              state.error =
-                `${purchasedCount} of ${totalTickets} tickets purchased successfully. ` +
-                `${payload.message ||
-                "The remaining ticket purchase failed."
-                }`;
-            } else {
-              state.error =
-                payload.message ||
-                "Failed to purchase lottery tickets";
-            }
+            state.error =
+              payload.message ||
+              "Failed to purchase lottery tickets";
           } else {
             state.error =
               payload ||
@@ -941,3 +996,45 @@ export const {
   resetLotteryConfig,
 } = createLotteryConfigSlice.actions;
 
+// =====================================================
+// SELECTORS
+// =====================================================
+
+export const selectLotteryConfig = (state) =>
+  state.createLotteryConfig.config;
+
+export const selectActiveLotteryConfig = (state) =>
+  state.createLotteryConfig.activeConfig;
+
+export const selectLotteryLoading = (state) =>
+  state.createLotteryConfig.loading;
+
+export const selectLotteryCreateLoading = (state) =>
+  state.createLotteryConfig.createLoading;
+
+export const selectLotteryActiveLoading = (state) =>
+  state.createLotteryConfig.activeLoading;
+
+export const selectLotteryPurchaseLoading = (state) =>
+  state.createLotteryConfig.purchaseLoading;
+
+export const selectMyLotteryEntriesLoading = (state) =>
+  state.createLotteryConfig.myEntriesLoading;
+
+export const selectMyLotteryEntries = (state) =>
+  state.createLotteryConfig.myEntries;
+
+export const selectMyLotteryTotalEntries = (state) =>
+  state.createLotteryConfig.totalEntries;
+
+export const selectLotteryError = (state) =>
+  state.createLotteryConfig.error;
+
+export const selectLotterySuccessMessage = (state) =>
+  state.createLotteryConfig.successMessage;
+
+// =====================================================
+// DEFAULT
+// =====================================================
+
+export default createLotteryConfigSlice.reducer;
