@@ -2,24 +2,29 @@ const express = require("express");
 
 const {
   createDeposit,
-  cancelDeposit,                  // 🆕
+  cancelDeposit,
   getMyDeposits,
   onlinePayCallback,
   getMyTurnoverHistory,
   getAllDepositsForAdmin,
-  getDepositStatusByIdentifier,   // 🆕 (replaces getDepositStatus)
+  getDepositStatusByIdentifier,
 } = require("../controllers/depositecontroller");
 
 const uploadDeposit = require("../middleware/depositUpload.js");
+
 const authMiddleware = require("../middleware/authMiddleware");
+
 const {
   requireVerifiedKYC,
 } = require("../middleware/kycVerificationMiddleware");
+
+const adminMiddleware = require("../middleware/adminMiddleware");
 
 const router = express.Router();
 
 // =====================================================
 // CREATE DEPOSIT (RECHARGE)
+// USER
 // =====================================================
 
 router.post(
@@ -36,9 +41,8 @@ router.post(
 );
 
 // =====================================================
-// 🆕 CANCEL DEPOSIT
-// User gateway se back aaya / cancel kiya
-// Support _id OR orderId in :depositId
+// CANCEL DEPOSIT
+// USER
 // =====================================================
 
 router.post(
@@ -49,6 +53,7 @@ router.post(
 
 // =====================================================
 // TURNOVER HISTORY
+// USER
 // =====================================================
 
 router.get(
@@ -58,12 +63,11 @@ router.get(
 );
 
 // =====================================================
-// DEPOSIT STATUS BY IDENTIFIER (_id OR orderId)
-// Frontend payment-success page ke liye (public)
+// DEPOSIT STATUS BY IDENTIFIER
+// PUBLIC
 //
-// IMPORTANT: Yeh route "/deposit" aur
-// "/deposit/:depositId/cancel" ke baad, lekin
-// "/deposit" (GET list) se PEHLE hona chahiye.
+// _id OR orderId
+// Used by payment-success page
 // =====================================================
 
 router.get(
@@ -73,6 +77,7 @@ router.get(
 
 // =====================================================
 // MY DEPOSIT HISTORY
+// USER
 // =====================================================
 
 router.get(
@@ -83,16 +88,21 @@ router.get(
 
 // =====================================================
 // ADMIN: GET ALL DEPOSITS
+// ADMIN ONLY
 // =====================================================
 
 router.get(
   "/deposits",
   authMiddleware,
+  adminMiddleware,
   getAllDepositsForAdmin
 );
 
 // =====================================================
-// AUTOMATIC PAYMENT CALLBACK (QWACKPAY WEBHOOK)
+// AUTOMATIC PAYMENT CALLBACK
+// PUBLIC / PAYMENT GATEWAY
+//
+// QWACKPAY WEBHOOK
 // =====================================================
 
 router.all(

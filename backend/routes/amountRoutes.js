@@ -1,4 +1,5 @@
 const express = require("express");
+
 const router = express.Router();
 
 const {
@@ -9,15 +10,24 @@ const {
 const authMiddleware = require("../middleware/authMiddleware");
 const adminMiddleware = require("../middleware/adminMiddleware");
 
+// =====================================================
+// ADMIN: GET AMOUNT
+// =====================================================
+
 router.get(
   "/amount",
   authMiddleware,
   getAmount
 );
 
+// =====================================================
+// ADMIN: UPDATE AMOUNT
+// =====================================================
+
 router.put(
   "/amount",
   authMiddleware,
+  adminMiddleware,
   updateAmount
 );
 
