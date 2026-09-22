@@ -718,14 +718,13 @@ const BuyTicket = () => {
       // 9. WALLET BALANCE
       // =================================================
 
-      const currentWalletBalance =
-        Number(
-          user?.balance ??
-            user?.walletBalance ??
-            user?.wallet ??
-            user?.walletAmount ??
-            0
-        );
+      const currentWalletBalance = Number(
+        user?.balance ??
+          user?.walletBalance ??
+          user?.wallet ??
+          user?.walletAmount ??
+          0
+      );
 
       console.log(
         "========== BULK LOTTERY PURCHASE =========="
@@ -742,16 +741,11 @@ const BuyTicket = () => {
       // 10. INSUFFICIENT BALANCE
       // =================================================
 
-      if (
-        currentWalletBalance <
-        totalAmount
-      ) {
-        const rechargeAmount =
-          Math.max(
-            0,
-            totalAmount -
-              currentWalletBalance
-          );
+      if (currentWalletBalance < totalAmount) {
+        const rechargeAmount = Math.max(
+          0,
+          totalAmount - currentWalletBalance
+        );
 
         setLocalSuccess("");
 
@@ -821,8 +815,7 @@ const BuyTicket = () => {
         typeof purchaseError === "string"
           ? purchaseError
           : purchaseError?.message ||
-              purchaseError?.payload
-                ?.message ||
+              purchaseError?.payload?.message ||
               "टिकट खरीदने में समस्या हुई"
       );
     }
@@ -845,8 +838,7 @@ const BuyTicket = () => {
     !lotteryConfig?._id ||
     !lotteryConfig?.isActive ||
     !ticketPriceFromApi ||
-    Number(ticketPriceFromApi) <=
-      0 ||
+    Number(ticketPriceFromApi) <= 0 ||
     tickets.some((ticket) =>
       ticket.numbers.some((number) => number === "")
     );
@@ -1358,8 +1350,7 @@ const BuyTicket = () => {
               text-red-300
             "
           >
-            {typeof displayError ===
-            "string"
+            {typeof displayError === "string"
               ? displayError
               : displayError?.message ||
               "टिकट खरीदने में समस्या हुई"}
@@ -1508,8 +1499,7 @@ const BuyTicket = () => {
 
             <p
               className={`text-[17px] font-bold mt-[3px] ${
-                walletBalance >=
-                totalTicketPrice
+                walletBalance >= totalTicketPrice
                   ? "text-emerald-400"
                   : "text-red-400"
                 }`}
@@ -1517,11 +1507,8 @@ const BuyTicket = () => {
               ₹
               {Math.max(
                 0,
-                walletBalance -
-                  totalTicketPrice
-              ).toLocaleString(
-                "en-IN"
-              )}
+                walletBalance - totalTicketPrice
+              ).toLocaleString("en-IN")}
             </p>
           </div>
         </div>
