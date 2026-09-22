@@ -1,3 +1,4 @@
+
 import { Ticket } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -21,13 +22,6 @@ import {
 } from "../reducer/slice/depositSlice";
 
 // =====================================================
-// ICON GLOW
-// =====================================================
-
-const iconGlow =
-  "drop-shadow-[0_0_6px_rgba(245,197,66,0.95)] drop-shadow-[0_0_15px_rgba(245,197,66,0.65)] drop-shadow-[0_0_26px_rgba(245,197,66,0.35)]";
-
-// =====================================================
 // HINDI MONTHS
 // =====================================================
 
@@ -48,13 +42,6 @@ const HINDI_MONTHS = [
 
 // =====================================================
 // GET DRAW TIMESTAMP
-// =====================================================
-// API:
-// drawDate = "2026-09-20T18:30:00.000Z"
-// drawTime = "18:50"
-// drawTime is treated as IST.
-//
-// 18:50 IST = 13:20 UTC
 // =====================================================
 
 const getDrawTimestamp = (lotteryConfig) => {
@@ -301,10 +288,8 @@ const BuyTicket = () => {
       setCountdown(getCountdown(drawTimestamp));
     };
 
-    // Immediately calculate on page load
     updateCountdown();
 
-    // Update every second
     const interval = setInterval(
       updateCountdown,
       1000
@@ -325,7 +310,6 @@ const BuyTicket = () => {
       return "ड्रॉ जल्द घोषित होगा";
     }
 
-    // Prefer actual drawDate from API
     if (lotteryConfig.drawDate) {
       const date = new Date(
         lotteryConfig.drawDate
@@ -552,11 +536,6 @@ const BuyTicket = () => {
       // CREATE QWACKPAY PAYMENT
       // ===============================================
 
-      // New QwackPay flow does not use the old
-      // getGatewaysUser / VoterX gateway slice.
-      // Backend resolves the active QwackPay gateway
-      // from channel: "qwackpay".
-
       const response = await dispatch(
         createDeposit({
           paymentMethod: "INR",
@@ -663,533 +642,572 @@ const BuyTicket = () => {
         {/* =================================================
             LOTTERY INFO
         ================================================= */}
+
         <section
           id="nvc164"
           className="
-    relative
-    w-full
-    rounded-[18px]
-    border border-[#d7b838]/80
-    bg-[#040505]
-    overflow-hidden
-    shadow-[0_0_20px_rgba(215,184,56,0.10),inset_0_0_35px_rgba(215,184,56,0.04)]
-  "
+            relative
+            w-full
+            rounded-[18px]
+            border border-[#d7b838]/80
+            bg-[#040505]
+            overflow-hidden
+            shadow-[0_0_20px_rgba(215,184,56,0.10),inset_0_0_35px_rgba(215,184,56,0.04)]
+          "
         >
+
           {/* Background Glow */}
+
           <div
             className="
-      absolute inset-0
-      pointer-events-none
-      bg-[radial-gradient(circle_at_18%_50%,rgba(245,206,84,0.10),transparent_35%),radial-gradient(circle_at_82%_50%,rgba(245,206,84,0.08),transparent_35%)]
-    "
+              absolute inset-0
+              pointer-events-none
+              bg-[radial-gradient(circle_at_18%_50%,rgba(245,206,84,0.10),transparent_35%),radial-gradient(circle_at_82%_50%,rgba(245,206,84,0.08),transparent_35%)]
+            "
           />
 
           {/* Top Gold Line */}
+
           <div
             className="
-      absolute
-      top-0
-      left-0
-      right-0
-      h-[1px]
-      bg-gradient-to-r
-      from-transparent
-      via-[#f5ce54]
-      to-transparent
-      opacity-80
-    "
+              absolute
+              top-0
+              left-0
+              right-0
+              h-[1px]
+              bg-gradient-to-r
+              from-transparent
+              via-[#f5ce54]
+              to-transparent
+              opacity-80
+            "
           />
 
           <div
             className="
-      relative
-      grid
-      grid-cols-2
-      min-h-[104px]
-      min-[400px]:min-h-[112px]
-      min-[450px]:min-h-[124px]
-    "
+              relative
+              grid
+              grid-cols-2
+              min-h-[104px]
+              min-[400px]:min-h-[112px]
+              min-[450px]:min-h-[124px]
+            "
           >
+
             {/* =====================================================
-        LEFT — NEXT DRAW
-    ===================================================== */}
+                LEFT — NEXT DRAW
+            ===================================================== */}
+
             <div
               className="
-        min-w-0
-        flex
-        items-center
-        gap-[6px]
-        px-[6px]
-        border-r
-        border-[#d7b838]/25
+                min-w-0
+                flex
+                items-center
+                gap-[6px]
+                px-[6px]
+                border-r
+                border-[#d7b838]/25
 
-        min-[400px]:gap-[9px]
-        min-[400px]:px-[9px]
+                min-[400px]:gap-[9px]
+                min-[400px]:px-[9px]
 
-        min-[450px]:gap-3
-        min-[450px]:px-3
-      "
+                min-[450px]:gap-3
+                min-[450px]:px-3
+              "
             >
+
               {/* Calendar */}
+
               <div className="shrink-0 flex items-center justify-center">
                 <CalendarIcon
                   size={21}
                   strokeWidth={2.5}
                   className="
-            text-[#f5ce54]
-            w-[21px]
-            h-[21px]
+                    text-[#f5ce54]
+                    w-[21px]
+                    h-[21px]
 
-            min-[400px]:w-[25px]
-            min-[400px]:h-[25px]
+                    min-[400px]:w-[25px]
+                    min-[400px]:h-[25px]
 
-            min-[450px]:w-[32px]
-            min-[450px]:h-[32px]
-
-            drop-shadow-[0_0_4px_rgba(245,206,84,1)]
-            drop-shadow-[0_0_9px_rgba(245,206,84,0.95)]
-            drop-shadow-[0_0_17px_rgba(245,206,84,0.65)]
-          "
+                    min-[450px]:w-[32px]
+                    min-[450px]:h-[32px]
+                  "
                 />
               </div>
 
               {/* Draw Text */}
+
               <div className="min-w-0 flex-1">
+
                 <p
                   className="
-            text-[14px]
-            leading-[1.2]
-            font-medium
-            text-white/95
-            whitespace-nowrap
+                    text-[14px]
+                    leading-[1.2]
+                    font-medium
+                    text-white/95
+                    whitespace-nowrap
 
-            min-[400px]:text-[16px]
+                    min-[400px]:text-[16px]
 
-            min-[450px]:text-[19px]
-          "
+                    min-[450px]:text-[19px]
+                  "
                 >
                   अगला ड्रॉ (लकी ड्रॉ)
                 </p>
 
                 <p
                   className="
-            mt-[4px]
-            text-[14px]
-            leading-[1.2]
-            font-extrabold
-            text-[#f5ce54]
-            whitespace-nowrap
-            truncate
-            drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+                    mt-[4px]
+                    text-[14px]
+                    leading-[1.2]
+                    font-extrabold
+                    text-[#f5ce54]
+                    whitespace-nowrap
+                    truncate
+                    drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
 
-            min-[400px]:text-[17px]
-            min-[400px]:mt-[4px]
+                    min-[400px]:text-[17px]
+                    min-[400px]:mt-[4px]
 
-            min-[450px]:text-[18px]
-            min-[450px]:mt-[6px]
-          "
+                    min-[450px]:text-[18px]
+                    min-[450px]:mt-[6px]
+                  "
                 >
-                  {activeLoading ? "लोड हो रहा है..." : drawDateText}
+                  {activeLoading
+                    ? "लोड हो रहा है..."
+                    : drawDateText}
                 </p>
+
               </div>
             </div>
 
             {/* =====================================================
-        RIGHT — COUNTDOWN
-    ===================================================== */}
+                RIGHT — COUNTDOWN
+            ===================================================== */}
+
             <div
               className="
-        min-w-0
-        flex
-        flex-col
-        justify-center
-        px-[6px]
+                min-w-0
+                flex
+                flex-col
+                justify-center
+                px-[6px]
 
-        min-[400px]:px-[9px]
+                min-[400px]:px-[9px]
 
-        min-[450px]:px-4
-      "
+                min-[450px]:px-4
+              "
             >
+
               {/* Countdown Heading */}
+
               <div
                 className="
-          flex
-          items-center
-          gap-[4px]
-          min-w-0
+                  flex
+                  items-center
+                  gap-[4px]
+                  min-w-0
 
-          min-[400px]:gap-[6px]
+                  min-[400px]:gap-[6px]
 
-          min-[450px]:gap-2
-        "
+                  min-[450px]:gap-2
+                "
               >
+
                 <div className="shrink-0 flex items-center justify-center">
+
                   <ClockIcon
                     size={20}
                     strokeWidth={2.5}
                     className="
-              text-[#f5ce54]
-              w-[20px]
-              h-[20px]
+                      text-[#f5ce54]
+                      w-[20px]
+                      h-[20px]
 
-              min-[400px]:w-[23px]
-              min-[400px]:h-[23px]
+                      min-[400px]:w-[23px]
+                      min-[400px]:h-[23px]
 
-              min-[450px]:w-[30px]
-              min-[450px]:h-[30px]
-
-              drop-shadow-[0_0_4px_rgba(245,206,84,1)]
-              drop-shadow-[0_0_9px_rgba(245,206,84,0.95)]
-              drop-shadow-[0_0_17px_rgba(245,206,84,0.65)]
-            "
+                      min-[450px]:w-[30px]
+                      min-[450px]:h-[30px]
+                    "
                   />
+
                 </div>
 
                 <span
                   className="
-           
-            text-[14px]
-            leading-[1.2]
-            font-medium
-            text-white/95
-            whitespace-nowrap
+                    text-[14px]
+                    leading-[1.2]
+                    font-medium
+                    text-white/95
+                    whitespace-nowrap
 
-            min-[400px]:text-[17px]
+                    min-[400px]:text-[17px]
 
-            min-[450px]:text-[20px]
-          "
+                    min-[450px]:text-[20px]
+                  "
                 >
-                  {countdown.expired ? "लकी ड्रॉ" : "ड्रा शुरू होने में"}
+                  {countdown.expired
+                    ? "लकी ड्रॉ"
+                    : "ड्रा शुरू होने में"}
                 </span>
+
               </div>
 
               {/* Countdown */}
+
               <div
                 className="
-          mt-[6px]
-          w-full
-          min-w-0
+                  mt-[6px]
+                  w-full
+                  min-w-0
 
-          min-[400px]:mt-[10px]
+                  min-[400px]:mt-[10px]
 
-          min-[450px]:mt-[12px]
-        "
+                  min-[450px]:mt-[12px]
+                "
               >
+
                 {!countdown.available ? (
+
                   <p
                     className="
-              text-[10px]
-              font-bold
-              text-[#f5ce54]
-              whitespace-nowrap
+                      text-[10px]
+                      font-bold
+                      text-[#f5ce54]
+                      whitespace-nowrap
 
-              min-[400px]:text-[12px]
+                      min-[400px]:text-[12px]
 
-              min-[450px]:text-[17px]
-            "
+                      min-[450px]:text-[17px]
+                    "
                   >
                     टाइमर उपलब्ध नहीं
                   </p>
+
                 ) : countdown.expired ? (
+
                   <p
                     className="
-              text-[10px]
-              font-extrabold
-              text-[#f5ce54]
-              whitespace-nowrap
+                      text-[10px]
+                      font-extrabold
+                      text-[#f5ce54]
+                      whitespace-nowrap
 
-              min-[400px]:text-[12px]
+                      min-[400px]:text-[12px]
 
-              min-[450px]:text-[17px]
-            "
+                      min-[450px]:text-[17px]
+                    "
                   >
                     ड्रा शुरू हो गया
                   </p>
+
                 ) : (
+
                   <div
                     className="
-              flex
-              items-center
-              justify-center
-              w-full
-              min-w-0
-              gap-[2px]
+                      flex
+                      items-center
+                      justify-center
+                      w-full
+                      min-w-0
+                      gap-[2px]
 
-              min-[400px]:gap-[3px]
+                      min-[400px]:gap-[3px]
 
-              min-[450px]:gap-0
-            "
+                      min-[450px]:gap-0
+                    "
                   >
+
                     {/* ================= DAYS ================= */}
+
                     <div
                       className="
-                shrink-0
-                w-[27px]
-                text-center
+                        shrink-0
+                        w-[27px]
+                        text-center
 
-                min-[400px]:w-[34px]
+                        min-[400px]:w-[34px]
 
-                min-[450px]:flex-1
-                min-[450px]:w-auto
-              "
+                        min-[450px]:flex-1
+                        min-[450px]:w-auto
+                      "
                     >
+
                       <div
                         className="
-                  text-[15px]
-                  leading-none
-                  font-extrabold
-                  text-[#f5ce54]
-                  drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+                          text-[15px]
+                          leading-none
+                          font-extrabold
+                          text-[#f5ce54]
+                          drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
 
-                  min-[400px]:text-[18px]
+                          min-[400px]:text-[18px]
 
-                  min-[450px]:text-[25px]
-                "
+                          min-[450px]:text-[25px]
+                        "
                       >
                         {String(countdown.days).padStart(2, "0")}
                       </div>
 
                       <div
                         className="
-                  mt-[3px]
-                  text-[5px]
-                  leading-none
-                  font-medium
-                  text-white/65
+                          mt-[3px]
+                          text-[5px]
+                          leading-none
+                          font-medium
+                          text-white/65
 
-                  min-[400px]:text-[6px]
+                          min-[400px]:text-[6px]
 
-                  min-[450px]:text-[9px]
-                "
+                          min-[450px]:text-[9px]
+                        "
                       >
                         दिन
                       </div>
+
                     </div>
 
                     {/* ================= COLON ================= */}
+
                     <span
                       className="
-                shrink-0
-                flex
-                items-center
-                justify-center
-                w-[8px]
-                h-[22px]
-                text-[11px]
-                leading-none
-                font-bold
-                text-[#f5ce54]
+                        shrink-0
+                        flex
+                        items-center
+                        justify-center
+                        w-[8px]
+                        h-[22px]
+                        text-[11px]
+                        leading-none
+                        font-bold
+                        text-[#f5ce54]
 
-                min-[400px]:w-[10px]
-                min-[400px]:h-[25px]
-                min-[400px]:text-[14px]
+                        min-[400px]:w-[10px]
+                        min-[400px]:h-[25px]
+                        min-[400px]:text-[14px]
 
-                min-[450px]:w-auto
-                min-[450px]:h-auto
-                min-[450px]:px-[1px]
-                min-[450px]:text-[20px]
-              "
+                        min-[450px]:w-auto
+                        min-[450px]:h-auto
+                        min-[450px]:px-[1px]
+                        min-[450px]:text-[20px]
+                      "
                     >
                       :
                     </span>
 
                     {/* ================= HOURS ================= */}
+
                     <div
                       className="
-                shrink-0
-                w-[27px]
-                text-center
+                        shrink-0
+                        w-[27px]
+                        text-center
 
-                min-[400px]:w-[34px]
+                        min-[400px]:w-[34px]
 
-                min-[450px]:flex-1
-                min-[450px]:w-auto
-              "
+                        min-[450px]:flex-1
+                        min-[450px]:w-auto
+                      "
                     >
+
                       <div
                         className="
-                  text-[15px]
-                  leading-none
-                  font-extrabold
-                  text-[#f5ce54]
-                  drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+                          text-[15px]
+                          leading-none
+                          font-extrabold
+                          text-[#f5ce54]
+                          drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
 
-                  min-[400px]:text-[18px]
+                          min-[400px]:text-[18px]
 
-                  min-[450px]:text-[25px]
-                "
+                          min-[450px]:text-[25px]
+                        "
                       >
                         {String(countdown.hours).padStart(2, "0")}
                       </div>
 
                       <div
                         className="
-                  mt-[3px]
-                  text-[5px]
-                  leading-none
-                  font-medium
-                  text-white/65
+                          mt-[3px]
+                          text-[5px]
+                          leading-none
+                          font-medium
+                          text-white/65
 
-                  min-[400px]:text-[6px]
+                          min-[400px]:text-[6px]
 
-                  min-[450px]:text-[9px]
-                "
+                          min-[450px]:text-[9px]
+                        "
                       >
                         घंटे
                       </div>
+
                     </div>
 
                     {/* ================= COLON ================= */}
+
                     <span
                       className="
-                shrink-0
-                flex
-                items-center
-                justify-center
-                w-[8px]
-                h-[22px]
-                text-[11px]
-                leading-none
-                font-bold
-                text-[#f5ce54]
+                        shrink-0
+                        flex
+                        items-center
+                        justify-center
+                        w-[8px]
+                        h-[22px]
+                        text-[11px]
+                        leading-none
+                        font-bold
+                        text-[#f5ce54]
 
-                min-[400px]:w-[10px]
-                min-[400px]:h-[25px]
-                min-[400px]:text-[14px]
+                        min-[400px]:w-[10px]
+                        min-[400px]:h-[25px]
+                        min-[400px]:text-[14px]
 
-                min-[450px]:w-auto
-                min-[450px]:h-auto
-                min-[450px]:px-[1px]
-                min-[450px]:text-[20px]
-              "
+                        min-[450px]:w-auto
+                        min-[450px]:h-auto
+                        min-[450px]:px-[1px]
+                        min-[450px]:text-[20px]
+                      "
                     >
                       :
                     </span>
 
                     {/* ================= MINUTES ================= */}
+
                     <div
                       className="
-                shrink-0
-                w-[27px]
-                text-center
+                        shrink-0
+                        w-[27px]
+                        text-center
 
-                min-[400px]:w-[34px]
+                        min-[400px]:w-[34px]
 
-                min-[450px]:flex-1
-                min-[450px]:w-auto
-              "
+                        min-[450px]:flex-1
+                        min-[450px]:w-auto
+                      "
                     >
+
                       <div
                         className="
-                  text-[15px]
-                  leading-none
-                  font-extrabold
-                  text-[#f5ce54]
-                  drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+                          text-[15px]
+                          leading-none
+                          font-extrabold
+                          text-[#f5ce54]
+                          drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
 
-                  min-[400px]:text-[18px]
+                          min-[400px]:text-[18px]
 
-                  min-[450px]:text-[25px]
-                "
+                          min-[450px]:text-[25px]
+                        "
                       >
                         {String(countdown.minutes).padStart(2, "0")}
                       </div>
 
                       <div
                         className="
-                  mt-[3px]
-                  text-[5px]
-                  leading-none
-                  font-medium
-                  text-white/65
+                          mt-[3px]
+                          text-[5px]
+                          leading-none
+                          font-medium
+                          text-white/65
 
-                  min-[400px]:text-[6px]
+                          min-[400px]:text-[6px]
 
-                  min-[450px]:text-[9px]
-                "
+                          min-[450px]:text-[9px]
+                        "
                       >
                         मिनट
                       </div>
+
                     </div>
 
                     {/* ================= COLON ================= */}
+
                     <span
                       className="
-                shrink-0
-                flex
-                items-center
-                justify-center
-                w-[8px]
-                h-[22px]
-                text-[11px]
-                leading-none
-                font-bold
-                text-[#f5ce54]
+                        shrink-0
+                        flex
+                        items-center
+                        justify-center
+                        w-[8px]
+                        h-[22px]
+                        text-[11px]
+                        leading-none
+                        font-bold
+                        text-[#f5ce54]
 
-                min-[400px]:w-[10px]
-                min-[400px]:h-[25px]
-                min-[400px]:text-[14px]
+                        min-[400px]:w-[10px]
+                        min-[400px]:h-[25px]
+                        min-[400px]:text-[14px]
 
-                min-[450px]:w-auto
-                min-[450px]:h-auto
-                min-[450px]:px-[1px]
-                min-[450px]:text-[20px]
-              "
+                        min-[450px]:w-auto
+                        min-[450px]:h-auto
+                        min-[450px]:px-[1px]
+                        min-[450px]:text-[20px]
+                      "
                     >
                       :
                     </span>
 
                     {/* ================= SECONDS ================= */}
+
                     <div
                       className="
-                shrink-0
-                w-[27px]
-                text-center
+                        shrink-0
+                        w-[27px]
+                        text-center
 
-                min-[400px]:w-[34px]
+                        min-[400px]:w-[34px]
 
-                min-[450px]:flex-1
-                min-[450px]:w-auto
-              "
+                        min-[450px]:flex-1
+                        min-[450px]:w-auto
+                      "
                     >
+
                       <div
                         className="
-                  text-[15px]
-                  leading-none
-                  font-extrabold
-                  text-[#f5ce54]
-                  drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+                          text-[15px]
+                          leading-none
+                          font-extrabold
+                          text-[#f5ce54]
+                          drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
 
-                  min-[400px]:text-[18px]
+                          min-[400px]:text-[18px]
 
-                  min-[450px]:text-[25px]
-                "
+                          min-[450px]:text-[25px]
+                        "
                       >
                         {String(countdown.seconds).padStart(2, "0")}
                       </div>
 
                       <div
                         className="
-                  mt-[3px]
-                  text-[5px]
-                  leading-none
-                  font-medium
-                  text-white/65
+                          mt-[3px]
+                          text-[5px]
+                          leading-none
+                          font-medium
+                          text-white/65
 
-                  min-[400px]:text-[6px]
+                          min-[400px]:text-[6px]
 
-                  min-[450px]:text-[9px]
-                "
+                          min-[450px]:text-[9px]
+                        "
                       >
                         सेकंड
                       </div>
+
                     </div>
+
                   </div>
                 )}
+
               </div>
             </div>
           </div>
         </section>
+
         {/* =================================================
             PRIZES
         ================================================= */}
@@ -1420,16 +1438,19 @@ const BuyTicket = () => {
             disabled={isPurchaseDisabled}
             className="relative w-full h-[60px] mt-4 rounded-[14px] overflow-hidden bg-gradient-to-b from-[#fff59a] via-[#ffd84a] to-[#f4c21f] text-black text-[20px] font-extrabold flex items-center justify-center gap-3 border border-[#fff8c7] shadow-[0_0_12px_rgba(255,221,55,0.95),0_0_28px_rgba(255,210,35,0.75),0_0_55px_rgba(255,200,20,0.5),0_8px_30px_rgba(255,205,30,0.35),inset_0_2px_0_rgba(255,255,255,0.98),inset_0_-4px_8px_rgba(180,120,0,0.18)] active:scale-[0.98] transition-all duration-200 hover:brightness-110 hover:shadow-[0_0_16px_rgba(255,230,70,1),0_0_35px_rgba(255,215,40,0.9),0_0_70px_rgba(255,200,20,0.6),0_10px_35px_rgba(255,205,30,0.45)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:brightness-100"
           >
+
             {/* TOP SHINE */}
+
             <span className="absolute top-0 left-[8%] right-[8%] h-[2px] bg-white/95 blur-[0.5px]" />
 
             {/* SOFT CENTER GLOW */}
+
             <span className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,220,0.5),transparent_55%)] pointer-events-none" />
 
             <Ticket
               size={35}
               strokeWidth={2.5}
-              className={`relative z-10 text-[#090909] rotate-[-17deg] shrink-0 ${iconGlow}`}
+              className="relative z-10 text-[#090909] rotate-[-17deg] shrink-0"
             />
 
             <span className="relative z-10">
@@ -1443,8 +1464,8 @@ const BuyTicket = () => {
                 →
               </span>
             )}
-          </button>
 
+          </button>
 
           {/* =================================================
               PAYMENT INFO
@@ -1495,7 +1516,6 @@ const BuyTicket = () => {
         </section>
 
       </main>
-
     </div>
   );
 };
@@ -1511,7 +1531,7 @@ const PrizeCard = ({
   image,
 }) => (
   <div
-    className="relative w-full h-[194px] rounded-[13px] overflow-hidden border border-[#d7b544] flex flex-col items-center text-center px-1"
+    className="relative w-full h-[150px] rounded-[13px] overflow-hidden border-l border-r border-t border-b border-[#d7b544] flex flex-col items-center text-center px-1"
     style={{
       backgroundImage: `url(${image})`,
       backgroundSize: "cover",
@@ -1519,6 +1539,7 @@ const PrizeCard = ({
       backgroundRepeat: "no-repeat",
     }}
   >
+
     <div className="absolute inset-0 bg-black/[0.06] pointer-events-none" />
 
     <div className="relative z-10 w-full flex flex-col items-center">
@@ -1574,7 +1595,6 @@ const CalendarIcon = () => (
     strokeWidth="1.8"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={iconGlow}
   >
     <rect
       x="3"
@@ -1602,7 +1622,6 @@ const ClockIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="1.8"
-    className={iconGlow}
   >
     <circle
       cx="12"
@@ -1626,7 +1645,6 @@ const TrophyIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="1.8"
-    className={iconGlow}
   >
     <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z" />
 
@@ -1646,7 +1664,6 @@ const TargetIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="1.8"
-    className={iconGlow}
   >
     <circle
       cx="12"
@@ -1683,7 +1700,6 @@ const ShuffleIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="2"
-    className={iconGlow}
   >
     <path d="M3 7h3c4 0 6 10 10 10h5" />
 
@@ -1709,7 +1725,7 @@ const InfoIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="2"
-    className={`${iconGlow} shrink-0`}
+    className="shrink-0"
   >
     <circle
       cx="12"
@@ -1733,7 +1749,6 @@ const TicketIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="1.7"
-    className={iconGlow}
   >
     <path d="M3 8a2 2 0 002-2h14a2 2 0 002 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V8z" />
 
@@ -1751,7 +1766,6 @@ const LockIcon = () => (
     height="15"
     viewBox="0 0 24 24"
     fill="#f5ce54"
-    className={iconGlow}
   >
     <path d="M17 9V7a5 5 0 00-10 0v2H5v12h14V9h-2zm-8 0V7a3 3 0 016 0v2H9z" />
   </svg>
@@ -1769,7 +1783,6 @@ const ShieldIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="1.8"
-    className={iconGlow}
   >
     <path d="M12 2l8 4v6c0 5-3.2 8.7-8 10-4.8-1.3-8-5-8-10V6l8-4z" />
 
@@ -1787,7 +1800,6 @@ const ZapIcon = () => (
     height="29"
     viewBox="0 0 24 24"
     fill="#f5ce54"
-    className={iconGlow}
   >
     <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" />
   </svg>
@@ -1803,7 +1815,6 @@ const UsersIcon = () => (
     height="29"
     viewBox="0 0 24 24"
     fill="#f5ce54"
-    className={iconGlow}
   >
     <circle
       cx="9"
@@ -1838,7 +1849,6 @@ const SupportIcon = () => (
     fill="none"
     stroke="#f5ce54"
     strokeWidth="1.8"
-    className={iconGlow}
   >
     <path d="M4 13a8 8 0 0116 0" />
 
@@ -1849,3 +1859,4 @@ const SupportIcon = () => (
 );
 
 export default BuyTicket;
+

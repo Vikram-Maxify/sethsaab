@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -148,10 +149,10 @@ const getDrawTimestamp = (activeConfig) => {
     activeConfig.drawDate
       ? new Date(activeConfig.drawDate)
       : new Date(
-          Number(activeConfig.year),
-          Number(activeConfig.month) - 1,
-          Number(activeConfig.date || 1)
-        );
+        Number(activeConfig.year),
+        Number(activeConfig.month) - 1,
+        Number(activeConfig.date || 1)
+      );
 
   if (Number.isNaN(date.getTime())) {
     return null;
@@ -353,10 +354,8 @@ const HomeLotterySection = () => {
       );
     };
 
-    // First calculation immediately
     updateCountdown();
 
-    // Update every second
     const interval = setInterval(
       updateCountdown,
       1000
@@ -410,15 +409,16 @@ const HomeLotterySection = () => {
       ===================================================== */}
 
       <div
-        className=""
+        className="relative w-full h-[114px] rounded-[17px] border border-[#292b29] overflow-hidden"
         style={{
           background:
             "linear-gradient(180deg, #151613 0%, #080908 100%)",
           boxShadow:
-            "0 0 18px rgba(245,197,66,0.08), inset 0 1px 0 rgba(255,255,255,0.05)",
+            "inset 0 1px 0 rgba(255,255,255,0.035)",
         }}
       >
-        <div className="absolute inset-[5px] rounded-[15px] border border-[#252722] pointer-events-none" />
+
+        <div className="absolute rounded-[13px] border border-[#252722] pointer-events-none" />
 
         <div className="relative h-full flex items-center">
 
@@ -429,9 +429,9 @@ const HomeLotterySection = () => {
           <div className="w-[76px] flex justify-center flex-shrink-0">
 
             <CalendarDays
-              size={48}
-              strokeWidth={2.5}
-              className="text-[#f5c542] drop-shadow-[0_0_8px_rgba(245,197,66,0.9)] drop-shadow-[0_0_20px_rgba(245,197,66,0.65)]"
+              size={46}
+              strokeWidth={2.3}
+              className="text-[#f5c542]"
             />
 
           </div>
@@ -452,10 +452,8 @@ const HomeLotterySection = () => {
 
             </p>
 
-            <p className="text-[#f5c542] text-[25px] font-extrabold leading-none mt-[9px] tracking-tight">
-
+            <p className="text-[#f5c542] text-[clamp(15px,3.7vw,24px)] font-extrabold leading-none mt-[9px] tracking-tight">
               {drawDateText}
-
             </p>
 
           </div>
@@ -465,13 +463,12 @@ const HomeLotterySection = () => {
           ===================================================== */}
 
           <div
-            className="w-[160px] h-[98px] mr-[4px] rounded-[14px] border border-[#a51d25] flex flex-col items-center justify-center mt-2"
+            className="w-[160px] h-[94px] mr-[6px] rounded-[14px] border border-[#8f2026] flex flex-col items-center justify-center mt-2"
             style={{
               background:
                 "linear-gradient(180deg, #b82a30 0%, #711116 100%)",
-
               boxShadow:
-                "inset 0 1px 0 rgba(255,255,255,0.16), 0 0 12px rgba(170,20,25,0.3)",
+                "inset 0 1px 0 rgba(255,255,255,0.08)",
             }}
           >
 
@@ -643,26 +640,25 @@ const HomeLotterySection = () => {
         type="button"
         onClick={handleBuyTicket}
         disabled={!isActive}
-        className={`relative mt-[16px] w-full h-[70px] rounded-[13px] flex items-center justify-center gap-[12px] text-black overflow-hidden transition-all duration-200 ${
-          isActive
-            ? "active:scale-[0.99] cursor-pointer hover:brightness-105"
-            : "opacity-60 cursor-not-allowed"
-        }`}
+        className={`relative mt-[16px] w-full h-[70px] rounded-[13px] flex items-center justify-center gap-[12px] text-black overflow-hidden transition-all duration-200 ${isActive
+          ? "active:scale-[0.99] cursor-pointer hover:brightness-105"
+          : "opacity-60 cursor-not-allowed"
+          }`}
         style={{
           background:
             "linear-gradient(180deg, #fff08a 0%, #f5c542 52%, #e4ae16 100%)",
           border: "1px solid #fff0a8",
           boxShadow:
-            "0 0 18px rgba(245,197,66,0.45), 0 6px 22px rgba(245,197,66,0.32), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -3px 6px rgba(155,105,0,0.22)",
+            "inset 0 1px 0 rgba(255,255,255,0.75), inset 0 -3px 6px rgba(155,105,0,0.18)",
         }}
       >
 
-        <div className="absolute top-0 left-[10%] right-[10%] h-[2px] bg-white/90 blur-[1px]" />
+        <div className="absolute top-0 left-[10%] right-[10%] h-[1px] bg-white/60" />
 
         <Ticket
           size={38}
           strokeWidth={2.7}
-          className="text-[#090909] rotate-[-17deg] shrink-0 drop-shadow-[0_2px_2px_rgba(0,0,0,0.18)]"
+          className="text-[#090909] rotate-[-17deg] shrink-0"
         />
 
         <span className="text-[24px] font-extrabold tracking-tight">
@@ -672,7 +668,7 @@ const HomeLotterySection = () => {
         <ArrowRight
           size={32}
           strokeWidth={3}
-          className="shrink-0 drop-shadow-[0_2px_2px_rgba(0,0,0,0.15)]"
+          className="shrink-0"
         />
 
       </button>
@@ -694,7 +690,7 @@ const HomeLotterySection = () => {
             <Users
               size={27}
               strokeWidth={2.3}
-              className="text-[#f5c542] drop-shadow-[0_0_6px_rgba(245,197,66,0.8)] drop-shadow-[0_0_14px_rgba(245,197,66,0.45)]"
+              className="text-[#f5c542]"
             />
           }
           text="लाखों विजेता"
@@ -707,7 +703,7 @@ const HomeLotterySection = () => {
             <ShieldCheck
               size={27}
               strokeWidth={2.3}
-              className="text-[#f5c542] drop-shadow-[0_0_6px_rgba(245,197,66,0.8)] drop-shadow-[0_0_14px_rgba(245,197,66,0.45)]"
+              className="text-[#f5c542]"
             />
           }
           text="100% भुगतान"
@@ -720,7 +716,7 @@ const HomeLotterySection = () => {
             <Headphones
               size={27}
               strokeWidth={2.3}
-              className="text-[#f5c542] drop-shadow-[0_0_6px_rgba(245,197,66,0.8)] drop-shadow-[0_0_14px_rgba(245,197,66,0.45)]"
+              className="text-[#f5c542]"
             />
           }
           text="24/7 सहायता"
@@ -737,9 +733,8 @@ const HomeLotterySection = () => {
         style={{
           background:
             "linear-gradient(110deg, #120f05 0%, #090909 62%, #0d0b06 100%)",
-
           boxShadow:
-            "0 0 18px rgba(245,197,66,0.07), inset 0 1px 0 rgba(245,197,66,0.08)",
+            "inset 0 1px 0 rgba(245,197,66,0.08)",
         }}
       >
 
@@ -752,7 +747,7 @@ const HomeLotterySection = () => {
             <BarChart3
               size={56}
               strokeWidth={2.4}
-              className="text-[#f5c542] drop-shadow-[0_0_7px_rgba(245,197,66,0.95)] drop-shadow-[0_0_18px_rgba(245,197,66,0.7)] drop-shadow-[0_0_30px_rgba(245,197,66,0.4)]"
+              className="text-[#f5c542]"
             />
 
           </div>
@@ -820,17 +815,16 @@ const PrizeCard = ({
 
   return (
     <div
-      className="relative w-full h-[188px] rounded-[14px] overflow-hidden flex flex-col items-center"
+      className="relative w-full h-[150px] max-h-[150px] rounded-[12px] overflow-hidden flex flex-col items-center border-l border-t border-r border-b"
       style={{
         backgroundImage: `url("${image}")`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
-        border: `1px solid ${borderColor[type]}`,
-        boxShadow:
-          type === "first"
-            ? "0 0 14px rgba(245,197,66,0.35)"
-            : "0 0 10px rgba(0,0,0,0.4)",
+        borderTopColor: borderColor[type],
+        borderLeftColor: borderColor[type],
+        borderRightColor: borderColor[type],
+        boxShadow: "none",
       }}
     >
 
@@ -838,24 +832,24 @@ const PrizeCard = ({
 
       <div className="relative z-10 w-full flex flex-col items-center text-center">
 
-        <p className="mt-[15px] text-white text-[13px] font-semibold leading-none">
+        <p className="mt-[13px] text-white text-[13px] font-semibold leading-none">
           {title}
         </p>
 
         <p
-          className="mt-[13px] text-[22px] font-extrabold leading-none whitespace-nowrap px-1"
+          className="mt-[11px] text-[21px] font-extrabold leading-none whitespace-nowrap px-1"
           style={{
             color: amountColor[type],
             textShadow:
               type === "first"
-                ? "0 0 8px rgba(245,197,66,0.5)"
+                ? "0 0 5px rgba(245,197,66,0.25)"
                 : "0 2px 4px rgba(0,0,0,0.7)",
           }}
         >
           {amount}
         </p>
 
-        <p className="mt-[9px] text-white text-[11px] font-medium leading-none">
+        <p className="mt-[8px] text-white text-[11px] font-medium leading-none">
           {subtitle}
         </p>
 
@@ -887,3 +881,4 @@ const TrustItem = ({
 );
 
 export default HomeLotterySection;
+

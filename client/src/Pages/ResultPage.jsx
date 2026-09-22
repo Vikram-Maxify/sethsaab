@@ -1,3 +1,4 @@
+
 import {
   CheckCircle2,
   Copy,
@@ -15,12 +16,8 @@ import {
 } from "../reducer/slice/createLotteryConfigSlice";
 
 // ==========================================================
-// GLOW STYLE
+// MONTH NAMES
 // ==========================================================
-const GLOW_STYLE = {
-  filter:
-    "drop-shadow(0 0 7px rgba(245,197,66,0.95)) drop-shadow(0 0 18px rgba(245,197,66,0.7)) drop-shadow(0 0 30px rgba(245,197,66,0.4))",
-};
 
 const MONTH_NAMES_HI = [
   "जनवरी",
@@ -45,7 +42,9 @@ const ResultPage = () => {
     myEntriesLoading = false,
     error = null,
     activeConfig = null,
-  } = useSelector((state) => state.createLotteryConfig || {});
+  } = useSelector(
+    (state) => state.createLotteryConfig || {}
+  );
 
   useEffect(() => {
     dispatch(getMyLotteryEntries());
@@ -58,6 +57,7 @@ const ResultPage = () => {
   // ==========================================================
   // MARKET NAME
   // ==========================================================
+
   const marketName = useMemo(() => {
     const configMarketName =
       activeConfig?.marketName ||
@@ -68,18 +68,23 @@ const ResultPage = () => {
     return String(configMarketName)
       .trim()
       .replace(/\s+/g, " ")
-      .replace(/\b\w/g, (char) => char.toUpperCase());
+      .replace(/\b\w/g, (char) =>
+        char.toUpperCase()
+      );
   }, [activeConfig, myEntries]);
 
   // ==========================================================
   // FORMATTERS
   // ==========================================================
+
   const formatDate = (value) => {
     if (!value) return "—";
 
     const date = new Date(value);
 
-    if (Number.isNaN(date.getTime())) return value;
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
 
     return date.toLocaleDateString("hi-IN", {
       day: "2-digit",
@@ -93,7 +98,9 @@ const ResultPage = () => {
 
     const date = new Date(value);
 
-    if (Number.isNaN(date.getTime())) return "—";
+    if (Number.isNaN(date.getTime())) {
+      return "—";
+    }
 
     return date.toLocaleTimeString("hi-IN", {
       hour: "2-digit",
@@ -105,7 +112,9 @@ const ResultPage = () => {
   const formatAmount = (value) => {
     const amount = Number(value);
 
-    if (!Number.isFinite(amount)) return "₹0";
+    if (!Number.isFinite(amount)) {
+      return "₹0";
+    }
 
     return `₹${amount.toLocaleString("en-IN", {
       minimumFractionDigits: 0,
@@ -118,11 +127,18 @@ const ResultPage = () => {
       .toLowerCase()
       .trim();
 
-    if (value === "win" || value === "winner" || value === "won") {
+    if (
+      value === "win" ||
+      value === "winner" ||
+      value === "won"
+    ) {
       return "win";
     }
 
-    if (value === "lost" || value === "loss") {
+    if (
+      value === "lost" ||
+      value === "loss"
+    ) {
       return "lost";
     }
 
@@ -157,7 +173,8 @@ const ResultPage = () => {
     if (d && m && y) {
       return {
         day: String(d),
-        month: MONTH_NAMES_HI[Number(m) - 1] || "",
+        month:
+          MONTH_NAMES_HI[Number(m) - 1] || "",
         year: String(y),
       };
     }
@@ -171,23 +188,28 @@ const ResultPage = () => {
 
   // ==========================================================
   // ONLY WIN + LOST
-  // PENDING IS REMOVED FROM RESULT PAGE
   // ==========================================================
+
   const resultTickets = useMemo(() => {
-    const entries = Array.isArray(myEntries) ? myEntries : [];
+    const entries = Array.isArray(myEntries)
+      ? myEntries
+      : [];
 
     return entries
       .map((item, index) => {
         const entry = item?.entry || item;
 
-        const status = normalizeStatus(entry?.status);
+        const status = normalizeStatus(
+          entry?.status
+        );
 
-        // Pending result page par nahi aayega
         if (status === "pending") {
           return null;
         }
 
-        const number = String(entry?.number ?? "").padStart(6, "0");
+        const number = String(
+          entry?.number ?? ""
+        ).padStart(6, "0");
 
         const id =
           item?.entryId ||
@@ -195,51 +217,62 @@ const ResultPage = () => {
           entry?.id ||
           `result-ticket-${index}`;
 
-        const drawDate = formatDrawDate(item);
+        const drawDate =
+          formatDrawDate(item);
 
-        const prizes = item?.prizes || entry?.prize || {};
+        const prizes =
+          item?.prizes ||
+          entry?.prize ||
+          {};
 
         return {
           id,
-          number: number.slice(0, 6).split(""),
+          number: number
+            .slice(0, 6)
+            .split(""),
           status,
-
           statusText:
             status === "win"
               ? "विजेता"
               : "हार गए",
-
           drawDate,
-
-          drawTime: item?.drawTime || "—",
-
-          price: formatAmount(entry?.amount),
-
+          drawTime:
+            item?.drawTime || "—",
+          price: formatAmount(
+            entry?.amount
+          ),
           purchaseDate: formatDate(
-            entry?.entryDate || entry?.createdAt
+            entry?.entryDate ||
+              entry?.createdAt
           ),
-
           purchaseTime: formatTime(
-            entry?.createdAt || entry?.entryDate
+            entry?.createdAt ||
+              entry?.entryDate
           ),
-
           message:
             status === "win"
               ? "बधाई हो! आपका टिकट विजेता है"
               : "अगली बार किस्मत आजमाएं",
-
           prizes: {
-            first: Number(prizes?.first) || 0,
-            second: Number(prizes?.second) || 0,
-            third: Number(prizes?.third) || 0,
+            first:
+              Number(prizes?.first) || 0,
+            second:
+              Number(prizes?.second) || 0,
+            third:
+              Number(prizes?.third) || 0,
           },
-
-          prizeType: entry?.prizeType || null,
-
+          prizeType:
+            entry?.prizeType || null,
           prizeWon: {
-            first: Number(entry?.prize?.first) || 0,
-            second: Number(entry?.prize?.second) || 0,
-            third: Number(entry?.prize?.third) || 0,
+            first:
+              Number(entry?.prize?.first) ||
+              0,
+            second:
+              Number(entry?.prize?.second) ||
+              0,
+            third:
+              Number(entry?.prize?.third) ||
+              0,
           },
         };
       })
@@ -249,19 +282,24 @@ const ResultPage = () => {
   // ==========================================================
   // COUNTS
   // ==========================================================
-  const totalResults = resultTickets.length;
 
-  const totalWins = resultTickets.filter(
-    (ticket) => ticket.status === "win"
-  ).length;
+  const totalResults =
+    resultTickets.length;
 
-  const totalLost = resultTickets.filter(
-    (ticket) => ticket.status === "lost"
-  ).length;
+  const totalWins =
+    resultTickets.filter(
+      (ticket) => ticket.status === "win"
+    ).length;
+
+  const totalLost =
+    resultTickets.filter(
+      (ticket) => ticket.status === "lost"
+    ).length;
 
   // ==========================================================
   // COPY ID
   // ==========================================================
+
   const copyId = async (id) => {
     try {
       await navigator.clipboard.writeText(id);
@@ -270,21 +308,25 @@ const ResultPage = () => {
 
   return (
     <div className="w-full bg-[#030404] text-white min-h-screen">
+
       <main className="w-full max-w-[680px] mx-auto px-[12px] sm:px-[18px] pt-[22px] pb-[35px]">
 
         {/* ==================================================
             HEADER
         ================================================== */}
+
         <div className="relative flex items-center justify-between gap-[10px]">
+
           <div className="flex items-center gap-[10px] min-w-0">
+
             <Trophy
               size={42}
               strokeWidth={1.8}
               className="text-[#f5c542] shrink-0"
-              style={GLOW_STYLE}
             />
 
             <div className="min-w-0">
+
               <h1 className="text-[25px] sm:text-[30px] leading-none font-extrabold tracking-tight">
                 मेरे रिजल्ट
               </h1>
@@ -292,14 +334,19 @@ const ResultPage = () => {
               <p className="mt-[5px] text-[13px] leading-[1.15] text-[#d1d1d1]">
                 आपके जीते और हारे हुए टिकट यहाँ दिखेंगे
               </p>
+
             </div>
+
           </div>
+
         </div>
 
         {/* ==================================================
             RESULT SUMMARY
         ================================================== */}
+
         <div className="grid grid-cols-3 gap-[6px] mt-[22px]">
+
           <ResultStat
             label="कुल रिजल्ट"
             value={totalResults}
@@ -319,41 +366,51 @@ const ResultPage = () => {
             icon={XCircle}
             lost
           />
+
         </div>
 
         {/* ==================================================
             LOADING
         ================================================== */}
+
         {myEntriesLoading ? (
           <div className="h-[160px] mt-[25px] rounded-[16px] border border-[#282b29] bg-[#090b0b] flex flex-col items-center justify-center">
+
             <Trophy
               size={40}
               className="text-[#f5c542] animate-pulse"
-              style={GLOW_STYLE}
             />
 
             <p className="mt-3 text-[13px] text-white/60">
               आपके रिजल्ट लोड हो रहे हैं...
             </p>
+
           </div>
         ) : null}
 
         {/* ==================================================
             ERROR
         ================================================== */}
-        {!myEntriesLoading && error && !resultTickets.length ? (
+
+        {!myEntriesLoading &&
+        error &&
+        !resultTickets.length ? (
           <div className="h-[160px] mt-[25px] rounded-[16px] border border-red-500/30 bg-[#090b0b] flex flex-col items-center justify-center px-4 text-center">
+
             <p className="text-[13px] text-red-300">
               {error}
             </p>
+
           </div>
         ) : null}
 
         {/* ==================================================
             RESULT CARDS
         ================================================== */}
+
         {!myEntriesLoading && (
           <div className="mt-[25px] space-y-[22px]">
+
             {resultTickets.length ? (
               resultTickets.map((ticket) => (
                 <LotteryResultTicket
@@ -365,10 +422,10 @@ const ResultPage = () => {
               ))
             ) : (
               <div className="h-[190px] rounded-[16px] border border-[#282b29] bg-[#090b0b] flex flex-col items-center justify-center text-center px-5">
+
                 <Trophy
                   size={44}
                   className="text-[#f5c542]"
-                  style={GLOW_STYLE}
                 />
 
                 <p className="mt-4 text-[14px] font-semibold text-white">
@@ -378,11 +435,15 @@ const ResultPage = () => {
                 <p className="mt-2 text-[12px] leading-[1.4] text-white/50 max-w-[310px]">
                   आपका टिकट ड्रॉ होने के बाद ही यहाँ जीत या हार का रिजल्ट दिखाई देगा।
                 </p>
+
               </div>
             )}
+
           </div>
         )}
+
       </main>
+
     </div>
   );
 };
@@ -390,6 +451,7 @@ const ResultPage = () => {
 // ==========================================================
 // RESULT STAT
 // ==========================================================
+
 const ResultStat = ({
   label,
   value,
@@ -407,7 +469,9 @@ const ResultStat = ({
             : "border-[#353938]"
       }`}
     >
+
       <div className="flex items-center gap-[5px]">
+
         <Icon
           size={17}
           strokeWidth={2}
@@ -418,17 +482,18 @@ const ResultStat = ({
                 ? "text-[#ef5555]"
                 : "text-[#f5c542]"
           }
-          style={success || lost ? undefined : GLOW_STYLE}
         />
 
         <span className="text-[18px] font-extrabold">
           {value}
         </span>
+
       </div>
 
       <span className="text-[10px] mt-[2px] text-white/55">
         {label}
       </span>
+
     </div>
   );
 };
@@ -436,6 +501,7 @@ const ResultStat = ({
 // ==========================================================
 // RESULT TICKET
 // ==========================================================
+
 const LotteryResultTicket = ({
   ticket,
   copyId,
@@ -447,11 +513,13 @@ const LotteryResultTicket = ({
     <div className="relative w-full h-[236px] rounded-[15px] overflow-hidden bg-[#f4dda0] shadow-[0_5px_22px_rgba(0,0,0,0.4)]">
 
       {/* OUTER BORDER */}
+
       <div className="absolute inset-[4px] rounded-[12px] border border-[#f1d276]/70 pointer-events-none z-[30]" />
 
       {/* ==================================================
           LEFT RED SECTION
       ================================================== */}
+
       <div className="absolute left-0 top-0 bottom-0 w-[24%] flex flex-col items-center text-center px-[6px] py-[17px] overflow-hidden bg-gradient-to-b from-[#d82b2d] via-[#b8171b] to-[#820b10] border-r border-[#e4b844]">
 
         <Crown
@@ -459,10 +527,6 @@ const LotteryResultTicket = ({
           strokeWidth={1.5}
           fill="#f7d24d"
           className="text-[#f7d24d]"
-          style={{
-            filter:
-              "drop-shadow(0 0 8px rgba(247,210,77,0.9)) drop-shadow(0 0 16px rgba(247,210,77,0.55))",
-          }}
         />
 
         <h2 className="mt-[6px] text-[17px] leading-none font-extrabold text-white">
@@ -480,6 +544,7 @@ const LotteryResultTicket = ({
         </p>
 
         <div className="mt-auto">
+
           <svg
             width="38"
             height="34"
@@ -493,6 +558,7 @@ const LotteryResultTicket = ({
             <path d="M26 41C35 38 44 31 42 23C34 25 28 31 26 41Z" />
             <path d="M26 37C22 28 23 19 26 11C29 19 30 28 26 37Z" />
           </svg>
+
         </div>
 
         <p className="mt-[3px] text-[10px] font-semibold text-white">
@@ -502,27 +568,33 @@ const LotteryResultTicket = ({
         <p className="text-[10px] font-semibold text-white">
           के साथ
         </p>
+
       </div>
 
       {/* ==================================================
           CENTER
       ================================================== */}
+
       <div className="absolute left-[24%] right-[24%] top-0 bottom-0 px-[8px] py-[13px] text-[#19140c] bg-gradient-to-b from-[#fff1c4] via-[#f8e4ad] to-[#efd394]">
 
         <div className="flex items-center justify-center gap-[4px]">
+
           <span className="text-[#c49a3d] text-[10px]">
             ❧
           </span>
 
           <div className="px-[8px] py-[4px] rounded-full border border-[#d1ad55] bg-[#f9e9b9]">
+
             <p className="text-[11px] font-extrabold whitespace-nowrap">
               भारत की भरोसेमंद लॉटरी
             </p>
+
           </div>
 
           <span className="text-[#c49a3d] text-[10px]">
             ❧
           </span>
+
         </div>
 
         <p className="text-center text-[12px] font-semibold mt-[11px]">
@@ -530,45 +602,58 @@ const LotteryResultTicket = ({
         </p>
 
         <div className="grid grid-cols-6 gap-[3px] mt-[7px]">
-          {ticket.number.map((digit, index) => (
-            <div
-              key={index}
-              className={`h-[37px] rounded-[6px] border flex items-center justify-center ${
-                won
-                  ? "border-[#48aa58] bg-[#e7f6df]"
-                  : "border-[#bd8b2d] bg-[#fff0c3]"
-              }`}
-            >
-              <span className="text-[19px] font-extrabold">
-                {digit}
-              </span>
-            </div>
-          ))}
+
+          {ticket.number.map(
+            (digit, index) => (
+              <div
+                key={index}
+                className={`h-[37px] rounded-[6px] border flex items-center justify-center ${
+                  won
+                    ? "border-[#48aa58] bg-[#e7f6df]"
+                    : "border-[#bd8b2d] bg-[#fff0c3]"
+                }`}
+              >
+                <span className="text-[19px] font-extrabold">
+                  {digit}
+                </span>
+              </div>
+            )
+          )}
+
         </div>
 
         <div className="grid grid-cols-3 gap-[4px] mt-[11px]">
+
           <MiniPrize
             title="प्रथम पुरस्कार"
-            amount={formatPrize(ticket.prizes.first)}
+            amount={formatPrize(
+              ticket.prizes.first
+            )}
             subtitle="(6 अंक मिलने पर)"
           />
 
           <MiniPrize
             title="द्वितीय पुरस्कार"
-            amount={formatPrize(ticket.prizes.second)}
+            amount={formatPrize(
+              ticket.prizes.second
+            )}
             subtitle="(5 अंक मिलने पर)"
           />
 
           <MiniPrize
             title="तृतीय पुरस्कार"
-            amount={formatPrize(ticket.prizes.third)}
+            amount={formatPrize(
+              ticket.prizes.third
+            )}
             subtitle="(4 अंक मिलने पर)"
           />
+
         </div>
 
         <div className="h-px bg-[#c9a85c] mt-[10px]" />
 
         <div className="flex items-center justify-center gap-[3px] mt-[6px]">
+
           <span className="text-[#c09232] text-[9px]">
             ✧
           </span>
@@ -580,15 +665,19 @@ const LotteryResultTicket = ({
           <span className="text-[#c09232] text-[9px]">
             ✧
           </span>
+
         </div>
+
       </div>
 
       {/* ==================================================
           RIGHT SECTION
       ================================================== */}
+
       <div className="absolute right-0 top-0 bottom-0 w-[24%] px-[7px] py-[11px] text-[#21180d] bg-gradient-to-b from-[#fff1c7] via-[#f7e2a8] to-[#edd28f] border-l border-[#c39b43]">
 
         {/* STATUS */}
+
         <div
           className={`w-full h-[30px] rounded-[8px] flex items-center justify-center gap-[3px] text-white font-bold ${
             won
@@ -596,38 +685,38 @@ const LotteryResultTicket = ({
               : "bg-gradient-to-b from-[#ed4d4a] to-[#c82729]"
           }`}
         >
+
           {won ? (
             <CheckCircle2
               size={14}
               strokeWidth={2}
-              style={{
-                filter:
-                  "drop-shadow(0 0 6px rgba(255,255,255,0.85))",
-              }}
             />
           ) : (
             <XCircle
               size={14}
               strokeWidth={2}
-              style={{
-                filter:
-                  "drop-shadow(0 0 6px rgba(255,255,255,0.85))",
-              }}
             />
           )}
 
           <span className="text-[10px]">
             {ticket.statusText}
           </span>
+
         </div>
 
         <SideInfo
           label="ड्रॉ दिनांक"
           value={
             <>
-              <span>{ticket.drawDate.day}</span>{" "}
-              <span>{ticket.drawDate.month}</span>{" "}
-              <span>{ticket.drawDate.year}</span>
+              <span>
+                {ticket.drawDate.day}
+              </span>{" "}
+              <span>
+                {ticket.drawDate.month}
+              </span>{" "}
+              <span>
+                {ticket.drawDate.year}
+              </span>
             </>
           }
         />
@@ -639,19 +728,25 @@ const LotteryResultTicket = ({
         />
 
         {/* WINNING PRIZE */}
+
         {won && ticket.prizeType ? (
           <div className="mt-[10px]">
+
             <p className="text-[9px] text-[#6a5533]">
               जीता हुआ पुरस्कार
             </p>
 
             <p className="text-[11px] font-extrabold text-[#16852e] mt-[3px]">
-              {getPrizeLabel(ticket.prizeType)}
+              {getPrizeLabel(
+                ticket.prizeType
+              )}
             </p>
+
           </div>
         ) : null}
 
         <div className="mt-[10px]">
+
           <p className="text-[9px] text-[#6a5533]">
             खरीद की तारीख
           </p>
@@ -663,37 +758,42 @@ const LotteryResultTicket = ({
           <p className="text-[9px] mt-[2px]">
             {ticket.purchaseTime}
           </p>
+
         </div>
 
         <div className="mt-[10px]">
+
           <p className="text-[9px] text-[#6a5533]">
             टिकट आईडी
           </p>
 
           <div className="flex items-start gap-[3px] mt-[3px]">
+
             <span className="text-[9px] font-bold break-all leading-[1.1]">
               {ticket.id}
             </span>
 
             <button
               type="button"
-              onClick={() => copyId(ticket.id)}
+              onClick={() =>
+                copyId(ticket.id)
+              }
               className="shrink-0"
             >
               <Copy
                 size={12}
                 strokeWidth={1.8}
-                style={{
-                  filter:
-                    "drop-shadow(0 0 5px rgba(245,197,66,0.85))",
-                }}
               />
             </button>
+
           </div>
+
         </div>
+
       </div>
 
       <TicketNotches />
+
     </div>
   );
 };
@@ -701,18 +801,30 @@ const LotteryResultTicket = ({
 // ==========================================================
 // PRIZE LABEL
 // ==========================================================
-const getPrizeLabel = (prizeType) => {
-  const value = String(prizeType || "").toLowerCase();
 
-  if (value.includes("1st") || value.includes("first")) {
+const getPrizeLabel = (prizeType) => {
+  const value = String(
+    prizeType || ""
+  ).toLowerCase();
+
+  if (
+    value.includes("1st") ||
+    value.includes("first")
+  ) {
     return "प्रथम पुरस्कार";
   }
 
-  if (value.includes("2nd") || value.includes("second")) {
+  if (
+    value.includes("2nd") ||
+    value.includes("second")
+  ) {
     return "द्वितीय पुरस्कार";
   }
 
-  if (value.includes("3rd") || value.includes("third")) {
+  if (
+    value.includes("3rd") ||
+    value.includes("third")
+  ) {
     return "तृतीय पुरस्कार";
   }
 
@@ -722,10 +834,14 @@ const getPrizeLabel = (prizeType) => {
 // ==========================================================
 // PRIZE FORMAT
 // ==========================================================
+
 const formatPrize = (value) => {
   const amount = Number(value);
 
-  if (!Number.isFinite(amount) || amount <= 0) {
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0
+  ) {
     return "₹0";
   }
 
@@ -741,18 +857,22 @@ const formatPrize = (value) => {
       .replace(/\.00$/, "")} लाख`;
   }
 
-  return `₹${amount.toLocaleString("en-IN")}`;
+  return `₹${amount.toLocaleString(
+    "en-IN"
+  )}`;
 };
 
 // ==========================================================
 // SIDE INFO
 // ==========================================================
+
 const SideInfo = ({
   label,
   value,
   valueClass = "",
 }) => (
   <div className="mt-[10px]">
+
     <p className="text-[9px] text-[#6a5533]">
       {label}
     </p>
@@ -762,18 +882,21 @@ const SideInfo = ({
     >
       {value}
     </div>
+
   </div>
 );
 
 // ==========================================================
 // MINI PRIZE
 // ==========================================================
+
 const MiniPrize = ({
   title,
   amount,
   subtitle,
 }) => (
   <div className="min-w-0 rounded-[7px] border border-[#c79b3d] bg-[#f8e8b4] py-[5px] px-[1px] text-center">
+
     <p className="text-[7px] font-bold leading-[1.1]">
       {title}
     </p>
@@ -785,12 +908,14 @@ const MiniPrize = ({
     <p className="mt-[3px] text-[6px] leading-[1.1]">
       {subtitle}
     </p>
+
   </div>
 );
 
 // ==========================================================
 // TICKET NOTCHES
 // ==========================================================
+
 const TicketNotches = () => {
   const positions = [
     "top-[8px]",
@@ -808,19 +933,23 @@ const TicketNotches = () => {
 
   return (
     <>
-      {positions.map((position, index) => (
-        <span
-          key={`left-notch-${index}`}
-          className={`absolute left-[-7px] ${position} w-[14px] h-[14px] rounded-full bg-[#030404] z-[50] pointer-events-none`}
-        />
-      ))}
+      {positions.map(
+        (position, index) => (
+          <span
+            key={`left-notch-${index}`}
+            className={`absolute left-[-7px] ${position} w-[14px] h-[14px] rounded-full bg-[#030404] z-[50] pointer-events-none`}
+          />
+        )
+      )}
 
-      {positions.map((position, index) => (
-        <span
-          key={`right-notch-${index}`}
-          className={`absolute right-[-7px] ${position} w-[14px] h-[14px] rounded-full bg-[#030404] z-[50] pointer-events-none`}
-        />
-      ))}
+      {positions.map(
+        (position, index) => (
+          <span
+            key={`right-notch-${index}`}
+            className={`absolute right-[-7px] ${position} w-[14px] h-[14px] rounded-full bg-[#030404] z-[50] pointer-events-none`}
+          />
+        )
+      )}
     </>
   );
 };
