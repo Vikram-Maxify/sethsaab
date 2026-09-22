@@ -1,6 +1,7 @@
 import { Ticket } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 
 import firstPrize from "../assets/1trophy.png";
 import secondPrize from "../assets/2trophy.png";
@@ -11,14 +12,10 @@ import {
   clearLotteryConfigError,
   clearLotteryConfigSuccess,
   getActiveLotteryConfig,
+  addUserLotteryEntry,
 } from "../reducer/slice/createLotteryConfigSlice";
 
 import { getAmount } from "../reducer/slice/amountReducer";
-
-import {
-  createDeposit,
-  clearDepositState,
-} from "../reducer/slice/depositSlice";
 
 // =====================================================
 // ICON GLOW
@@ -48,13 +45,6 @@ const HINDI_MONTHS = [
 
 // =====================================================
 // GET DRAW TIMESTAMP
-// =====================================================
-// API:
-// drawDate = "2026-09-20T18:30:00.000Z"
-// drawTime = "18:50"
-// drawTime is treated as IST.
-//
-// 18:50 IST = 13:20 UTC
 // =====================================================
 
 const getDrawTimestamp = (lotteryConfig) => {
@@ -91,7 +81,7 @@ const getDrawTimestamp = (lotteryConfig) => {
   const day = drawDate.getUTCDate();
 
   // IST -> UTC
-  const utcTimestamp = Date.UTC(
+  return Date.UTC(
     year,
     month,
     day,
@@ -100,8 +90,6 @@ const getDrawTimestamp = (lotteryConfig) => {
     0,
     0
   );
-
-  return utcTimestamp;
 };
 
 // =====================================================
@@ -120,8 +108,7 @@ const getCountdown = (drawTimestamp) => {
     };
   }
 
-  const now = Date.now();
-  const difference = drawTimestamp - now;
+  const difference = drawTimestamp - Date.now();
 
   if (difference <= 0) {
     return {
@@ -136,23 +123,11 @@ const getCountdown = (drawTimestamp) => {
 
   const totalSeconds = Math.floor(difference / 1000);
 
-  const days = Math.floor(totalSeconds / 86400);
-
-  const hours = Math.floor(
-    (totalSeconds % 86400) / 3600
-  );
-
-  const minutes = Math.floor(
-    (totalSeconds % 3600) / 60
-  );
-
-  const seconds = totalSeconds % 60;
-
   return {
-    days,
-    hours,
-    minutes,
-    seconds,
+    days: Math.floor(totalSeconds / 86400),
+    hours: Math.floor((totalSeconds % 86400) / 3600),
+    minutes: Math.floor((totalSeconds % 3600) / 60),
+    seconds: totalSeconds % 60,
     expired: false,
     available: true,
   };
@@ -164,6 +139,15 @@ const getCountdown = (drawTimestamp) => {
 
 const BuyTicket = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  // ===================================================
+  // AUTH
+  // ===================================================
+
+  const { user } = useSelector(
+    (state) => state.auth || {}
+  );
 
   // ===================================================
   // LOTTERY REDUX STATE
@@ -173,6 +157,7 @@ const BuyTicket = () => {
     config,
     activeConfig,
     activeLoading,
+    purchaseLoading,
     error,
   } = useSelector(
     (state) =>
@@ -180,6 +165,7 @@ const BuyTicket = () => {
         config: null,
         activeConfig: null,
         activeLoading: false,
+        purchaseLoading: false,
         error: null,
       }
   );
@@ -200,31 +186,30 @@ const BuyTicket = () => {
   );
 
   // ===================================================
-  // DEPOSIT REDUX STATE
+  // WALLET BALANCE
   // ===================================================
 
-  const {
-    loading: depositLoading,
-    error: depositError,
-  } = useSelector(
-    (state) =>
-      state.deposit || {
-        loading: false,
-        error: null,
-      }
+  const walletBalance = Number(
+    user?.balance ??
+      user?.walletBalance ??
+      user?.wallet ??
+      user?.walletAmount ??
+      0
   );
 
   // ===================================================
   // TICKET PRICE
   // ===================================================
 
-  const TICKET_PRICE = Number(ticketPriceFromApi) || 0;
+  const TICKET_PRICE =
+    Number(ticketPriceFromApi) || 0;
 
   // ===================================================
   // LOTTERY CONFIG
   // ===================================================
 
-  const lotteryConfig = config || activeConfig;
+  const lotteryConfig =
+    config || activeConfig;
 
   // ===================================================
   // LOCAL STATE
@@ -239,11 +224,14 @@ const BuyTicket = () => {
     "",
   ]);
 
-  const [localError, setLocalError] = useState("");
-  const [localSuccess, setLocalSuccess] = useState("");
+  const [localError, setLocalError] =
+    useState("");
+
+  const [localSuccess, setLocalSuccess] =
+    useState("");
 
   // ===================================================
-  // COUNTDOWN STATE
+  // COUNTDOWN
   // ===================================================
 
   const [countdown, setCountdown] = useState({
@@ -265,11 +253,14 @@ const BuyTicket = () => {
   }, [dispatch]);
 
   // ===================================================
-  // LIVE DRAW COUNTDOWN
+  // LIVE COUNTDOWN
   // ===================================================
 
   useEffect(() => {
-    if (!lotteryConfig?.drawDate || !lotteryConfig?.drawTime) {
+    if (
+      !lotteryConfig?.drawDate ||
+      !lotteryConfig?.drawTime
+    ) {
       setCountdown({
         days: 0,
         hours: 0,
@@ -282,7 +273,8 @@ const BuyTicket = () => {
       return;
     }
 
-    const drawTimestamp = getDrawTimestamp(lotteryConfig);
+    const drawTimestamp =
+      getDrawTimestamp(lotteryConfig);
 
     if (!drawTimestamp) {
       setCountdown({
@@ -298,19 +290,20 @@ const BuyTicket = () => {
     }
 
     const updateCountdown = () => {
-      setCountdown(getCountdown(drawTimestamp));
+      setCountdown(
+        getCountdown(drawTimestamp)
+      );
     };
 
-    // Immediately calculate on page load
     updateCountdown();
 
-    // Update every second
     const interval = setInterval(
       updateCountdown,
       1000
     );
 
-    return () => clearInterval(interval);
+    return () =>
+      clearInterval(interval);
   }, [
     lotteryConfig?.drawDate,
     lotteryConfig?.drawTime,
@@ -325,16 +318,20 @@ const BuyTicket = () => {
       return "ड्रॉ जल्द घोषित होगा";
     }
 
-    // Prefer actual drawDate from API
     if (lotteryConfig.drawDate) {
       const date = new Date(
         lotteryConfig.drawDate
       );
 
       if (!Number.isNaN(date.getTime())) {
-        const day = date.getUTCDate();
-        const month = date.getUTCMonth();
-        const year = date.getUTCFullYear();
+        const day =
+          date.getUTCDate();
+
+        const month =
+          date.getUTCMonth();
+
+        const year =
+          date.getUTCFullYear();
 
         return `${day} ${HINDI_MONTHS[month]} ${year}`;
       }
@@ -353,11 +350,14 @@ const BuyTicket = () => {
       Number(lotteryConfig.date || 1)
     );
 
-    return new Intl.DateTimeFormat("hi-IN", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(date);
+    return new Intl.DateTimeFormat(
+      "hi-IN",
+      {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }
+    ).format(date);
   }, [lotteryConfig]);
 
   // ===================================================
@@ -370,14 +370,16 @@ const BuyTicket = () => {
 
     dispatch(clearLotteryConfigError());
     dispatch(clearLotteryConfigSuccess());
-    dispatch(clearDepositState());
   };
 
   // ===================================================
   // NUMBER CHANGE
   // ===================================================
 
-  const handleNumberChange = (index, value) => {
+  const handleNumberChange = (
+    index,
+    value
+  ) => {
     if (!/^\d?$/.test(value)) {
       return;
     }
@@ -395,16 +397,17 @@ const BuyTicket = () => {
       value &&
       index < numbers.length - 1
     ) {
-      const nextInput = document.querySelector(
-        `[data-lottery-index="${index + 1}"]`
-      );
+      const nextInput =
+        document.querySelector(
+          `[data-lottery-index="${index + 1}"]`
+        );
 
       nextInput?.focus();
     }
   };
 
   // ===================================================
-  // HANDLE BACKSPACE
+  // BACKSPACE
   // ===================================================
 
   const handleNumberKeyDown = (
@@ -430,14 +433,20 @@ const BuyTicket = () => {
   // ===================================================
 
   const generateRandom = () => {
+    if (purchaseLoading) {
+      return;
+    }
+
     const result = [];
 
     while (result.length < 6) {
-      const n = String(
-        Math.floor(Math.random() * 10)
+      result.push(
+        String(
+          Math.floor(
+            Math.random() * 10
+          )
+        )
       );
-
-      result.push(n);
     }
 
     setNumbers(result);
@@ -449,6 +458,10 @@ const BuyTicket = () => {
   // ===================================================
 
   const clearNumbers = () => {
+    if (purchaseLoading) {
+      return;
+    }
+
     setNumbers([
       "",
       "",
@@ -461,12 +474,11 @@ const BuyTicket = () => {
     clearMessages();
 
     setTimeout(() => {
-      const firstInput =
-        document.querySelector(
+      document
+        .querySelector(
           '[data-lottery-index="0"]'
-        );
-
-      firstInput?.focus();
+        )
+        ?.focus();
     }, 50);
   };
 
@@ -475,17 +487,37 @@ const BuyTicket = () => {
   // ===================================================
 
   const handlePurchase = async () => {
+    // Prevent double click / duplicate request
+    if (purchaseLoading) {
+      return;
+    }
+
     try {
       setLocalError("");
       setLocalSuccess("");
 
-      dispatch(clearLotteryConfigError());
-      dispatch(clearLotteryConfigSuccess());
-      dispatch(clearDepositState());
+      dispatch(
+        clearLotteryConfigError()
+      );
 
-      // ===============================================
-      // CHECK SIX DIGITS
-      // ===============================================
+      dispatch(
+        clearLotteryConfigSuccess()
+      );
+
+      // =================================================
+      // 1. LOGIN CHECK
+      // =================================================
+
+      if (!user) {
+        setLocalError(
+          "कृपया पहले लॉगिन करें"
+        );
+        return;
+      }
+
+      // =================================================
+      // 2. SIX DIGIT CHECK
+      // =================================================
 
       if (
         numbers.some(
@@ -497,10 +529,6 @@ const BuyTicket = () => {
         );
         return;
       }
-
-      // ===============================================
-      // CREATE LOTTERY NUMBER
-      // ===============================================
 
       const lotteryNumber =
         numbers.join("");
@@ -516,9 +544,9 @@ const BuyTicket = () => {
         return;
       }
 
-      // ===============================================
-      // CHECK LOTTERY CONFIG
-      // ===============================================
+      // =================================================
+      // 3. LOTTERY CONFIG CHECK
+      // =================================================
 
       if (!lotteryConfig?._id) {
         setLocalError(
@@ -534,82 +562,169 @@ const BuyTicket = () => {
         return;
       }
 
-      // ===============================================
-      // CHECK AMOUNT
-      // ===============================================
+      // =================================================
+      // 4. TICKET PRICE CHECK
+      // =================================================
 
-      const amount =
+      const totalTicketBalance =
         Number(ticketPriceFromApi);
 
-      if (!amount || amount <= 0) {
+      if (
+        !Number.isFinite(
+          totalTicketBalance
+        ) ||
+        totalTicketBalance <= 0
+      ) {
         setLocalError(
           "टिकट की कीमत उपलब्ध नहीं है"
         );
         return;
       }
 
-      // ===============================================
-      // CREATE QWACKPAY PAYMENT
-      // ===============================================
+      // =================================================
+      // 5. WALLET BALANCE CHECK
+      // =================================================
 
-      // New QwackPay flow does not use the old
-      // getGatewaysUser / VoterX gateway slice.
-      // Backend resolves the active QwackPay gateway
-      // from channel: "qwackpay".
-
-      const response = await dispatch(
-        createDeposit({
-          paymentMethod: "INR",
-          channel: "qwackpay",
-          amount,
-          utr: "",
-          configId: lotteryConfig._id,
-          number: lotteryNumber,
-        })
-      ).unwrap();
-
-      // ===============================================
-      // PAYMENT URL
-      // ===============================================
-
-      const paymentUrl =
-        response?.paymentUrl ||
-        response?.data?.paymentUrl ||
-        response?.data?.payment_url;
-
-      if (!paymentUrl) {
-        setLocalError(
-          "QwackPay payment URL प्राप्त नहीं हुई"
+      const currentWalletBalance =
+        Number(
+          user?.balance ??
+            user?.walletBalance ??
+            user?.wallet ??
+            user?.walletAmount ??
+            0
         );
+
+      console.log(
+        "========== LOTTERY PURCHASE =========="
+      );
+
+      console.log(
+        "Wallet Balance:",
+        currentWalletBalance
+      );
+
+      console.log(
+        "Ticket Amount:",
+        totalTicketBalance
+      );
+
+      console.log(
+        "Lottery Number:",
+        lotteryNumber
+      );
+
+      console.log(
+        "Lottery Config ID:",
+        lotteryConfig._id
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      // =================================================
+      // 6. INSUFFICIENT BALANCE
+      //
+      // IMPORTANT:
+      // REDUCER YAHAN CALL NAHI HOGA
+      // =================================================
+
+      if (
+        currentWalletBalance <
+        totalTicketBalance
+      ) {
+        const rechargeAmount =
+          Math.max(
+            0,
+            totalTicketBalance -
+              currentWalletBalance
+          );
+
+        setLocalSuccess("");
+
+        setLocalError(
+          `Wallet balance कम है। ₹${rechargeAmount.toFixed(
+            2
+          )} recharge करें।`
+        );
+
+        setTimeout(() => {
+          navigate(
+            `/recharge?amount=${encodeURIComponent(
+              rechargeAmount.toFixed(2)
+            )}`
+          );
+        }, 700);
+
         return;
       }
 
-      // ===============================================
-      // PAYMENT CREATED SUCCESSFULLY
-      // ===============================================
+      // =================================================
+      // 7. BALANCE SUFFICIENT
+      //
+      // AB YAHAN REDUCER CALL HOGA
+      // =================================================
+
+      setLocalError("");
 
       setLocalSuccess(
-        "Payment order तैयार हो गया है..."
+        "टिकट खरीदा जा रहा है..."
       );
 
-      // ===============================================
-      // OPEN VOTERX
-      // ===============================================
+      const response =
+        await dispatch(
+          addUserLotteryEntry({
+            configId:
+              lotteryConfig._id,
 
-      window.location.href =
-        paymentUrl;
+            number:
+              lotteryNumber,
+
+            amount:
+              totalTicketBalance,
+          })
+        ).unwrap();
+
+      console.log(
+        "LOTTERY PURCHASE RESPONSE:",
+        response
+      );
+
+      // =================================================
+      // 8. SUCCESS
+      // =================================================
+
+      setLocalError("");
+
+      setLocalSuccess(
+        response?.message ||
+          "लॉटरी टिकट सफलतापूर्वक खरीद लिया गया है"
+      );
+
+      // Clear selected number
+      setNumbers([
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+      ]);
+
     } catch (error) {
       console.error(
-        "QWACKPAY PAYMENT ERROR:",
+        "LOTTERY PURCHASE ERROR:",
         error
       );
+
+      setLocalSuccess("");
 
       setLocalError(
         typeof error === "string"
           ? error
           : error?.message ||
-          error?.payload?.message ||
-          "QwackPay payment शुरू नहीं हो सका"
+              error?.payload?.message ||
+              "टिकट खरीदने में समस्या हुई"
       );
     }
   };
@@ -619,18 +734,16 @@ const BuyTicket = () => {
   // ===================================================
 
   const displayError =
-    localError ||
-    error ||
-    depositError;
+    localError || error;
 
   // ===================================================
   // DISABLE PURCHASE
   // ===================================================
 
   const isPurchaseDisabled =
-    depositLoading ||
     activeLoading ||
     amountLoading ||
+    purchaseLoading ||
     !lotteryConfig?._id ||
     !lotteryConfig?.isActive ||
     !ticketPriceFromApi ||
@@ -646,9 +759,7 @@ const BuyTicket = () => {
   return (
     <div className="min-h-screen bg-[#050606] text-white pb-28">
 
-      {/* =================================================
-          BANNER
-      ================================================= */}
+      {/* BANNER */}
 
       <section className="w-full">
         <img
@@ -660,539 +771,247 @@ const BuyTicket = () => {
 
       <main className="px-[14px] pt-3">
 
-        {/* =================================================
-            LOTTERY INFO
-        ================================================= */}
+        {/* LOTTERY INFO */}
+
         <section
           id="nvc164"
           className="
-    relative
-    w-full
-    rounded-[18px]
-    border border-[#d7b838]/80
-    bg-[#040505]
-    overflow-hidden
-    shadow-[0_0_20px_rgba(215,184,56,0.10),inset_0_0_35px_rgba(215,184,56,0.04)]
-  "
+            relative
+            w-full
+            rounded-[18px]
+            border border-[#d7b838]/80
+            bg-[#040505]
+            overflow-hidden
+            shadow-[0_0_20px_rgba(215,184,56,0.10),inset_0_0_35px_rgba(215,184,56,0.04)]
+          "
         >
-          {/* Background Glow */}
           <div
             className="
-      absolute inset-0
-      pointer-events-none
-      bg-[radial-gradient(circle_at_18%_50%,rgba(245,206,84,0.10),transparent_35%),radial-gradient(circle_at_82%_50%,rgba(245,206,84,0.08),transparent_35%)]
-    "
-          />
-
-          {/* Top Gold Line */}
-          <div
-            className="
-      absolute
-      top-0
-      left-0
-      right-0
-      h-[1px]
-      bg-gradient-to-r
-      from-transparent
-      via-[#f5ce54]
-      to-transparent
-      opacity-80
-    "
+              absolute inset-0
+              pointer-events-none
+              bg-[radial-gradient(circle_at_18%_50%,rgba(245,206,84,0.10),transparent_35%),radial-gradient(circle_at_82%_50%,rgba(245,206,84,0.08),transparent_35%)]
+            "
           />
 
           <div
             className="
-      relative
-      grid
-      grid-cols-2
-      min-h-[104px]
-      min-[400px]:min-h-[112px]
-      min-[450px]:min-h-[124px]
-    "
+              absolute
+              top-0
+              left-0
+              right-0
+              h-[1px]
+              bg-gradient-to-r
+              from-transparent
+              via-[#f5ce54]
+              to-transparent
+              opacity-80
+            "
+          />
+
+          <div
+            className="
+              relative
+              grid
+              grid-cols-2
+              min-h-[104px]
+              min-[400px]:min-h-[112px]
+              min-[450px]:min-h-[124px]
+            "
           >
-            {/* =====================================================
-        LEFT — NEXT DRAW
-    ===================================================== */}
+
+            {/* NEXT DRAW */}
+
             <div
               className="
-        min-w-0
-        flex
-        items-center
-        gap-[6px]
-        px-[6px]
-        border-r
-        border-[#d7b838]/25
-
-        min-[400px]:gap-[9px]
-        min-[400px]:px-[9px]
-
-        min-[450px]:gap-3
-        min-[450px]:px-3
-      "
+                min-w-0
+                flex
+                items-center
+                gap-[6px]
+                px-[6px]
+                border-r
+                border-[#d7b838]/25
+                min-[400px]:gap-[9px]
+                min-[400px]:px-[9px]
+                min-[450px]:gap-3
+                min-[450px]:px-3
+              "
             >
-              {/* Calendar */}
+
               <div className="shrink-0 flex items-center justify-center">
-                <CalendarIcon
-                  size={21}
-                  strokeWidth={2.5}
-                  className="
-            text-[#f5ce54]
-            w-[21px]
-            h-[21px]
-
-            min-[400px]:w-[25px]
-            min-[400px]:h-[25px]
-
-            min-[450px]:w-[32px]
-            min-[450px]:h-[32px]
-
-            drop-shadow-[0_0_4px_rgba(245,206,84,1)]
-            drop-shadow-[0_0_9px_rgba(245,206,84,0.95)]
-            drop-shadow-[0_0_17px_rgba(245,206,84,0.65)]
-          "
-                />
+                <CalendarIcon />
               </div>
 
-              {/* Draw Text */}
               <div className="min-w-0 flex-1">
+
                 <p
                   className="
-            text-[14px]
-            leading-[1.2]
-            font-medium
-            text-white/95
-            whitespace-nowrap
-
-            min-[400px]:text-[16px]
-
-            min-[450px]:text-[19px]
-          "
+                    text-[14px]
+                    leading-[1.2]
+                    font-medium
+                    text-white/95
+                    whitespace-nowrap
+                    min-[400px]:text-[16px]
+                    min-[450px]:text-[19px]
+                  "
                 >
                   अगला ड्रॉ (लकी ड्रॉ)
                 </p>
 
                 <p
                   className="
-            mt-[4px]
-            text-[14px]
-            leading-[1.2]
-            font-extrabold
-            text-[#f5ce54]
-            whitespace-nowrap
-            truncate
-            drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
-
-            min-[400px]:text-[17px]
-            min-[400px]:mt-[4px]
-
-            min-[450px]:text-[18px]
-            min-[450px]:mt-[6px]
-          "
+                    mt-[4px]
+                    text-[14px]
+                    leading-[1.2]
+                    font-extrabold
+                    text-[#f5ce54]
+                    whitespace-nowrap
+                    truncate
+                    drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+                    min-[400px]:text-[17px]
+                    min-[450px]:text-[18px]
+                  "
                 >
-                  {activeLoading ? "लोड हो रहा है..." : drawDateText}
+                  {activeLoading
+                    ? "लोड हो रहा है..."
+                    : drawDateText}
                 </p>
+
               </div>
             </div>
 
-            {/* =====================================================
-        RIGHT — COUNTDOWN
-    ===================================================== */}
+            {/* COUNTDOWN */}
+
             <div
               className="
-        min-w-0
-        flex
-        flex-col
-        justify-center
-        px-[6px]
-
-        min-[400px]:px-[9px]
-
-        min-[450px]:px-4
-      "
+                min-w-0
+                flex
+                flex-col
+                justify-center
+                px-[6px]
+                min-[400px]:px-[9px]
+                min-[450px]:px-4
+              "
             >
-              {/* Countdown Heading */}
+
               <div
                 className="
-          flex
-          items-center
-          gap-[4px]
-          min-w-0
-
-          min-[400px]:gap-[6px]
-
-          min-[450px]:gap-2
-        "
+                  flex
+                  items-center
+                  gap-[4px]
+                  min-w-0
+                  min-[400px]:gap-[6px]
+                  min-[450px]:gap-2
+                "
               >
+
                 <div className="shrink-0 flex items-center justify-center">
-                  <ClockIcon
-                    size={20}
-                    strokeWidth={2.5}
-                    className="
-              text-[#f5ce54]
-              w-[20px]
-              h-[20px]
-
-              min-[400px]:w-[23px]
-              min-[400px]:h-[23px]
-
-              min-[450px]:w-[30px]
-              min-[450px]:h-[30px]
-
-              drop-shadow-[0_0_4px_rgba(245,206,84,1)]
-              drop-shadow-[0_0_9px_rgba(245,206,84,0.95)]
-              drop-shadow-[0_0_17px_rgba(245,206,84,0.65)]
-            "
-                  />
+                  <ClockIcon />
                 </div>
 
                 <span
                   className="
-           
-            text-[14px]
-            leading-[1.2]
-            font-medium
-            text-white/95
-            whitespace-nowrap
-
-            min-[400px]:text-[17px]
-
-            min-[450px]:text-[20px]
-          "
+                    text-[14px]
+                    leading-[1.2]
+                    font-medium
+                    text-white/95
+                    whitespace-nowrap
+                    min-[400px]:text-[17px]
+                    min-[450px]:text-[20px]
+                  "
                 >
-                  {countdown.expired ? "लकी ड्रॉ" : "ड्रा शुरू होने में"}
+                  {countdown.expired
+                    ? "लकी ड्रॉ"
+                    : "ड्रा शुरू होने में"}
                 </span>
+
               </div>
 
-              {/* Countdown */}
               <div
                 className="
-          mt-[6px]
-          w-full
-          min-w-0
-
-          min-[400px]:mt-[10px]
-
-          min-[450px]:mt-[12px]
-        "
+                  mt-[6px]
+                  w-full
+                  min-w-0
+                  min-[400px]:mt-[10px]
+                  min-[450px]:mt-[12px]
+                "
               >
+
                 {!countdown.available ? (
                   <p
                     className="
-              text-[10px]
-              font-bold
-              text-[#f5ce54]
-              whitespace-nowrap
-
-              min-[400px]:text-[12px]
-
-              min-[450px]:text-[17px]
-            "
+                      text-[10px]
+                      font-bold
+                      text-[#f5ce54]
+                      whitespace-nowrap
+                      min-[400px]:text-[12px]
+                      min-[450px]:text-[17px]
+                    "
                   >
                     टाइमर उपलब्ध नहीं
                   </p>
                 ) : countdown.expired ? (
                   <p
                     className="
-              text-[10px]
-              font-extrabold
-              text-[#f5ce54]
-              whitespace-nowrap
-
-              min-[400px]:text-[12px]
-
-              min-[450px]:text-[17px]
-            "
+                      text-[10px]
+                      font-extrabold
+                      text-[#f5ce54]
+                      whitespace-nowrap
+                      min-[400px]:text-[12px]
+                      min-[450px]:text-[17px]
+                    "
                   >
                     ड्रा शुरू हो गया
                   </p>
                 ) : (
                   <div
                     className="
-              flex
-              items-center
-              justify-center
-              w-full
-              min-w-0
-              gap-[2px]
-
-              min-[400px]:gap-[3px]
-
-              min-[450px]:gap-0
-            "
+                      flex
+                      items-center
+                      justify-center
+                      w-full
+                      min-w-0
+                      gap-[2px]
+                      min-[400px]:gap-[3px]
+                      min-[450px]:gap-0
+                    "
                   >
-                    {/* ================= DAYS ================= */}
-                    <div
-                      className="
-                shrink-0
-                w-[27px]
-                text-center
 
-                min-[400px]:w-[34px]
+                    <CountdownItem
+                      value={countdown.days}
+                      label="दिन"
+                    />
 
-                min-[450px]:flex-1
-                min-[450px]:w-auto
-              "
-                    >
-                      <div
-                        className="
-                  text-[15px]
-                  leading-none
-                  font-extrabold
-                  text-[#f5ce54]
-                  drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+                    <Colon />
 
-                  min-[400px]:text-[18px]
+                    <CountdownItem
+                      value={countdown.hours}
+                      label="घंटे"
+                    />
 
-                  min-[450px]:text-[25px]
-                "
-                      >
-                        {String(countdown.days).padStart(2, "0")}
-                      </div>
+                    <Colon />
 
-                      <div
-                        className="
-                  mt-[3px]
-                  text-[5px]
-                  leading-none
-                  font-medium
-                  text-white/65
+                    <CountdownItem
+                      value={countdown.minutes}
+                      label="मिनट"
+                    />
 
-                  min-[400px]:text-[6px]
+                    <Colon />
 
-                  min-[450px]:text-[9px]
-                "
-                      >
-                        दिन
-                      </div>
-                    </div>
+                    <CountdownItem
+                      value={countdown.seconds}
+                      label="सेकंड"
+                    />
 
-                    {/* ================= COLON ================= */}
-                    <span
-                      className="
-                shrink-0
-                flex
-                items-center
-                justify-center
-                w-[8px]
-                h-[22px]
-                text-[11px]
-                leading-none
-                font-bold
-                text-[#f5ce54]
-
-                min-[400px]:w-[10px]
-                min-[400px]:h-[25px]
-                min-[400px]:text-[14px]
-
-                min-[450px]:w-auto
-                min-[450px]:h-auto
-                min-[450px]:px-[1px]
-                min-[450px]:text-[20px]
-              "
-                    >
-                      :
-                    </span>
-
-                    {/* ================= HOURS ================= */}
-                    <div
-                      className="
-                shrink-0
-                w-[27px]
-                text-center
-
-                min-[400px]:w-[34px]
-
-                min-[450px]:flex-1
-                min-[450px]:w-auto
-              "
-                    >
-                      <div
-                        className="
-                  text-[15px]
-                  leading-none
-                  font-extrabold
-                  text-[#f5ce54]
-                  drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
-
-                  min-[400px]:text-[18px]
-
-                  min-[450px]:text-[25px]
-                "
-                      >
-                        {String(countdown.hours).padStart(2, "0")}
-                      </div>
-
-                      <div
-                        className="
-                  mt-[3px]
-                  text-[5px]
-                  leading-none
-                  font-medium
-                  text-white/65
-
-                  min-[400px]:text-[6px]
-
-                  min-[450px]:text-[9px]
-                "
-                      >
-                        घंटे
-                      </div>
-                    </div>
-
-                    {/* ================= COLON ================= */}
-                    <span
-                      className="
-                shrink-0
-                flex
-                items-center
-                justify-center
-                w-[8px]
-                h-[22px]
-                text-[11px]
-                leading-none
-                font-bold
-                text-[#f5ce54]
-
-                min-[400px]:w-[10px]
-                min-[400px]:h-[25px]
-                min-[400px]:text-[14px]
-
-                min-[450px]:w-auto
-                min-[450px]:h-auto
-                min-[450px]:px-[1px]
-                min-[450px]:text-[20px]
-              "
-                    >
-                      :
-                    </span>
-
-                    {/* ================= MINUTES ================= */}
-                    <div
-                      className="
-                shrink-0
-                w-[27px]
-                text-center
-
-                min-[400px]:w-[34px]
-
-                min-[450px]:flex-1
-                min-[450px]:w-auto
-              "
-                    >
-                      <div
-                        className="
-                  text-[15px]
-                  leading-none
-                  font-extrabold
-                  text-[#f5ce54]
-                  drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
-
-                  min-[400px]:text-[18px]
-
-                  min-[450px]:text-[25px]
-                "
-                      >
-                        {String(countdown.minutes).padStart(2, "0")}
-                      </div>
-
-                      <div
-                        className="
-                  mt-[3px]
-                  text-[5px]
-                  leading-none
-                  font-medium
-                  text-white/65
-
-                  min-[400px]:text-[6px]
-
-                  min-[450px]:text-[9px]
-                "
-                      >
-                        मिनट
-                      </div>
-                    </div>
-
-                    {/* ================= COLON ================= */}
-                    <span
-                      className="
-                shrink-0
-                flex
-                items-center
-                justify-center
-                w-[8px]
-                h-[22px]
-                text-[11px]
-                leading-none
-                font-bold
-                text-[#f5ce54]
-
-                min-[400px]:w-[10px]
-                min-[400px]:h-[25px]
-                min-[400px]:text-[14px]
-
-                min-[450px]:w-auto
-                min-[450px]:h-auto
-                min-[450px]:px-[1px]
-                min-[450px]:text-[20px]
-              "
-                    >
-                      :
-                    </span>
-
-                    {/* ================= SECONDS ================= */}
-                    <div
-                      className="
-                shrink-0
-                w-[27px]
-                text-center
-
-                min-[400px]:w-[34px]
-
-                min-[450px]:flex-1
-                min-[450px]:w-auto
-              "
-                    >
-                      <div
-                        className="
-                  text-[15px]
-                  leading-none
-                  font-extrabold
-                  text-[#f5ce54]
-                  drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
-
-                  min-[400px]:text-[18px]
-
-                  min-[450px]:text-[25px]
-                "
-                      >
-                        {String(countdown.seconds).padStart(2, "0")}
-                      </div>
-
-                      <div
-                        className="
-                  mt-[3px]
-                  text-[5px]
-                  leading-none
-                  font-medium
-                  text-white/65
-
-                  min-[400px]:text-[6px]
-
-                  min-[450px]:text-[9px]
-                "
-                      >
-                        सेकंड
-                      </div>
-                    </div>
                   </div>
                 )}
+
               </div>
             </div>
+
           </div>
         </section>
-        {/* =================================================
-            PRIZES
-        ================================================= */}
+
+        {/* PRIZES */}
 
         <section className="mt-3">
 
@@ -1233,11 +1052,17 @@ const BuyTicket = () => {
 
         </section>
 
-        {/* =================================================
-            NUMBER SELECTION
-        ================================================= */}
+        {/* NUMBER SELECTION */}
 
-        <section className="mt-3 rounded-[18px] border border-[#353535] bg-[#080a0a] p-3">
+        <section
+          className="
+            mt-3
+            rounded-[18px]
+            border border-[#353535]
+            bg-[#080a0a]
+            p-3
+          "
+        >
 
           <div className="flex items-center justify-between">
 
@@ -1255,11 +1080,21 @@ const BuyTicket = () => {
               type="button"
               onClick={generateRandom}
               disabled={
-                depositLoading ||
                 activeLoading ||
+                purchaseLoading ||
                 !lotteryConfig?.isActive
               }
-              className="flex items-center gap-2 bg-[#171a1b] border border-[#252828] rounded-lg px-3 py-2 disabled:opacity-50"
+              className="
+                flex
+                items-center
+                gap-2
+                bg-[#171a1b]
+                border border-[#252828]
+                rounded-lg
+                px-3
+                py-2
+                disabled:opacity-50
+              "
             >
 
               <ShuffleIcon />
@@ -1272,9 +1107,7 @@ const BuyTicket = () => {
 
           </div>
 
-          {/* =================================================
-              SIX DIGIT INPUTS
-          ================================================= */}
+          {/* SIX DIGIT INPUTS */}
 
           <div className="grid grid-cols-6 gap-[7px] mt-4">
 
@@ -1301,19 +1134,32 @@ const BuyTicket = () => {
                     )
                   }
                   disabled={
-                    depositLoading ||
-                    activeLoading
+                    activeLoading ||
+                    purchaseLoading
                   }
-                  className="w-full h-[62px] rounded-[10px] border border-[#e2c540] bg-[#101416] text-center text-[25px] font-bold text-[#d7dadd] outline-none placeholder:text-white/20 focus:border-[#ffd94f] focus:shadow-[0_0_12px_rgba(245,197,66,0.18)] disabled:opacity-60"
+                  className="
+                    w-full
+                    h-[62px]
+                    rounded-[10px]
+                    border border-[#e2c540]
+                    bg-[#101416]
+                    text-center
+                    text-[25px]
+                    font-bold
+                    text-[#d7dadd]
+                    outline-none
+                    placeholder:text-white/20
+                    focus:border-[#ffd94f]
+                    focus:shadow-[0_0_12px_rgba(245,197,66,0.18)]
+                    disabled:opacity-60
+                  "
                 />
               )
             )}
 
           </div>
 
-          {/* =================================================
-              INFO
-          ================================================= */}
+          {/* INFO */}
 
           <div className="flex items-center justify-center gap-2 mt-4">
 
@@ -1326,55 +1172,74 @@ const BuyTicket = () => {
 
           </div>
 
-          {/* =================================================
-              CLEAR
-          ================================================= */}
+          {/* CLEAR */}
 
           <div className="flex justify-center mt-2">
 
             <button
               type="button"
               onClick={clearNumbers}
-              disabled={depositLoading}
-              className="text-[11px] text-white/45 underline underline-offset-2 disabled:opacity-40"
+              disabled={purchaseLoading}
+              className="
+                text-[11px]
+                text-white/45
+                underline
+                underline-offset-2
+                disabled:opacity-40
+              "
             >
               नंबर साफ करें
             </button>
 
           </div>
 
-          {/* =================================================
-              ERROR
-          ================================================= */}
+          {/* ERROR */}
 
           {displayError && (
-            <div className="mt-3 rounded-[10px] border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-[12px] text-red-300">
+            <div
+              className="
+                mt-3
+                rounded-[10px]
+                border border-red-500/30
+                bg-red-500/10
+                px-3
+                py-2
+                text-center
+                text-[12px]
+                text-red-300
+              "
+            >
               {typeof displayError === "string"
                 ? displayError
                 : displayError?.message ||
-                "Payment gateway में समस्या हुई"}
+                  "टिकट खरीदने में समस्या हुई"}
             </div>
           )}
 
-          {/* =================================================
-              SUCCESS
-          ================================================= */}
+          {/* SUCCESS */}
 
-          {localSuccess && !displayError && (
-            <div className="mt-3 rounded-[10px] border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-center text-[12px] text-emerald-300">
-              {localSuccess}
-            </div>
-          )}
-
-          {/* =================================================
-              DIVIDER
-          ================================================= */}
+          {localSuccess &&
+            !displayError && (
+              <div
+                className="
+                  mt-3
+                  rounded-[10px]
+                  border border-emerald-500/30
+                  bg-emerald-500/10
+                  px-3
+                  py-2
+                  text-center
+                  text-[12px]
+                  text-emerald-300
+                "
+              >
+                {localSuccess}
+              </div>
+            )}
 
           <div className="h-px bg-[#393939] my-4" />
 
-          {/* =================================================
-              PRICE
-          ================================================= */}
+          {/* PRICE */}
 
           <div className="grid grid-cols-2 items-center">
 
@@ -1388,7 +1253,15 @@ const BuyTicket = () => {
                   टिकट की कीमत
                 </p>
 
-                <p className="text-[31px] leading-none font-extrabold text-[#f5ce54] mt-1">
+                <p
+                  className="
+                    text-[31px]
+                    leading-none
+                    font-extrabold
+                    text-[#f5ce54]
+                    mt-1
+                  "
+                >
                   {amountLoading
                     ? "..."
                     : TICKET_PRICE > 0
@@ -1410,63 +1283,122 @@ const BuyTicket = () => {
 
           </div>
 
-          {/* =================================================
-              BUY BUTTON
-          ================================================= */}
+          {/* BUY BUTTON */}
 
           <button
             type="button"
             onClick={handlePurchase}
             disabled={isPurchaseDisabled}
-            className="relative w-full h-[60px] mt-4 rounded-[14px] overflow-hidden bg-gradient-to-b from-[#fff59a] via-[#ffd84a] to-[#f4c21f] text-black text-[20px] font-extrabold flex items-center justify-center gap-3 border border-[#fff8c7] shadow-[0_0_12px_rgba(255,221,55,0.95),0_0_28px_rgba(255,210,35,0.75),0_0_55px_rgba(255,200,20,0.5),0_8px_30px_rgba(255,205,30,0.35),inset_0_2px_0_rgba(255,255,255,0.98),inset_0_-4px_8px_rgba(180,120,0,0.18)] active:scale-[0.98] transition-all duration-200 hover:brightness-110 hover:shadow-[0_0_16px_rgba(255,230,70,1),0_0_35px_rgba(255,215,40,0.9),0_0_70px_rgba(255,200,20,0.6),0_10px_35px_rgba(255,205,30,0.45)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:brightness-100"
+            className="
+              relative
+              w-full
+              h-[60px]
+              mt-4
+              rounded-[14px]
+              overflow-hidden
+              bg-gradient-to-b
+              from-[#fff59a]
+              via-[#ffd84a]
+              to-[#f4c21f]
+              text-black
+              text-[20px]
+              font-extrabold
+              flex
+              items-center
+              justify-center
+              gap-3
+              border border-[#fff8c7]
+              shadow-[0_0_12px_rgba(255,221,55,0.95),0_0_28px_rgba(255,210,35,0.75),0_0_55px_rgba(255,200,20,0.5),0_8px_30px_rgba(255,205,30,0.35),inset_0_2px_0_rgba(255,255,255,0.98),inset_0_-4px_8px_rgba(180,120,0,0.18)]
+              active:scale-[0.98]
+              transition-all
+              duration-200
+              hover:brightness-110
+              disabled:cursor-not-allowed
+              disabled:opacity-60
+            "
           >
-            {/* TOP SHINE */}
-            <span className="absolute top-0 left-[8%] right-[8%] h-[2px] bg-white/95 blur-[0.5px]" />
 
-            {/* SOFT CENTER GLOW */}
-            <span className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,220,0.5),transparent_55%)] pointer-events-none" />
+            <span
+              className="
+                absolute
+                top-0
+                left-[8%]
+                right-[8%]
+                h-[2px]
+                bg-white/95
+                blur-[0.5px]
+              "
+            />
+
+            <span
+              className="
+                absolute
+                inset-0
+                bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,220,0.5),transparent_55%)]
+                pointer-events-none
+              "
+            />
 
             <Ticket
               size={35}
               strokeWidth={2.5}
-              className={`relative z-10 text-[#090909] rotate-[-17deg] shrink-0 ${iconGlow}`}
+              className={`
+                relative
+                z-10
+                text-[#090909]
+                rotate-[-17deg]
+                shrink-0
+                ${iconGlow}
+              `}
             />
 
             <span className="relative z-10">
-              {depositLoading
-                ? "QwackPay खोला जा रहा है..."
+
+              {purchaseLoading
+                ? "टिकट खरीदा जा रहा है..."
                 : `अभी खरीदें - ₹${TICKET_PRICE}`}
+
             </span>
 
-            {!depositLoading && (
-              <span className="relative z-10 text-[30px] leading-none font-bold">
-                →
-              </span>
-            )}
+            <span
+              className="
+                relative
+                z-10
+                text-[30px]
+                leading-none
+                font-bold
+              "
+            >
+              →
+            </span>
+
           </button>
 
-
-          {/* =================================================
-              PAYMENT INFO
-          ================================================= */}
+          {/* PAYMENT INFO */}
 
           <div className="flex items-center justify-center gap-2 mt-3">
 
             <LockIcon />
 
             <span className="text-[12px] text-white/50">
-              सुरक्षित भुगतान | QwackPay
+              सुरक्षित Wallet | Instant Ticket
             </span>
 
           </div>
 
         </section>
 
-        {/* =================================================
-            FEATURES
-        ================================================= */}
+        {/* FEATURES */}
 
-        <section className="mt-3 rounded-[18px] border border-[#282828] bg-[#080a0a] py-4">
+        <section
+          className="
+            mt-3
+            rounded-[18px]
+            border border-[#282828]
+            bg-[#080a0a]
+            py-4
+          "
+        >
 
           <div className="grid grid-cols-4">
 
@@ -1501,6 +1433,84 @@ const BuyTicket = () => {
 };
 
 // =====================================================
+// COUNTDOWN ITEM
+// =====================================================
+
+const CountdownItem = ({
+  value,
+  label,
+}) => (
+  <div
+    className="
+      shrink-0
+      w-[27px]
+      text-center
+      min-[400px]:w-[34px]
+      min-[450px]:flex-1
+      min-[450px]:w-auto
+    "
+  >
+    <div
+      className="
+        text-[15px]
+        leading-none
+        font-extrabold
+        text-[#f5ce54]
+        drop-shadow-[0_0_6px_rgba(245,206,84,0.45)]
+        min-[400px]:text-[18px]
+        min-[450px]:text-[25px]
+      "
+    >
+      {String(value).padStart(2, "0")}
+    </div>
+
+    <div
+      className="
+        mt-[3px]
+        text-[5px]
+        leading-none
+        font-medium
+        text-white/65
+        min-[400px]:text-[6px]
+        min-[450px]:text-[9px]
+      "
+    >
+      {label}
+    </div>
+  </div>
+);
+
+// =====================================================
+// COLON
+// =====================================================
+
+const Colon = () => (
+  <span
+    className="
+      shrink-0
+      flex
+      items-center
+      justify-center
+      w-[8px]
+      h-[22px]
+      text-[11px]
+      leading-none
+      font-bold
+      text-[#f5ce54]
+      min-[400px]:w-[10px]
+      min-[400px]:h-[25px]
+      min-[400px]:text-[14px]
+      min-[450px]:w-auto
+      min-[450px]:h-auto
+      min-[450px]:px-[1px]
+      min-[450px]:text-[20px]
+    "
+  >
+    :
+  </span>
+);
+
+// =====================================================
 // PRIZE CARD
 // =====================================================
 
@@ -1511,7 +1521,19 @@ const PrizeCard = ({
   image,
 }) => (
   <div
-    className="relative w-full h-[194px] rounded-[13px] overflow-hidden border border-[#d7b544] flex flex-col items-center text-center px-1"
+    className="
+      relative
+      w-full
+      h-[194px]
+      rounded-[13px]
+      overflow-hidden
+      border border-[#d7b544]
+      flex
+      flex-col
+      items-center
+      text-center
+      px-1
+    "
     style={{
       backgroundImage: `url(${image})`,
       backgroundSize: "cover",
@@ -1519,19 +1541,48 @@ const PrizeCard = ({
       backgroundRepeat: "no-repeat",
     }}
   >
+
     <div className="absolute inset-0 bg-black/[0.06] pointer-events-none" />
 
     <div className="relative z-10 w-full flex flex-col items-center">
 
-      <p className="mt-[15px] text-[12px] text-white font-semibold leading-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)]">
+      <p
+        className="
+          mt-[15px]
+          text-[12px]
+          text-white
+          font-semibold
+          leading-none
+          drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)]
+        "
+      >
         {title}
       </p>
 
-      <p className="mt-[13px] text-[25px] font-extrabold text-[#fff0a3] leading-none whitespace-nowrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+      <p
+        className="
+          mt-[13px]
+          text-[25px]
+          font-extrabold
+          text-[#fff0a3]
+          leading-none
+          whitespace-nowrap
+          drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]
+        "
+      >
         {amount}
       </p>
 
-      <p className="mt-[9px] text-[10px] text-white font-medium leading-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)]">
+      <p
+        className="
+          mt-[9px]
+          text-[10px]
+          text-white
+          font-medium
+          leading-none
+          drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)]
+        "
+      >
         {condition}
       </p>
 

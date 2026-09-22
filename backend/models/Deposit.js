@@ -1,221 +1,129 @@
 const mongoose = require("mongoose");
 
-const depositSchema =
-  new mongoose.Schema(
-    {
-      userId: {
-        type: mongoose.Schema.Types.ObjectId,
+const depositSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
 
-        ref: "User",
+    gatewayId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AdminGateway",
+      default: null,
+    },
 
-        required: true,
-      },
+    // ===============================================
+    // LOTTERY CONFIG
+    // ===============================================
 
-      gatewayId: {
-        type: mongoose.Schema.Types.ObjectId,
+    configId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "LotteryConfig",
+      default: null,
+      index: true,
+    },
 
-        ref: "AdminGateway",
+    entryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
 
-        default: null,
-      },
-
-      // ===============================================
-      // LOTTERY CONFIG
-      // ===============================================
-
-      configId: {
-        type: mongoose.Schema.Types.ObjectId,
-
-        ref: "LotteryConfig",
-
-        default: null,
-
-        index: true,
-      },
-
-      // ===============================================
-      // LOTTERY ENTRY
-      // ===============================================
-
-      entryId: {
-        type: mongoose.Schema.Types.ObjectId,
-
-        default: null,
-
-        index: true,
-      },
-
-      // ===============================================
-      // LOTTERY NUMBER
-      // ===============================================
-
-      number: {
-        type: String,
-
-        default: null,
-
-        validate: {
-          validator: function (value) {
-            if (
-              value === null ||
-              value === ""
-            ) {
-              return true;
-            }
-
-            return /^\d{6}$/.test(
-              String(value)
-            );
-          },
-
-          message:
-            "Lottery number must be exactly 6 digits",
+    number: {
+      type: String,
+      default: null,
+      validate: {
+        validator: function (value) {
+          if (value === null || value === "") return true;
+          return /^\d{6}$/.test(String(value));
         },
-      },
-
-      // ===============================================
-      // USER DETAILS
-      // ===============================================
-
-      uid: {
-        type: String,
-
-        default: "",
-      },
-
-      phone: {
-        type: String,
-
-        required: true,
-      },
-
-      username: {
-        type: String,
-
-        default: "",
-      },
-
-      // ===============================================
-      // ORDER
-      // ===============================================
-
-      orderId: {
-        type: String,
-
-        unique: true,
-
-        required: true,
-      },
-
-      paymentMethod: {
-        type: String,
-
-        default: "",
-      },
-
-      type: {
-        type: String,
-
-        default: "",
-      },
-
-      channel: {
-        type: String,
-
-        default: "",
-      },
-
-      // ===============================================
-      // AMOUNT
-      // ===============================================
-
-      amount: {
-        type: Number,
-
-        required: true,
-
-        min: 0,
-      },
-
-      exchangeRate: {
-        type: Number,
-
-        default: 0,
-      },
-
-      // ===============================================
-      // TRANSACTION
-      // ===============================================
-
-      transactionId: {
-        type: String,
-
-        default: "",
-      },
-
-      utr: {
-        type: String,
-
-        default: "",
-      },
-
-      paymentProof: {
-        type: String,
-
-        default: "",
-      },
-
-      paymentUrl: {
-        type: String,
-
-        default: "",
-      },
-
-      // ===============================================
-      // STATUS
-      // 0 = pending
-      // 1 = success
-      // 2 = failed
-      // ===============================================
-
-      status: {
-        type: Number,
-
-        enum: [0, 1, 2],
-
-        default: 0,
-
-        index: true,
-      },
-
-      adminRemark: {
-        type: String,
-
-        default: "",
+        message: "Lottery number must be exactly 6 digits",
       },
     },
 
-    {
-      timestamps: true,
-    }
-  );
+    // ===============================================
+    // USER DETAILS
+    // ===============================================
+
+    uid: { type: String, default: "" },
+    phone: { type: String, required: true },
+    username: { type: String, default: "" },
+
+    // ===============================================
+    // ORDER
+    // ===============================================
+
+    orderId: {
+      type: String,
+      unique: true,
+      required: true,
+    },
+
+    paymentMethod: { type: String, default: "" },
+    type: { type: String, default: "" },
+    channel: { type: String, default: "" },
+
+    // ===============================================
+    // AMOUNT
+    // ===============================================
+
+    amount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    exchangeRate: { type: Number, default: 0 },
+
+    // ===============================================
+    // TRANSACTION
+    // ===============================================
+
+    transactionId: { type: String, default: "" },
+    utr: { type: String, default: "" },
+    paymentProof: { type: String, default: "" },
+    paymentUrl: { type: String, default: "" },
+
+    // ===============================================
+    // STATUS
+    // 0 = pending
+    // 1 = success
+    // 2 = failed
+    // 3 = cancelled   <-- NEW
+    // ===============================================
+
+    status: {
+      type: Number,
+      enum: [0, 1, 2, 3],
+      default: 0,
+      index: true,
+    },
+
+    adminRemark: { type: String, default: "" },
+
+    // ===============================================
+    // CANCEL META  <-- NEW
+    // ===============================================
+
+    cancelReason: { type: String, default: "" },
+    cancelledAt: { type: Date, default: null },
+    cancelledBy: {
+      type: String,
+      enum: ["USER", "ADMIN", "SYSTEM", ""],
+      default: "",
+    },
+  },
+  { timestamps: true }
+);
 
 // =====================================================
 // INDEX
 // =====================================================
 
-depositSchema.index({
-  userId: 1,
-  createdAt: -1,
-});
+depositSchema.index({ userId: 1, createdAt: -1 });
+depositSchema.index({ configId: 1, entryId: 1 });
+depositSchema.index({ status: 1, createdAt: -1 });
 
-depositSchema.index({
-  configId: 1,
-  entryId: 1,
-});
-
-module.exports =
-  mongoose.model(
-    "Deposit",
-    depositSchema
-  );
+module.exports = mongoose.model("Deposit", depositSchema);
