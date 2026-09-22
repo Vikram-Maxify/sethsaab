@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 import {
@@ -66,7 +66,7 @@ const LotteryConfig = () => {
   const dispatch = useDispatch();
 
   // ===================================================
-  // REDUX
+  // LOTTERY CONFIG SLICE
   // ===================================================
 
   const lotteryState = useSelector(
@@ -83,6 +83,53 @@ const LotteryConfig = () => {
     error = null,
     successMessage = null,
   } = lotteryState;
+
+  // ===================================================
+  // USERS (adminAuth slice) — for name lookup
+  // ===================================================
+
+  const {
+    users = [],
+    usersLoading = false,
+  } = useSelector((state) => state.adminAuth || {});
+
+  // ===================================================
+  // USER LOOKUP MAP  (userId -> user object)
+  // ===================================================
+
+  const userMap = useMemo(() => {
+    const map = {};
+
+    (users || []).forEach((u) => {
+      if (u?._id) {
+        map[String(u._id)] = u;
+      }
+    });
+
+    return map;
+  }, [users]);
+
+  // ===================================================
+  // RESOLVE USER NAME FROM userId
+  // ===================================================
+
+  const getUserName = (userId) => {
+    if (!userId) return "-";
+
+    const user = userMap[String(userId)];
+
+    if (!user) {
+      return usersLoading ? "Loading..." : String(userId);
+    }
+
+    return (
+      user.name ||
+      user.fullName ||
+      user.username ||
+      user.email ||
+      String(userId)
+    );
+  };
 
   // ===================================================
   // FORM STATE
@@ -162,12 +209,8 @@ const LotteryConfig = () => {
       return "Draw time is required.";
     }
 
-    // =================================================
     // DATE VALIDATION
-    // =================================================
-
     const today = new Date();
-
     today.setHours(0, 0, 0, 0);
 
     const selectedDate = new Date(
@@ -184,10 +227,7 @@ const LotteryConfig = () => {
       return "Past draw date cannot be selected.";
     }
 
-    // =================================================
     // TIME VALIDATION
-    // =================================================
-
     if (
       !/^([01]\d|2[0-3]):([0-5]\d)$/.test(
         formData.drawTime
@@ -196,10 +236,7 @@ const LotteryConfig = () => {
       return "Invalid draw time.";
     }
 
-    // =================================================
     // FIRST PRIZE
-    // =================================================
-
     if (
       formData.firstPrize === "" ||
       formData.firstPrize === null ||
@@ -208,10 +245,7 @@ const LotteryConfig = () => {
       return "First prize is required.";
     }
 
-    // =================================================
     // SECOND PRIZE
-    // =================================================
-
     if (
       formData.secondPrize === "" ||
       formData.secondPrize === null ||
@@ -220,10 +254,7 @@ const LotteryConfig = () => {
       return "Second prize is required.";
     }
 
-    // =================================================
     // THIRD PRIZE
-    // =================================================
-
     if (
       formData.thirdPrize === "" ||
       formData.thirdPrize === null ||
@@ -232,52 +263,20 @@ const LotteryConfig = () => {
       return "Third prize is required.";
     }
 
-    // =================================================
     // CONVERT PRIZES
-    // =================================================
+    const firstPrize = Number(formData.firstPrize);
+    const secondPrize = Number(formData.secondPrize);
+    const thirdPrize = Number(formData.thirdPrize);
 
-    const firstPrize = Number(
-      formData.firstPrize
-    );
-
-    const secondPrize = Number(
-      formData.secondPrize
-    );
-
-    const thirdPrize = Number(
-      formData.thirdPrize
-    );
-
-    // =================================================
-    // VALIDATE FIRST
-    // =================================================
-
-    if (
-      !Number.isFinite(firstPrize) ||
-      firstPrize < 0
-    ) {
+    if (!Number.isFinite(firstPrize) || firstPrize < 0) {
       return "Please enter a valid first prize.";
     }
 
-    // =================================================
-    // VALIDATE SECOND
-    // =================================================
-
-    if (
-      !Number.isFinite(secondPrize) ||
-      secondPrize < 0
-    ) {
+    if (!Number.isFinite(secondPrize) || secondPrize < 0) {
       return "Please enter a valid second prize.";
     }
 
-    // =================================================
-    // VALIDATE THIRD
-    // =================================================
-
-    if (
-      !Number.isFinite(thirdPrize) ||
-      thirdPrize < 0
-    ) {
+    if (!Number.isFinite(thirdPrize) || thirdPrize < 0) {
       return "Please enter a valid third prize.";
     }
 
@@ -295,87 +294,44 @@ const LotteryConfig = () => {
 
     dispatch(clearLotteryConfigError());
 
-    // VALIDATE
-    const validationMessage =
-      validateCreateForm();
+    const validationMessage = validateCreateForm();
 
     if (validationMessage) {
-      setValidationError(
-        validationMessage
-      );
-
+      setValidationError(validationMessage);
       return;
     }
 
-    // =================================================
-    // PAYLOAD
-    // =================================================
-
     const payload = {
-      marketName:
-        formData.marketName.trim(),
+      marketName: formData.marketName.trim(),
 
-      drawDate:
-        formData.drawDate,
+      drawDate: formData.drawDate,
 
-      drawTime:
-        formData.drawTime,
+      drawTime: formData.drawTime,
 
       prizes: {
-        first: Number(
-          formData.firstPrize
-        ),
-
-        second: Number(
-          formData.secondPrize
-        ),
-
-        third: Number(
-          formData.thirdPrize
-        ),
+        first: Number(formData.firstPrize),
+        second: Number(formData.secondPrize),
+        third: Number(formData.thirdPrize),
       },
     };
 
-    console.log(
-      "CREATE LOTTERY PAYLOAD:",
-      payload
-    );
+    console.log("CREATE LOTTERY PAYLOAD:", payload);
 
     try {
       const result = await dispatch(
         createLotteryConfig(payload)
       );
 
-      console.log(
-        "CREATE LOTTERY RESPONSE:",
-        result
-      );
+      console.log("CREATE LOTTERY RESPONSE:", result);
 
-      // =================================================
-      // SUCCESS
-      // =================================================
-
-      if (
-        createLotteryConfig.fulfilled.match(
-          result
-        )
-      ) {
-        setFormData(
-          getDefaultForm()
-        );
-
+      if (createLotteryConfig.fulfilled.match(result)) {
+        setFormData(getDefaultForm());
         setValidationError("");
 
-        dispatch(
-          getAllLotteryConfigs()
-        );
+        dispatch(getAllLotteryConfigs());
 
         return;
       }
-
-      // =================================================
-      // ERROR FROM REDUX
-      // =================================================
 
       const message =
         result?.payload?.message ||
@@ -389,10 +345,7 @@ const LotteryConfig = () => {
           : "Unable to create lottery."
       );
     } catch (err) {
-      console.error(
-        "CREATE LOTTERY ERROR:",
-        err
-      );
+      console.error("CREATE LOTTERY ERROR:", err);
 
       setValidationError(
         err?.message ||
@@ -414,29 +367,18 @@ const LotteryConfig = () => {
 
     if (!confirmed) return;
 
-    dispatch(
-      clearLotteryConfigError()
-    );
+    dispatch(clearLotteryConfigError());
 
     try {
       const result = await dispatch(
         activateLotteryConfig(id)
       );
 
-      if (
-        activateLotteryConfig.fulfilled.match(
-          result
-        )
-      ) {
-        dispatch(
-          getAllLotteryConfigs()
-        );
+      if (activateLotteryConfig.fulfilled.match(result)) {
+        dispatch(getAllLotteryConfigs());
       }
     } catch (err) {
-      console.error(
-        "ACTIVATE ERROR:",
-        err
-      );
+      console.error("ACTIVATE ERROR:", err);
     }
   };
 
@@ -453,9 +395,7 @@ const LotteryConfig = () => {
 
     if (!confirmed) return;
 
-    dispatch(
-      clearLotteryConfigError()
-    );
+    dispatch(clearLotteryConfigError());
 
     try {
       const result = await dispatch(
@@ -463,19 +403,12 @@ const LotteryConfig = () => {
       );
 
       if (
-        deactivateLotteryConfig.fulfilled.match(
-          result
-        )
+        deactivateLotteryConfig.fulfilled.match(result)
       ) {
-        dispatch(
-          getAllLotteryConfigs()
-        );
+        dispatch(getAllLotteryConfigs());
       }
     } catch (err) {
-      console.error(
-        "DEACTIVATE ERROR:",
-        err
-      );
+      console.error("DEACTIVATE ERROR:", err);
     }
   };
 
@@ -511,22 +444,13 @@ const LotteryConfig = () => {
         deleteLotteryConfig(deleteId)
       );
 
-      if (
-        deleteLotteryConfig.fulfilled.match(
-          result
-        )
-      ) {
+      if (deleteLotteryConfig.fulfilled.match(result)) {
         handleCloseDelete();
 
-        dispatch(
-          getAllLotteryConfigs()
-        );
+        dispatch(getAllLotteryConfigs());
       }
     } catch (err) {
-      console.error(
-        "DELETE ERROR:",
-        err
-      );
+      console.error("DELETE ERROR:", err);
     }
   };
 
@@ -535,13 +459,9 @@ const LotteryConfig = () => {
   // ===================================================
 
   const handleRefresh = () => {
-    dispatch(
-      clearLotteryConfigError()
-    );
+    dispatch(clearLotteryConfigError());
 
-    dispatch(
-      getAllLotteryConfigs()
-    );
+    dispatch(getAllLotteryConfigs());
   };
 
   // ===================================================
@@ -550,13 +470,11 @@ const LotteryConfig = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-
       {/* =================================================
           HEADER
       ================================================= */}
 
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Lottery Configuration
@@ -573,11 +491,8 @@ const LotteryConfig = () => {
           disabled={loading}
           className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading
-            ? "Refreshing..."
-            : "Refresh"}
+          {loading ? "Refreshing..." : "Refresh"}
         </button>
-
       </div>
 
       {/* =================================================
@@ -596,7 +511,6 @@ const LotteryConfig = () => {
 
       {error && (
         <div className="mb-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-
           <span>
             {typeof error === "string"
               ? error
@@ -607,15 +521,12 @@ const LotteryConfig = () => {
           <button
             type="button"
             onClick={() =>
-              dispatch(
-                clearLotteryConfigError()
-              )
+              dispatch(clearLotteryConfigError())
             }
             className="ml-4 text-lg font-bold"
           >
             ×
           </button>
-
         </div>
       )}
 
@@ -634,32 +545,24 @@ const LotteryConfig = () => {
       ================================================= */}
 
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-
         <div className="mb-5">
-
           <h2 className="text-lg font-semibold text-gray-900">
             Create Lottery
           </h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            Create one lottery market for the selected
-            date and time.
+            Create one lottery market for the selected date
+            and time.
           </p>
-
         </div>
 
         <form onSubmit={handleCreate}>
-
-          {/* =================================================
-              MARKET + DATE + TIME
-          ================================================= */}
+          {/* MARKET + DATE + TIME */}
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-
             {/* MARKET NAME */}
 
             <div className="lg:col-span-2">
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Market Name
               </label>
@@ -667,23 +570,17 @@ const LotteryConfig = () => {
               <input
                 type="text"
                 name="marketName"
-                value={
-                  formData.marketName
-                }
-                onChange={
-                  handleFormChange
-                }
+                value={formData.marketName}
+                onChange={handleFormChange}
                 placeholder="Enter market name"
                 required
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
-
             </div>
 
             {/* DRAW DATE */}
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Draw Date
               </label>
@@ -691,13 +588,9 @@ const LotteryConfig = () => {
               <input
                 type="date"
                 name="drawDate"
-                value={
-                  formData.drawDate
-                }
+                value={formData.drawDate}
                 min={getToday()}
-                onChange={
-                  handleFormChange
-                }
+                onChange={handleFormChange}
                 required
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
@@ -705,13 +598,11 @@ const LotteryConfig = () => {
               <p className="mt-1 text-xs text-gray-500">
                 Past dates are not allowed.
               </p>
-
             </div>
 
             {/* DRAW TIME */}
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Draw Time
               </label>
@@ -719,12 +610,8 @@ const LotteryConfig = () => {
               <input
                 type="time"
                 name="drawTime"
-                value={
-                  formData.drawTime
-                }
-                onChange={
-                  handleFormChange
-                }
+                value={formData.drawTime}
+                onChange={handleFormChange}
                 required
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
@@ -732,27 +619,20 @@ const LotteryConfig = () => {
               <p className="mt-1 text-xs text-gray-500">
                 Select draw time.
               </p>
-
             </div>
-
           </div>
 
-          {/* =================================================
-              PRIZES
-          ================================================= */}
+          {/* PRIZES */}
 
           <div className="mt-6">
-
             <label className="mb-3 block text-sm font-medium text-gray-700">
               Prize Amounts
             </label>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-
               {/* 1ST */}
 
               <div>
-
                 <label className="mb-2 block text-xs font-medium text-gray-500">
                   1st Prize
                 </label>
@@ -760,25 +640,19 @@ const LotteryConfig = () => {
                 <input
                   type="number"
                   name="firstPrize"
-                  value={
-                    formData.firstPrize
-                  }
-                  onChange={
-                    handleFormChange
-                  }
+                  value={formData.firstPrize}
+                  onChange={handleFormChange}
                   min="0"
                   step="0.01"
                   placeholder="Enter 1st prize"
                   required
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
-
               </div>
 
               {/* 2ND */}
 
               <div>
-
                 <label className="mb-2 block text-xs font-medium text-gray-500">
                   2nd Prize
                 </label>
@@ -786,25 +660,19 @@ const LotteryConfig = () => {
                 <input
                   type="number"
                   name="secondPrize"
-                  value={
-                    formData.secondPrize
-                  }
-                  onChange={
-                    handleFormChange
-                  }
+                  value={formData.secondPrize}
+                  onChange={handleFormChange}
                   min="0"
                   step="0.01"
                   placeholder="Enter 2nd prize"
                   required
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
-
               </div>
 
               {/* 3RD */}
 
               <div>
-
                 <label className="mb-2 block text-xs font-medium text-gray-500">
                   3rd Prize
                 </label>
@@ -812,45 +680,30 @@ const LotteryConfig = () => {
                 <input
                   type="number"
                   name="thirdPrize"
-                  value={
-                    formData.thirdPrize
-                  }
-                  onChange={
-                    handleFormChange
-                  }
+                  value={formData.thirdPrize}
+                  onChange={handleFormChange}
                   min="0"
                   step="0.01"
                   placeholder="Enter 3rd prize"
                   required
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
-
               </div>
-
             </div>
-
           </div>
 
-          {/* =================================================
-              CREATE BUTTON
-          ================================================= */}
+          {/* CREATE BUTTON */}
 
           <div className="mt-6 flex justify-end">
-
             <button
               type="submit"
               disabled={createLoading}
               className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {createLoading
-                ? "Creating..."
-                : "Create Lottery"}
+              {createLoading ? "Creating..." : "Create Lottery"}
             </button>
-
           </div>
-
         </form>
-
       </div>
 
       {/* =================================================
@@ -858,22 +711,17 @@ const LotteryConfig = () => {
       ================================================= */}
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-
         {/* HEADER */}
 
         <div className="border-b border-gray-200 p-5">
-
           <h2 className="text-lg font-semibold text-gray-900">
             All Lottery Draws
           </h2>
 
           <p className="mt-1 text-sm text-gray-500">
             Total:{" "}
-            {Array.isArray(configs)
-              ? configs.length
-              : 0}
+            {Array.isArray(configs) ? configs.length : 0}
           </p>
-
         </div>
 
         {/* LOADING */}
@@ -890,7 +738,6 @@ const LotteryConfig = () => {
           Array.isArray(configs) &&
           configs.length === 0 && (
             <div className="p-10 text-center">
-
               <div className="text-lg font-semibold text-gray-700">
                 No lottery draws found
               </div>
@@ -898,26 +745,18 @@ const LotteryConfig = () => {
               <p className="mt-1 text-sm text-gray-500">
                 Create your first lottery draw above.
               </p>
-
             </div>
           )}
 
-        {/* =================================================
-            TABLE
-        ================================================= */}
+        {/* TABLE */}
 
         {!loading &&
           Array.isArray(configs) &&
           configs.length > 0 && (
-
             <div className="overflow-x-auto">
-
               <table className="w-full min-w-[1050px]">
-
                 <thead>
-
                   <tr className="border-b border-gray-200 bg-gray-50">
-
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
                       #
                     </th>
@@ -950,201 +789,167 @@ const LotteryConfig = () => {
                       Status
                     </th>
 
+                    {/* ✅ ADDED: Created By column */}
+
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                      Created By
+                    </th>
+
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-500">
                       Action
                     </th>
-
                   </tr>
-
                 </thead>
 
                 <tbody>
+                  {configs.map((config, index) => {
+                    const id = config?._id;
 
-                  {configs.map(
-                    (config, index) => {
+                    return (
+                      <tr
+                        key={id || index}
+                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                      >
+                        {/* INDEX */}
 
-                      const id =
-                        config?._id;
+                        <td className="px-4 py-4 text-sm text-gray-600">
+                          {index + 1}
+                        </td>
 
-                      return (
-                        <tr
-                          key={
-                            id || index
-                          }
-                          className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
-                        >
+                        {/* MARKET */}
 
-                          {/* INDEX */}
+                        <td className="px-4 py-4">
+                          <div className="font-semibold text-gray-900">
+                            {config?.marketName || "-"}
+                          </div>
+                        </td>
 
-                          <td className="px-4 py-4 text-sm text-gray-600">
-                            {index + 1}
-                          </td>
+                        {/* DATE */}
 
-                          {/* MARKET */}
+                        <td className="px-4 py-4 text-sm font-medium text-gray-900">
+                          {formatDate(config?.drawDate)}
+                        </td>
 
-                          <td className="px-4 py-4">
+                        {/* TIME */}
 
-                            <div className="font-semibold text-gray-900">
-                              {config?.marketName ||
-                                "-"}
-                            </div>
+                        <td className="px-4 py-4">
+                          <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700">
+                            {config?.drawTime || "-"}
+                          </span>
+                        </td>
 
-                          </td>
+                        {/* FIRST PRIZE */}
 
-                          {/* DATE */}
+                        <td className="px-4 py-4 text-sm font-semibold text-gray-900">
+                          ₹
+                          {Number(
+                            config?.prizes?.first || 0
+                          ).toLocaleString("en-IN")}
+                        </td>
 
-                          <td className="px-4 py-4 text-sm font-medium text-gray-900">
-                            {formatDate(
-                              config?.drawDate
-                            )}
-                          </td>
+                        {/* SECOND PRIZE */}
 
-                          {/* TIME */}
+                        <td className="px-4 py-4 text-sm font-semibold text-gray-900">
+                          ₹
+                          {Number(
+                            config?.prizes?.second || 0
+                          ).toLocaleString("en-IN")}
+                        </td>
 
-                          <td className="px-4 py-4">
+                        {/* THIRD PRIZE */}
 
-                            <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700">
-                              {config?.drawTime ||
-                                "-"}
+                        <td className="px-4 py-4 text-sm font-semibold text-gray-900">
+                          ₹
+                          {Number(
+                            config?.prizes?.third || 0
+                          ).toLocaleString("en-IN")}
+                        </td>
+
+                        {/* STATUS */}
+
+                        <td className="px-4 py-4">
+                          {config?.isActive ? (
+                            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                              Active
                             </span>
+                          ) : (
+                            <span className="rounded-full bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-600">
+                              Inactive
+                            </span>
+                          )}
+                        </td>
 
-                          </td>
+                        {/* ✅ CREATED BY (user name lookup) */}
 
-                          {/* FIRST PRIZE */}
+                        <td className="px-4 py-4">
+                          {config?.createdBy ? (
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {getUserName(config.createdBy)}
+                              </div>
 
-                          <td className="px-4 py-4 text-sm font-semibold text-gray-900">
-                            ₹
-                            {Number(
-                              config?.prizes
-                                ?.first || 0
-                            ).toLocaleString(
-                              "en-IN"
-                            )}
-                          </td>
+                              <div className="mt-0.5 max-w-[160px] truncate text-xs text-gray-400">
+                                {config.createdBy}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">
+                              -
+                            </span>
+                          )}
+                        </td>
 
-                          {/* SECOND PRIZE */}
+                        {/* ACTION */}
 
-                          <td className="px-4 py-4 text-sm font-semibold text-gray-900">
-                            ₹
-                            {Number(
-                              config?.prizes
-                                ?.second || 0
-                            ).toLocaleString(
-                              "en-IN"
-                            )}
-                          </td>
-
-                          {/* THIRD PRIZE */}
-
-                          <td className="px-4 py-4 text-sm font-semibold text-gray-900">
-                            ₹
-                            {Number(
-                              config?.prizes
-                                ?.third || 0
-                            ).toLocaleString(
-                              "en-IN"
-                            )}
-                          </td>
-
-                          {/* STATUS */}
-
-                          <td className="px-4 py-4">
-
+                        <td className="px-4 py-4">
+                          <div className="flex justify-end gap-2">
                             {config?.isActive ? (
-                              <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                                Active
-                              </span>
-                            ) : (
-                              <span className="rounded-full bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-600">
-                                Inactive
-                              </span>
-                            )}
-
-                          </td>
-
-                          {/* ACTION */}
-
-                          <td className="px-4 py-4">
-
-                            <div className="flex justify-end gap-2">
-
-                              {/* ACTIVE -> DEACTIVATE */}
-
-                              {config?.isActive ? (
-
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleDeactivate(
-                                      id
-                                    )
-                                  }
-                                  disabled={
-                                    deactivateLoading
-                                  }
-                                  className="rounded-lg border border-orange-300 bg-white px-3 py-2 text-xs font-medium text-orange-600 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  {deactivateLoading
-                                    ? "..."
-                                    : "Deactivate"}
-                                </button>
-
-                              ) : (
-
-                                /* INACTIVE -> ACTIVATE */
-
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleActivate(
-                                      id
-                                    )
-                                  }
-                                  disabled={
-                                    activateLoading
-                                  }
-                                  className="rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  {activateLoading
-                                    ? "..."
-                                    : "Activate"}
-                                </button>
-
-                              )}
-
-                              {/* DELETE */}
-
                               <button
                                 type="button"
                                 onClick={() =>
-                                  handleOpenDelete(
-                                    id
-                                  )
+                                  handleDeactivate(id)
                                 }
-                                disabled={
-                                  deleteLoading
-                                }
-                                className="rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={deactivateLoading}
+                                className="rounded-lg border border-orange-300 bg-white px-3 py-2 text-xs font-medium text-orange-600 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50"
                               >
-                                Delete
+                                {deactivateLoading
+                                  ? "..."
+                                  : "Deactivate"}
                               </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleActivate(id)
+                                }
+                                disabled={activateLoading}
+                                className="rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {activateLoading
+                                  ? "..."
+                                  : "Activate"}
+                              </button>
+                            )}
 
-                            </div>
-
-                          </td>
-
-                        </tr>
-                      );
-                    }
-                  )}
-
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenDelete(id)
+                              }
+                              disabled={deleteLoading}
+                              className="rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
-
               </table>
-
             </div>
           )}
-
       </div>
 
       {/* =================================================
@@ -1152,28 +957,21 @@ const LotteryConfig = () => {
       ================================================= */}
 
       {deleteModal && (
-
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-
             <h2 className="text-lg font-bold text-gray-900">
               Delete Lottery
             </h2>
 
             <p className="mt-2 text-sm text-gray-500">
-              Are you sure you want to delete this
-              lottery draw? This action cannot be
-              undone.
+              Are you sure you want to delete this lottery
+              draw? This action cannot be undone.
             </p>
 
             <div className="mt-6 flex justify-end gap-3">
-
               <button
                 type="button"
-                onClick={
-                  handleCloseDelete
-                }
+                onClick={handleCloseDelete}
                 disabled={deleteLoading}
                 className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
@@ -1186,19 +984,12 @@ const LotteryConfig = () => {
                 disabled={deleteLoading}
                 className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {deleteLoading
-                  ? "Deleting..."
-                  : "Delete"}
+                {deleteLoading ? "Deleting..." : "Delete"}
               </button>
-
             </div>
-
           </div>
-
         </div>
-
       )}
-
     </div>
   );
 };

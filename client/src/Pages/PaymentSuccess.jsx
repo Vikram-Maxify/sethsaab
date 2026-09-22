@@ -1,292 +1,278 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Wallet,
+  Home,
+} from "lucide-react";
 
 import {
-  addUserLotteryEntry,
-  selectLotteryPurchaseLoading,
-  selectLotteryError,
-} from "../reducer/slice/createLotteryConfigSlice";
+  fetchDepositStatus,
+  clearCurrentDeposit,
+} from "../reducer/slice/depositSlice";
+
+/* =====================================================
+   STATUS MAP (backend ke saath match)
+   0 = PENDING
+   1 = SUCCESS
+   2 = FAILED
+   3 = CANCELLED
+===================================================== */
+const STATUS = {
+  PENDING: 0,
+  SUCCESS: 1,
+  FAILED: 2,
+  CANCELLED: 3,
+};
 
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  // =====================================================
-  // REDUX STATE
-  // =====================================================
+  const { currentDeposit, statusLoading } = useSelector(
+    (state) => state.deposit || {}
+  );
 
-  const purchaseLoading = useSelector(selectLotteryPurchaseLoading);
-  const lotteryError = useSelector(selectLotteryError);
+  const [localStatus, setLocalStatus] = useState("loading");
+  const [amount, setAmount] = useState(null);
+  const [orderId, setOrderId] = useState("");
 
-  // =====================================================
-  // PREVENT DUPLICATE API CALL
-  // =====================================================
+  const pollCountRef = useRef(0);
+  const pollTimerRef = useRef(null);
 
-  const entryCalledRef = useRef(false);
-
-  // =====================================================
-  // GET DATA FROM URL
-  // =====================================================
-
-  const orderId = searchParams.get("order_id");
-  const amount = searchParams.get("amount");
-  const number = searchParams.get("number");
-  const status = searchParams.get("status");
-
-  // IMPORTANT:
-  // Backend redirect me config_id bhej raha hai
-  const configId = searchParams.get("config_id");
-
-  // =====================================================
-  // ADD LOTTERY ENTRY
-  // =====================================================
-
+  /* =====================================================
+     GET ORDER ID FROM URL
+     QwackPay bhejta hai: order_id / merchant_order_id / orderId
+  ===================================================== */
   useEffect(() => {
-    // Sirf successful payment par entry create karo
-    if (status !== "success") {
+    const id =
+      searchParams.get("order_id") ||
+      searchParams.get("orderId") ||
+      searchParams.get("merchant_order_id") ||
+      "";
+
+    if (!id) {
+      // No order id — fallback to success
+      setLocalStatus("success");
       return;
     }
 
-    // ===================================================
-    // REQUIRED DATA CHECK
-    // ===================================================
+    setOrderId(id);
 
-    if (!configId || !number || !amount) {
-      console.error("Lottery entry data missing:", {
-        configId,
-        number,
-        amount,
-        orderId,
-        status,
-      });
+    // ✅ Session clear — auto-cancel prevent
+    sessionStorage.removeItem("deposit_pending_id");
+    sessionStorage.removeItem("deposit_pending_amount");
 
-      return;
-    }
+    // ✅ Fetch status
+    dispatch(fetchDepositStatus(id));
+  }, [searchParams, dispatch]);
 
-    // ===================================================
-    // PREVENT DUPLICATE API CALL
-    // ===================================================
+  /* =====================================================
+     POLLING — pending hai toh 3 sec baad retry
+     Max 10 retries (~30 sec)
+  ===================================================== */
+  useEffect(() => {
+    if (!orderId) return;
 
-    if (entryCalledRef.current) {
-      return;
-    }
+    const runPoll = () => {
+      pollTimerRef.current = setTimeout(() => {
+        pollCountRef.current += 1;
 
-    entryCalledRef.current = true;
+        if (pollCountRef.current >= 10) return;
 
-    // ===================================================
-    // PREPARE DATA
-    // ===================================================
-
-    const entryData = {
-      configId: String(configId),
-      number: String(number),
-      amount: Number(amount),
+        dispatch(fetchDepositStatus(orderId));
+        runPoll();
+      }, 3000);
     };
 
-    console.log("=================================");
-    console.log("ADDING LOTTERY ENTRY");
-    console.log("Config ID :", entryData.configId);
-    console.log("Number    :", entryData.number);
-    console.log("Amount    :", entryData.amount);
-    console.log("Order ID  :", orderId);
-    console.log("=================================");
+    runPoll();
 
-    // ===================================================
-    // API CALL
-    // ===================================================
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+  }, [orderId, dispatch]);
 
-    dispatch(addUserLotteryEntry(entryData))
-      .unwrap()
-      .then((response) => {
-        console.log(
-          "Lottery entry added successfully:",
-          response
-        );
-      })
-      .catch((error) => {
-        console.error(
-          "Failed to add lottery entry:",
-          error
-        );
+  /* =====================================================
+     UPDATE LOCAL STATUS WHEN REDUX UPDATES
+  ===================================================== */
+  useEffect(() => {
+    if (!currentDeposit) return;
 
-        // API fail hone par retry allow
-        entryCalledRef.current = false;
-      });
-  }, [
-    status,
-    configId,
-    number,
-    amount,
-    orderId,
-    dispatch,
-  ]);
+    const s = Number(currentDeposit.status);
+    setAmount(currentDeposit.amount || null);
 
-  // =====================================================
-  // UI
-  // =====================================================
+    if (s === STATUS.SUCCESS) setLocalStatus("success");
+    else if (s === STATUS.FAILED) setLocalStatus("failed");
+    else if (s === STATUS.CANCELLED) setLocalStatus("cancelled");
+    else setLocalStatus("pending");
+  }, [currentDeposit]);
 
+  /* =====================================================
+     CLEANUP ON UNMOUNT
+  ===================================================== */
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      dispatch(clearCurrentDeposit());
+    };
+  }, [dispatch]);
+
+  /* =====================================================
+     UI
+  ===================================================== */
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#050606] px-4 text-white">
+      <div className="w-full max-w-md rounded-[20px] border border-[#292929] bg-[#0b0d0d] p-6 text-center shadow-[0_0_30px_rgba(245,206,84,0.05)]">
 
-        {/* ==============================================
-            SUCCESS ICON
-        ============================================== */}
-
-        <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-green-100 flex items-center justify-center">
-          <span className="text-5xl text-green-600">
-            ✓
-          </span>
-        </div>
-
-        {/* ==============================================
-            TITLE
-        ============================================== */}
-
-        <h1 className="text-2xl font-bold text-gray-800">
-          Payment Successful
-        </h1>
-
-        <p className="text-gray-500 mt-2">
-          Your payment has been successfully verified.
-        </p>
-
-        {/* ==============================================
-            MISSING DATA
-        ============================================== */}
-
-        {status === "success" &&
-          (!configId || !number || !amount) && (
-            <div className="mt-4 bg-red-50 text-red-600 rounded-xl p-3 text-sm">
-              Lottery entry information is missing.
-            </div>
-          )}
-
-        {/* ==============================================
-            LOADING
-        ============================================== */}
-
-        {purchaseLoading && (
-          <div className="mt-4 bg-blue-50 text-blue-600 rounded-xl p-3">
-            Adding your lottery entry...
-          </div>
+        {/* ============ LOADING ============ */}
+        {localStatus === "loading" && (
+          <>
+            <Loader2
+              size={56}
+              className="mx-auto animate-spin text-[#f5ce54]"
+            />
+            <h1 className="mt-5 text-xl font-bold">Checking Payment...</h1>
+            <p className="mt-2 text-sm text-white/50">
+              कृपया प्रतीक्षा करें
+            </p>
+          </>
         )}
 
-        {/* ==============================================
-            ERROR
-        ============================================== */}
+        {/* ============ SUCCESS ============ */}
+        {localStatus === "success" && (
+          <>
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-500/10">
+              <CheckCircle2 size={52} className="text-green-500" />
+            </div>
 
-        {!purchaseLoading && lotteryError && (
-          <div className="mt-4 bg-red-50 text-red-600 rounded-xl p-3">
-            {typeof lotteryError === "string"
-              ? lotteryError
-              : lotteryError?.message ||
-                "Failed to add lottery entry."}
-          </div>
+            <h1 className="mt-5 text-2xl font-extrabold text-green-500">
+              Recharge Successful
+            </h1>
+
+            {amount ? (
+              <p className="mt-3 flex items-center justify-center gap-2 text-base text-white/70">
+                <Wallet size={18} className="text-[#f5ce54]" />
+                <span className="font-bold text-[#f5ce54]">
+                  ₹{Number(amount).toFixed(2)}
+                </span>
+                <span>added to wallet</span>
+              </p>
+            ) : (
+              <p className="mt-3 text-sm text-white/60">
+                आपका wallet balance update हो गया है
+              </p>
+            )}
+
+            {orderId && (
+              <p className="mt-3 break-all text-[11px] text-white/35">
+                Order ID: {orderId}
+              </p>
+            )}
+          </>
         )}
 
-        {/* ==============================================
-            SUCCESS
-        ============================================== */}
-
-        {!purchaseLoading &&
-          !lotteryError &&
-          status === "success" &&
-          configId &&
-          number &&
-          amount && (
-            <div className="mt-4 bg-green-50 text-green-600 rounded-xl p-3">
-              Lottery entry added successfully.
+        {/* ============ PENDING ============ */}
+        {localStatus === "pending" && (
+          <>
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-yellow-500/10">
+              <Clock size={48} className="text-yellow-400" />
             </div>
-          )}
 
-        {/* ==============================================
-            PAYMENT DETAILS
-        ============================================== */}
+            <h1 className="mt-5 text-2xl font-extrabold text-yellow-400">
+              Payment Processing
+            </h1>
 
-        <div className="mt-6 bg-gray-50 rounded-xl p-4 text-left space-y-3">
+            <p className="mt-2 text-sm text-white/60">
+              आपका payment verify किया जा रहा है। कुछ सेकंड में wallet
+              में balance add हो जाएगा।
+            </p>
 
-          {/* AMOUNT */}
+            {amount && (
+              <p className="mt-3 text-lg font-bold text-[#f5ce54]">
+                ₹{Number(amount).toFixed(2)}
+              </p>
+            )}
 
-          <div className="flex justify-between gap-4">
-            <span className="text-gray-500">
-              Amount
-            </span>
+            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-white/50">
+              <Loader2 size={14} className="animate-spin" />
+              Auto-checking status...
+            </div>
+          </>
+        )}
 
-            <span className="font-bold text-gray-800">
-              ₹{amount || "0"}
-            </span>
-          </div>
+        {/* ============ FAILED ============ */}
+        {localStatus === "failed" && (
+          <>
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10">
+              <XCircle size={52} className="text-red-500" />
+            </div>
 
-          {/* NUMBER */}
+            <h1 className="mt-5 text-2xl font-extrabold text-red-500">
+              Payment Failed
+            </h1>
 
-          <div className="flex justify-between gap-4">
-            <span className="text-gray-500">
-              Number
-            </span>
+            <p className="mt-2 text-sm text-white/60">
+              आपका payment पूरा नहीं हो सका। कृपया दोबारा प्रयास करें।
+            </p>
 
-            <span className="font-bold text-gray-800">
-              {number || "-"}
-            </span>
-          </div>
+            {amount && (
+              <p className="mt-3 text-lg font-bold text-white/70">
+                ₹{Number(amount).toFixed(2)}
+              </p>
+            )}
+          </>
+        )}
 
-          {/* CONFIG ID */}
+        {/* ============ CANCELLED ============ */}
+        {localStatus === "cancelled" && (
+          <>
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-yellow-500/10">
+              <XCircle size={52} className="text-yellow-400" />
+            </div>
 
-          <div className="flex justify-between gap-4">
-            <span className="text-gray-500">
-              Config ID
-            </span>
+            <h1 className="mt-5 text-2xl font-extrabold text-yellow-400">
+              Payment Cancelled
+            </h1>
 
-            <span className="font-semibold text-gray-800 text-xs break-all text-right max-w-[220px]">
-              {configId || "-"}
-            </span>
-          </div>
+            <p className="mt-2 text-sm text-white/60">
+              आपने payment cancel कर दिया। कोई राशि नहीं कटी।
+            </p>
 
-          {/* ORDER ID */}
+            {amount && (
+              <p className="mt-3 text-lg font-bold text-white/70">
+                ₹{Number(amount).toFixed(2)}
+              </p>
+            )}
+          </>
+        )}
 
-          <div className="flex justify-between gap-4">
-            <span className="text-gray-500">
-              Order ID
-            </span>
-
-            <span className="font-semibold text-gray-800 text-sm break-all text-right max-w-[220px]">
-              {orderId || "-"}
-            </span>
-          </div>
-
-          {/* STATUS */}
-
-          <div className="flex justify-between gap-4">
-            <span className="text-gray-500">
-              Status
-            </span>
-
-            <span
-              className={`font-bold ${
-                status === "success"
-                  ? "text-green-600"
-                  : "text-red-600"
-              }`}
+        {/* ============ ACTIONS ============ */}
+        <div className="mt-6 flex flex-col gap-3">
+          {(localStatus === "failed" ||
+            localStatus === "cancelled") && (
+            <button
+              type="button"
+              onClick={() => navigate("/recharge")}
+              className="w-full rounded-[12px] bg-gradient-to-b from-[#fff59a] via-[#ffd84a] to-[#f4c21f] px-5 py-3 text-sm font-extrabold text-black active:scale-95"
             >
-              {status === "success"
-                ? "SUCCESS"
-                : status || "-"}
-            </span>
-          </div>
+              Try Again
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="flex w-full items-center justify-center gap-2 rounded-[12px] border border-[#353535] bg-[#121515] px-5 py-3 text-sm font-bold text-white active:scale-95"
+          >
+            <Home size={16} />
+            Go to Home
+          </button>
         </div>
-
-        {/* ==============================================
-            HOME BUTTON
-        ============================================== */}
-
-        <button
-          onClick={() => navigate("/")}
-          className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold transition"
-        >
-          Go to Home
-        </button>
       </div>
     </div>
   );

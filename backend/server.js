@@ -74,7 +74,7 @@ app.use("/api", adminRoutes);
 
 app.use("/api/withdrawal", require("./routes/withdrawalRoutes"));
 
-startLotteryDepositCron();
+// startLotteryDepositCron();
 
 // =======================
 // HEALTH CHECK

@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const LotteryConfig = require("../models/LotteryConfig");
 const User = require("../models/userModel");
+const TransactionHistory = require("../models/TransactionHistory");
 
 // =====================================================
 // GET USER ID FROM JWT
@@ -567,11 +568,15 @@ const createLotteryConfig = async (req, res) => {
 // BODY:
 //
 // {
+//   "configId": "...",
 //   "number": "123456",
 //   "amount": 100
 // }
 //
-// User sirf ACTIVE lottery mein ticket buy karega.
+// ✅ Wallet se amount deduct hoga
+// ✅ Wallet balance check hoga
+// ✅ TransactionHistory create hogi
+// ✅ Same number multiple times allowed
 // =====================================================
 
 const addUserLotteryEntry = async (req, res) => {
@@ -636,6 +641,39 @@ const addUserLotteryEntry = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: amountValidation.message,
+      });
+    }
+
+    // =====================================================
+    // FIND USER (DB SE — wallet check ke liye)
+    // =====================================================
+
+    const isObjectId = /^[a-f\d]{24}$/i.test(String(userId));
+
+    const user = await User.findOne({
+      $or: [
+        ...(isObjectId ? [{ _id: userId }] : []),
+        { uuid: String(userId) },
+      ],
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // =====================================================
+    // WALLET BALANCE CHECK (pre-check for better error message)
+    // =====================================================
+
+    if (Number(user.wallet || 0) < Number(amountValidation.amount)) {
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient wallet balance",
+        walletBalance: Number(user.wallet || 0),
+        requiredAmount: Number(amountValidation.amount),
       });
     }
 
@@ -738,17 +776,7 @@ const addUserLotteryEntry = async (req, res) => {
     }
 
     // =====================================================
-    // CREATE DRAW DATETIME
-    // =====================================================
-    //
-    // Example:
-    //
-    // drawDate = 2026-10-11
-    // drawTime = 19:11
-    //
-    // Means:
-    // 11 October 2026 19:11 IST
-    //
+    // CREATE DRAW DATETIME (IST)
     // =====================================================
 
     const drawDateTime = new Date(
@@ -777,6 +805,9 @@ const addUserLotteryEntry = async (req, res) => {
     console.log("DRAW TIME IST   :", config.drawTime);
     console.log("DRAW DATETIME   :", drawDateTime.toISOString());
     console.log("CURRENT UTC     :", now.toISOString());
+    console.log("USER WALLET     :", user.wallet);
+    console.log("TICKET AMOUNT   :", amountValidation.amount);
+    console.log("NUMBER          :", numberValidation.number);
     console.log("==============================================");
 
     // =====================================================
@@ -803,40 +834,46 @@ const addUserLotteryEntry = async (req, res) => {
     }
 
     // =====================================================
-    // CHECK EXISTING ENTRY (SAME USER + SAME DRAW + SAME NUMBER)
-    // =====================================================
-    //
-    // ✅ Same user multiple tickets kharid sakta hai
-    // ❌ Lekin same number dobara nahi kharid sakta
-    //
+    // NOTE: Same number multiple times allowed
+    // User same config me same number baar-baar kharid sakta hai
     // =====================================================
 
-    const existingEntry = config.users.find(
-      (entry) =>
-        String(entry.userId) === String(userId) &&
-        String(entry.entryDate) === String(dateString) &&
-        Number(entry.number) === Number(numberValidation.number)
+    // =====================================================
+    // DEDUCT WALLET (ATOMIC)
+    // =====================================================
+    // Pehle atomically deduct karo, taaki race condition na ho.
+    // Agar wallet balance kam hua toh null return karega.
+
+    const updatedUser = await User.findOneAndUpdate(
+      {
+        _id: user._id,
+        wallet: { $gte: Number(amountValidation.amount) },
+      },
+      {
+        $inc: { wallet: -Number(amountValidation.amount) },
+      },
+      { new: true }
     );
 
-    if (existingEntry) {
-      return res.status(409).json({
+    if (!updatedUser) {
+      return res.status(400).json({
         success: false,
-        message:
-          "You already have a ticket with this number for this draw",
-        configId: config._id,
-        marketName: config.marketName,
-        drawDate: dateString,
-        number: numberValidation.number,
-        data: existingEntry,
+        message: "Insufficient wallet balance",
+        walletBalance: Number(user.wallet || 0),
+        requiredAmount: Number(amountValidation.amount),
       });
     }
+
+    console.log(
+      `WALLET DEDUCTED: ₹${amountValidation.amount} from user ${user._id}. New balance: ₹${updatedUser.wallet}`
+    );
 
     // =====================================================
     // ADD USER ENTRY
     // =====================================================
 
     config.users.push({
-      userId: String(userId),
+      userId: String(user._id),
 
       entryDate: dateString,
 
@@ -861,7 +898,43 @@ const addUserLotteryEntry = async (req, res) => {
     // SAVE CONFIG
     // =====================================================
 
-    await config.save();
+    try {
+      await config.save();
+    } catch (saveError) {
+      // Config save fail hua toh wallet refund karo
+      console.error("Config save failed, refunding wallet:", saveError);
+
+      await User.findByIdAndUpdate(user._id, {
+        $inc: { wallet: Number(amountValidation.amount) },
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: "Failed to save lottery entry. Wallet refunded.",
+        error: saveError.message,
+      });
+    }
+
+    // =====================================================
+    // TRANSACTION HISTORY
+    // =====================================================
+
+    try {
+      await TransactionHistory.create({
+        orderId: `LOT${Date.now()}${Math.floor(Math.random() * 1000)}`,
+        userId: user._id,
+        uid: user.uuid,
+        phone: user.mobile,
+        type: "Lottery Ticket Purchase",
+        amount: amountValidation.amount,
+        status: 1,
+        remark: `Lottery ticket purchased. Market: ${config.marketName}, Draw: ${dateString} ${config.drawTime}, Number: ${numberValidation.number}`,
+      });
+    } catch (historyError) {
+      console.error("TransactionHistory create error:", historyError);
+      // Wallet already deduct ho chuka hai, entry save ho chuki hai.
+      // History fail hone pe rollback nahi karenge, sirf log karenge.
+    }
 
     // =====================================================
     // GET NEW ENTRY
@@ -875,7 +948,7 @@ const addUserLotteryEntry = async (req, res) => {
 
     const userEntries = config.users.filter(
       (entry) =>
-        String(entry.userId) === String(userId) &&
+        String(entry.userId) === String(user._id) &&
         String(entry.entryDate) === String(dateString)
     );
 
@@ -911,6 +984,9 @@ const addUserLotteryEntry = async (req, res) => {
 
         amount: amountValidation.amount,
 
+        // 👇 wallet info
+        walletBalance: updatedUser.wallet,
+
         // 👇 new entry
         entry: newEntry,
 
@@ -934,8 +1010,6 @@ const addUserLotteryEntry = async (req, res) => {
     });
   }
 };
-
-
 
 // =====================================================
 // GET MY LOTTERY ENTRIES
