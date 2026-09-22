@@ -218,11 +218,10 @@ const Register = () => {
                     h-full
                     flex
                     items-center
-                    px-[15px]
-                    text-white
+                    px-[8px]
+                    text-gray-400
                     text-[14px]
                     font-medium
-                    border-r
                     border-[#353a3a]
                     shrink-0
                   "
@@ -244,7 +243,6 @@ const Register = () => {
                     min-w-0
                     h-full
                     bg-transparent
-                    px-[12px]
                     text-white
                     text-[13px]
                     placeholder:text-[#777]
@@ -608,8 +606,7 @@ const Register = () => {
 
             <div className="grid grid-cols-3">
 
-              {/* ================= FAST ================= */}
-
+              {/* FAST */}
               <div className="flex flex-col items-center text-center">
 
                 <div
@@ -641,8 +638,7 @@ const Register = () => {
 
               </div>
 
-              {/* ================= SECURITY ================= */}
-
+              {/* SECURITY */}
               <div
                 className="
                   flex
@@ -682,8 +678,7 @@ const Register = () => {
 
               </div>
 
-              {/* ================= USERS ================= */}
-
+              {/* USERS */}
               <div className="flex flex-col items-center text-center">
 
                 <div
@@ -713,6 +708,50 @@ const Register = () => {
                 </p>
 
               </div>
+
+            </div>
+
+            {/* ================= LOGIN REDIRECT ================= */}
+
+            <div className="mt-[18px] pt-[14px] border-t border-[#292d2d] text-center">
+
+              <p className="text-[#999] text-[12px]">
+                पहले से अकाउंट है?
+              </p>
+
+              <button
+                type="button"
+                onClick={() => navigate("/login")}
+                disabled={registerLoading}
+                className="
+                  mt-[7px]
+                  h-[42px]
+                  px-[24px]
+                  rounded-[10px]
+                  border
+                  border-[#f5c542]
+                  bg-[#f5c542]/[0.06]
+                  text-[#f5c542]
+                  text-[13px]
+                  font-bold
+                  inline-flex
+                  items-center
+                  justify-center
+                  gap-[7px]
+                  transition-all
+                  hover:bg-[#f5c542]/[0.12]
+                  hover:border-[#ffe27a]
+                  active:scale-[0.97]
+                  disabled:opacity-60
+                  disabled:cursor-not-allowed
+                "
+              >
+                लॉगिन करें
+                <ArrowRight
+                  size={17}
+                  strokeWidth={2.5}
+                />
+              </button>
 
             </div>
 

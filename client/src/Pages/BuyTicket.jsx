@@ -911,7 +911,7 @@ const BuyTicket = () => {
 
                 <span
                   className="
-                    text-[14px]
+                    text-[13px]
                     leading-[1.2]
                     font-medium
                     text-white/95
@@ -977,7 +977,7 @@ const BuyTicket = () => {
                       w-full
                       min-w-0
                       gap-[2px]
-                      min-[400px]:gap-[3px]
+                      min-[400px]:gap-[2px]
                       min-[450px]:gap-0
                     "
                   >
@@ -1529,7 +1529,7 @@ const PrizeCard = ({
     className="
       relative
       w-full
-      h-[194px]
+      h-[150px]
       rounded-[13px]
       overflow-hidden
       border border-[#d7b544]
@@ -1537,6 +1537,7 @@ const PrizeCard = ({
       flex-col
       items-center
       text-center
+      border-b
       px-1
     "
     style={{

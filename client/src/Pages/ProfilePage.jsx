@@ -374,7 +374,6 @@ const ProfilePage = () => {
 
               <Ticket
                 size={28}
-                fill="#f5c542"
                 className="text-[#f5c542]"
               />
 
@@ -413,7 +412,6 @@ const ProfilePage = () => {
 
               <Trophy
                 size={29}
-                fill="#f5c542"
                 className="text-[#f5c542]"
               />
 
@@ -455,7 +453,6 @@ const ProfilePage = () => {
 
             <Wallet
               size={31}
-              fill="#f5c542"
               className="text-[#f5c542]"
             />
 

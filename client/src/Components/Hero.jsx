@@ -8,7 +8,7 @@ const Hero = () => {
         <img
           src={banner}
           alt="Kuber Ticket"
-          className="block w-full h-auto aspect-[16/9] object-cover"
+          className="block w-full h-auto aspect-[16/8] object-cover"
         />
       </div>
 
