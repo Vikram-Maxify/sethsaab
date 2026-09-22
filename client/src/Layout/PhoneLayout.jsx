@@ -1,8 +1,5 @@
-
 import React, { useEffect, useRef, useState } from "react";
-import { MessageCircle } from "lucide-react";
 import { Outlet, useLocation } from "react-router-dom";
-import { useSelector } from "react-redux";
 
 import Header from "../Components/Header";
 import BottomNavbar from "./BottomNavbar";
@@ -11,6 +8,8 @@ import BottomNavbar from "./BottomNavbar";
 // WHATSAPP CONFIG
 // ==========================================================
 
+// Number country code ke saath, "+" ke bina
+// Example: 919876543210
 const WHATSAPP_NUMBER = "917234806209";
 
 // ==========================================================
@@ -33,7 +32,7 @@ const ADMIN_ROUTES = [
 // WHATSAPP FLOATING BUTTON
 // ==========================================================
 
-const WhatsappFloatingButton = ({ isAuthenticated }) => {
+const WhatsappFloatingButton = () => {
   const btnRef = useRef(null);
 
   // Button size
@@ -65,12 +64,13 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
       console.error("Failed to load WhatsApp button position:", error);
     }
 
+    // Default position = bottom-left
     return {
-      x:
+      x: 16,
+      y:
         typeof window !== "undefined"
-          ? Math.max(12, window.innerWidth - BTN_SIZE - 18)
-          : 400,
-      y: 82,
+          ? Math.max(0, window.innerHeight - BTN_SIZE - 20)
+          : 500,
     };
   });
 
@@ -91,11 +91,6 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
   // ========================================================
 
   const handleWhatsAppClick = () => {
-    // Not logged in => no action
-    if (!isAuthenticated) {
-      return;
-    }
-
     const message = encodeURIComponent(
       "Hello, mujhe support chahiye."
     );
@@ -114,9 +109,7 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
   // ========================================================
 
   const onPointerDown = (e) => {
-    if (!btnRef.current || !isAuthenticated) {
-      return;
-    }
+    if (!btnRef.current) return;
 
     dragging.current = true;
     moved.current = false;
@@ -132,7 +125,7 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
       btnRef.current.setPointerCapture(e.pointerId);
     } catch (error) {
       // Ignore
-    }
+    };
   };
 
   // ========================================================
@@ -140,11 +133,7 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
   // ========================================================
 
   const onPointerMove = (e) => {
-    if (
-      !dragging.current ||
-      !btnRef.current ||
-      !isAuthenticated
-    ) {
+    if (!dragging.current || !btnRef.current) {
       return;
     }
 
@@ -153,6 +142,10 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
 
     let newX = e.clientX - offset.current.x;
     let newY = e.clientY - offset.current.y;
+
+    // ======================================================
+    // KEEP BUTTON INSIDE SCREEN
+    // ======================================================
 
     newX = Math.max(
       0,
@@ -163,6 +156,10 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
       0,
       Math.min(window.innerHeight - btnH, newY)
     );
+
+    // ======================================================
+    // DETECT DRAG
+    // ======================================================
 
     setPos((previous) => {
       if (
@@ -198,6 +195,10 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
       // Ignore
     }
 
+    // ======================================================
+    // SAVE POSITION
+    // ======================================================
+
     setPos((currentPosition) => {
       try {
         localStorage.setItem(
@@ -214,7 +215,11 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
       return currentPosition;
     });
 
-    if (!moved.current && isAuthenticated) {
+    // ======================================================
+    // CLICK ONLY IF NOT DRAGGED
+    // ======================================================
+
+    if (!moved.current) {
       handleWhatsAppClick();
     }
   };
@@ -250,6 +255,7 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
           ),
         };
 
+        // Save corrected position
         try {
           localStorage.setItem(
             "wa_btn_pos",
@@ -266,17 +272,12 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
     window.addEventListener("resize", onResize);
 
     return () => {
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener(
+        "resize",
+        onResize
+      );
     };
   }, []);
-
-  // ========================================================
-  // NOT LOGGED IN
-  // ========================================================
-
-  if (!isAuthenticated) {
-    return null;
-  }
 
   // ========================================================
   // RENDER
@@ -296,7 +297,9 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
         left: `${pos.x}px`,
         top: `${pos.y}px`,
         touchAction: "none",
-        cursor: dragging.current ? "grabbing" : "grab",
+        cursor: dragging.current
+          ? "grabbing"
+          : "grab",
         userSelect: "none",
       }}
       className="
@@ -311,56 +314,44 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
         border-white/20
         bg-[#25D366]
         text-white
-        shadow-[0_6px_22px_rgba(37,211,102,0.45)]
-        transition-all
+        shadow-[0_5px_25px_rgba(37,211,102,0.45)]
+        transition-transform
         duration-200
         hover:scale-110
-        hover:shadow-[0_8px_28px_rgba(37,211,102,0.6)]
         active:scale-95
       "
     >
       {/* ==================================================
-          INNER DARK CIRCLE
+          WHATSAPP ICON
       ================================================== */}
 
-      <span
-        className="
-          absolute
-          inset-[4px]
-          rounded-full
-          border
-          border-white/20
-          bg-[#25D366]
-          flex
-          items-center
-          justify-center
-        "
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 32 32"
+        className="h-[34px] w-[34px]"
+        fill="currentColor"
       >
-        <MessageCircle
-          size={32}
-          strokeWidth={2.5}
-          fill="white"
-          className="text-white"
-        />
-      </span>
+        <path d="M19.11 17.24c-.27-.14-1.58-.78-1.82-.87-.24-.09-.42-.14-.6.14-.18.27-.69.87-.85 1.05-.16.18-.31.2-.58.07-.27-.14-1.14-.42-2.17-1.34-.8-.71-1.34-1.59-1.5-1.86-.16-.27-.02-.42.12-.56.12-.12.27-.31.4-.47.14-.16.18-.27.27-.45.09-.18.05-.34-.02-.47-.07-.14-.6-1.45-.82-1.99-.22-.52-.43-.45-.6-.46h-.51c-.18 0-.47.07-.71.34-.24.27-.94.92-.94 2.24s.96 2.6 1.09 2.78c.14.18 1.89 2.89 4.58 4.05.64.28 1.14.45 1.53.58.64.2 1.22.17 1.68.1.51-.08 1.58-.65 1.8-1.28.22-.63.22-1.17.16-1.28-.05-.11-.24-.18-.51-.31z" />
+
+        <path d="M16 3C8.82 3 3 8.82 3 16c0 2.29.6 4.53 1.74 6.5L3 29l6.67-1.71A12.94 12.94 0 0 0 16 29c7.18 0 13-5.82 13-13S23.18 3 16 3zm0 23.8c-2.01 0-3.98-.54-5.71-1.57l-.41-.24-3.96 1.01 1.06-3.86-.27-.42A10.78 10.78 0 0 1 5.22 16C5.22 10.05 10.05 5.22 16 5.22S26.78 10.05 26.78 16 21.95 26.8 16 26.8z" />
+      </svg>
 
       {/* ==================================================
-          SMALL ONLINE DOT
+          RED NOTIFICATION DOT
       ================================================== */}
 
       <span
         className="
           pointer-events-none
           absolute
-          right-0
-          top-0
-          h-[15px]
-          w-[15px]
+          -right-1
+          -top-1
+          h-4
+          w-4
           rounded-full
           border-2
           border-[#050505]
-          bg-[#22c55e]
-          shadow-[0_0_7px_rgba(34,197,94,0.8)]
+          bg-red-500
         "
       />
     </button>
@@ -374,16 +365,6 @@ const WhatsappFloatingButton = ({ isAuthenticated }) => {
 const WhatsappForUser = () => {
   const location = useLocation();
 
-  const { user, token, isAuthenticated } = useSelector(
-    (state) => state.auth
-  );
-
-  // Redux + token dono verify
-  const loggedIn =
-    Boolean(isAuthenticated) &&
-    Boolean(token) &&
-    Boolean(user);
-
   // ========================================================
   // CHECK ADMIN ROUTE
   // ========================================================
@@ -394,16 +375,12 @@ const WhatsappForUser = () => {
       location.pathname.startsWith(`${route}/`)
   );
 
-  // Admin pages par WhatsApp hide
+  // Admin pages par WhatsApp button hide
   if (isAdminRoute) {
     return null;
   }
 
-  return (
-    <WhatsappFloatingButton
-      isAuthenticated={loggedIn}
-    />
-  );
+  return <WhatsappFloatingButton />;
 };
 
 // ==========================================================
@@ -461,4 +438,3 @@ const PhoneLayout = () => {
 };
 
 export default PhoneLayout;
-
