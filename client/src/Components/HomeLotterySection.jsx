@@ -611,7 +611,7 @@ const HomeLotterySection = () => {
           title="प्रथम पुरस्कार"
           amount={firstPrize}
           subtitle="(6 अंक मिलने पर)"
-          image="https://i.ibb.co/ZRPdFtMk/1trophy.png"
+          image="https://i.ibb.co/CpRrr0KV/1trophy.png"
         />
 
         <PrizeCard
@@ -619,7 +619,7 @@ const HomeLotterySection = () => {
           title="द्वितीय पुरस्कार"
           amount={secondPrize}
           subtitle="(5 अंक मिलने पर)"
-          image="https://i.ibb.co/Hf8YPcmc/2trophy.png"
+          image="https://i.ibb.co/nqK8qLS9/2trophy.png"
         />
 
         <PrizeCard
@@ -627,7 +627,7 @@ const HomeLotterySection = () => {
           title="तृतीय पुरस्कार"
           amount={thirdPrize}
           subtitle="(4 अंक मिलने पर)"
-          image="https://i.ibb.co/mV8nXr0h/3trophy.png"
+          image="https://i.ibb.co/WTT15RW/3trophy.png"
         />
 
       </div>

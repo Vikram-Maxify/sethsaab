@@ -200,10 +200,10 @@ const BuyTicket = () => {
 
   const walletBalance = Number(
     user?.balance ??
-      user?.walletBalance ??
-      user?.wallet ??
-      user?.walletAmount ??
-      0
+    user?.walletBalance ??
+    user?.wallet ??
+    user?.walletAmount ??
+    0
   );
 
   // ===================================================
@@ -498,9 +498,9 @@ const BuyTicket = () => {
       previousTickets.map((ticket) =>
         ticket.id === ticketId
           ? {
-              ...ticket,
-              numbers: result,
-            }
+            ...ticket,
+            numbers: result,
+          }
           : ticket
       )
     );
@@ -523,16 +523,16 @@ const BuyTicket = () => {
       previousTickets.map((ticket) =>
         ticket.id === ticketId
           ? {
-              ...ticket,
-              numbers: [
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-              ],
-            }
+            ...ticket,
+            numbers: [
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+            ],
+          }
           : ticket
       )
     );
@@ -1353,7 +1353,7 @@ const BuyTicket = () => {
             {typeof displayError === "string"
               ? displayError
               : displayError?.message ||
-                "टिकट खरीदने में समस्या हुई"}
+              "टिकट खरीदने में समस्या हुई"}
           </div>
         )}
 
@@ -1502,7 +1502,7 @@ const BuyTicket = () => {
                 walletBalance >= totalTicketPrice
                   ? "text-emerald-400"
                   : "text-red-400"
-              }`}
+                }`}
             >
               ₹
               {Math.max(
@@ -1716,11 +1716,10 @@ const TicketNumberCard = ({
       <div className="px-3 py-3 flex items-center justify-between">
         <div className="flex items-center gap-[6px]">
           <span
-            className={`w-[6px] h-[6px] rounded-full ${
-              isComplete
+            className={`w-[6px] h-[6px] rounded-full ${isComplete
                 ? "bg-emerald-400"
                 : "bg-[#f5ce54]"
-            }`}
+              }`}
           />
 
           <span className="text-[10px] text-white/45">
