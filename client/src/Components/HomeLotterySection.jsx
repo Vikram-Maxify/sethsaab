@@ -409,61 +409,116 @@ const HomeLotterySection = () => {
       ===================================================== */}
 
       <div
-        className="relative w-full h-[114px] rounded-[17px] border border-[#292b29] overflow-hidden"
+        className="
+    relative
+    w-full
+    h-[114px]
+    rounded-[18px]
+    border border-[#292b29]
+    overflow-hidden
+    bg-[#0b0c0a]
+  "
         style={{
           background:
-            "linear-gradient(180deg, #151613 0%, #080908 100%)",
+            "linear-gradient(135deg, #171914 0%, #0c0d0b 48%, #090a09 100%)",
           boxShadow:
-            "inset 0 1px 0 rgba(255,255,255,0.035)",
+            "inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.25)",
         }}
       >
+        {/* Top highlight */}
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-white/[0.05]" />
 
-        <div className="absolute rounded-[13px] border border-[#252722] pointer-events-none" />
+        {/* Gold accent */}
+        <div className="absolute left-0 top-[15px] bottom-[15px] w-[3px] rounded-r-full bg-[#f5c542]" />
 
-        <div className="relative h-full flex items-center">
+        <div className="relative h-full flex items-center px-[8px]">
 
           {/* =====================================================
-              CALENDAR
-          ===================================================== */}
+        CALENDAR + DATE
+    ===================================================== */}
 
-          <div className="w-[76px] flex justify-center flex-shrink-0">
+          <div className="flex items-center flex-1 min-w-0">
 
-            <CalendarDays
-              size={46}
-              strokeWidth={2.3}
-              className="text-[#f5c542]"
-            />
+            {/* Calendar */}
+            <div className="w-[70px] flex justify-center flex-shrink-0">
+              <div
+                className="
+            w-[52px]
+            h-[52px]
+            rounded-[15px]
+            border border-[#f5c542]/20
+            bg-[#f5c542]/[0.06]
+            flex items-center
+            justify-center
+          "
+              >
+                <CalendarDays
+                  size={36}
+                  strokeWidth={2.2}
+                  className="text-[#f5c542]"
+                />
+              </div>
+            </div>
 
+            {/* Draw Date */}
+            <div className="flex-1 min-w-0">
+
+              <p
+                className="
+            text-[#d1d1d1]
+            text-[11px]
+            font-medium
+            leading-none
+            whitespace-nowrap
+          "
+              >
+                {loading
+                  ? "लॉटरी जानकारी लोड हो रही है..."
+                  : error
+                    ? "लॉटरी जानकारी उपलब्ध नहीं है"
+                    : "अगला ड्रा (लक्की ड्रा)"}
+              </p>
+
+              <p
+                className="
+            text-[#f5c542]
+            text-[clamp(10px,3.7vw,22px)]
+            font-extrabold
+            leading-none
+            mt-[9px]
+            tracking-tight
+            whitespace-nowrap
+          "
+              >
+                {drawDateText}
+              </p>
+
+            </div>
           </div>
 
           {/* =====================================================
-              DRAW DATE
-          ===================================================== */}
+        DIVIDER
+    ===================================================== */}
 
-          <div className="flex-1 min-w-0">
-
-            <p className="text-[#d1d1d1] text-[13px] font-medium leading-none">
-
-              {loading
-                ? "लॉटरी जानकारी लोड हो रही है..."
-                : error
-                  ? "लॉटरी जानकारी उपलब्ध नहीं है"
-                  : "अगला ड्रा (लक्की ड्रा)"}
-
-            </p>
-
-            <p className="text-[#f5c542] text-[clamp(15px,3.7vw,24px)] font-extrabold leading-none mt-[9px] tracking-tight">
-              {drawDateText}
-            </p>
-
-          </div>
+          <div className="h-[66px] w-[1px] bg-[#292b29] mx-[7px] flex-shrink-0" />
 
           {/* =====================================================
-              COUNTDOWN
-          ===================================================== */}
+        COUNTDOWN
+    ===================================================== */}
 
           <div
-            className="w-[160px] h-[94px] mr-[6px] rounded-[14px] border border-[#8f2026] flex flex-col items-center justify-center mt-2"
+            className="
+        relative
+        w-[160px]
+        h-[94px]
+        flex-shrink-0
+        rounded-[14px]
+        border border-[#8f2026]
+        overflow-hidden
+        flex flex-col
+        items-center
+        justify-center
+      "
             style={{
               background:
                 "linear-gradient(180deg, #b82a30 0%, #711116 100%)",
@@ -472,13 +527,16 @@ const HomeLotterySection = () => {
             }}
           >
 
+            {/* Small glow */}
+            <div className="absolute -right-[20px] -top-[25px] w-[70px] h-[70px] rounded-full bg-white/[0.05] blur-[15px]" />
+
             {/* =================================================
-                COUNTDOWN HEADER
-            ================================================= */}
+          COUNTDOWN HEADER
+      ================================================= */}
 
-            <div className="flex items-center gap-2">
+            <div className="relative flex items-center gap-2 whitespace-nowrap">
 
-              <div className="relative">
+              <div className="relative flex-shrink-0">
 
                 <div className="w-[20px] h-[20px] rounded-full border-2 border-white" />
 
@@ -488,117 +546,116 @@ const HomeLotterySection = () => {
 
               </div>
 
-              <span className="text-white text-[15px] font-bold">
-
+              <span className="text-white text-[12px] font-bold whitespace-nowrap">
                 {countdown.expired
                   ? "ड्रा शुरू हो गया"
                   : countdown.available
                     ? "ड्रा शुरू होने में"
                     : "जल्द शुरू होगा"}
-
               </span>
 
             </div>
 
             {/* =================================================
-                LIVE COUNTDOWN
-            ================================================= */}
+          LIVE COUNTDOWN
+      ================================================= */}
 
-            <div className="flex items-center justify-center mt-[7px]">
+            <div className="relative flex items-center justify-center mt-[7px]">
 
               {countdown.expired ? (
 
-                <span className="text-white text-[17px] font-extrabold">
+                <span className="text-white text-[17px] font-extrabold whitespace-nowrap">
                   अभी
                 </span>
 
               ) : countdown.available ? (
 
-                <div className="flex items-center gap-[3px]">
+                <div className="flex items-center gap-[3px] whitespace-nowrap">
 
+                  {/* DAYS */}
                   {countdown.days > 0 && (
                     <>
                       <div className="flex flex-col items-center min-w-[27px]">
-
-                        <span className="text-white text-[18px] font-extrabold leading-none">
-                          {String(
-                            countdown.days
-                          ).padStart(2, "0")}
-                        </span>
+                        <div className="flex items-center justify-center min-w-[27px] h-[25px] rounded-[5px] bg-black/15 border border-white/[0.08]">
+                          <span className="text-white text-[18px] font-extrabold leading-none">
+                            {String(countdown.days).padStart(2, "0")}
+                          </span>
+                        </div>
 
                         <span className="text-white/65 text-[7px] font-semibold mt-[2px]">
                           दिन
                         </span>
-
                       </div>
 
-                      <span className="text-white text-[17px] font-bold">
+                      <span className="text-white text-[17px] font-bold mb-[8px]">
                         :
                       </span>
                     </>
                   )}
 
+                  {/* HOURS */}
                   <div className="flex flex-col items-center min-w-[27px]">
-
-                    <span className="text-white text-[18px] font-extrabold leading-none">
-                      {formattedHours}
-                    </span>
+                    <div className="flex items-center justify-center min-w-[27px] h-[25px] rounded-[5px] bg-black/15 border border-white/[0.08]">
+                      <span className="text-white text-[18px] font-extrabold leading-none">
+                        {formattedHours}
+                      </span>
+                    </div>
 
                     <span className="text-white/65 text-[7px] font-semibold mt-[2px]">
                       घंटे
                     </span>
-
                   </div>
 
-                  <span className="text-white text-[17px] font-bold">
+                  <span className="text-white text-[17px] font-bold mb-[8px]">
                     :
                   </span>
 
+                  {/* MINUTES */}
                   <div className="flex flex-col items-center min-w-[27px]">
-
-                    <span className="text-white text-[18px] font-extrabold leading-none">
-                      {formattedMinutes}
-                    </span>
+                    <div className="flex items-center justify-center min-w-[27px] h-[25px] rounded-[5px] bg-black/15 border border-white/[0.08]">
+                      <span className="text-white text-[18px] font-extrabold leading-none">
+                        {formattedMinutes}
+                      </span>
+                    </div>
 
                     <span className="text-white/65 text-[7px] font-semibold mt-[2px]">
                       मिनट
                     </span>
-
                   </div>
 
-                  <span className="text-white text-[17px] font-bold">
+                  <span className="text-white text-[17px] font-bold mb-[8px]">
                     :
                   </span>
 
+                  {/* SECONDS */}
                   <div className="flex flex-col items-center min-w-[27px]">
-
-                    <span className="text-white text-[18px] font-extrabold leading-none">
-                      {formattedSeconds}
-                    </span>
+                    <div className="flex items-center justify-center min-w-[27px] h-[25px] rounded-[5px] bg-black/15 border border-white/[0.08]">
+                      <span className="text-white text-[18px] font-extrabold leading-none">
+                        {formattedSeconds}
+                      </span>
+                    </div>
 
                     <span className="text-white/65 text-[7px] font-semibold mt-[2px]">
                       सेकंड
                     </span>
-
                   </div>
 
                 </div>
 
               ) : (
 
-                <span className="text-white text-[17px] font-extrabold">
+                <span className="text-white text-[17px] font-extrabold whitespace-nowrap">
                   जल्द
                 </span>
 
               )}
 
             </div>
-
           </div>
-
         </div>
-
       </div>
+
+
 
       {/* =====================================================
           PRIZE CARDS
@@ -771,12 +828,6 @@ const HomeLotterySection = () => {
       {/* =====================================================
           FEEDBACK
       ===================================================== */}
-
-      {successMessage && (
-        <p className="mt-2 text-center text-green-400 text-xs">
-          {successMessage}
-        </p>
-      )}
 
       {error && (
         <p className="mt-2 text-center text-red-400 text-xs">
