@@ -268,17 +268,7 @@ const AdminLayout = () => {
               {admin?.name?.charAt(0)?.toUpperCase() || "A"}
             </div>
 
-            <div className="min-w-0 flex-1">
 
-              <p className="truncate text-sm font-semibold text-white">
-                {admin?.name || "Admin"}
-              </p>
-
-              <p className="truncate text-xs text-slate-500">
-                {admin?.mobile || ""}
-              </p>
-
-            </div>
 
           </div>
 

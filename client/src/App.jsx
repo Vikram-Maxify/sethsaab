@@ -30,6 +30,8 @@ import AdminLottery from "./admin/adminPages/AdminLottery";
 import AdminDeposits from "./admin/adminPages/AdminDeposits";
 import WithdrawalManagement from "./admin/adminPages/WithdrawalManagement";
 import Recharge from "./Pages/Rechagre";
+import Deposit from "./Pages/Deposit";
+import WithdrawHistory from "./Pages/WithdrawHistory";
 
 // ==========================================================
 // WHATSAPP SUPPORT NUMBER
@@ -64,7 +66,15 @@ function App() {
             <Route path="/buy-ticket" element={<BuyTicket />} />
             <Route path="/my-tickets" element={<MyTickets />} />
             <Route path="/user/withdraw" element={<WithdrawalRequest />} />
+            <Route
+              path="/withdraw-history"
+              element={<WithdrawHistory />}
+            />
             <Route path="/recharge" element={<Recharge />} />
+            <Route
+              path="/deposit"
+              element={<Deposit />}
+            />
 
             <Route path="/payment-success" element={<PaymentSuccess />} />
           </Route>

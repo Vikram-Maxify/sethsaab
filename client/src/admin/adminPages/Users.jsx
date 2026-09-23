@@ -8,6 +8,10 @@ import {
   clearAdminMessage,
 } from "../../reducer/slice/adminAuthReducer";
 
+import {
+  getAllLotteryConfigs,
+} from "../../reducer/slice/lotteryConfigSlice";
+
 const Users = () => {
   const dispatch = useDispatch();
 
@@ -24,11 +28,18 @@ const Users = () => {
     message,
   } = useSelector((state) => state.adminAuth);
 
+  const {
+    configs = [],
+    loading: lotteryLoading,
+  } = useSelector((state) => state.lotteryConfig || {});
+
   // =====================================
   // LOCAL STATE
   // =====================================
 
   const [selectedUser, setSelectedUser] = useState(null);
+
+  const [selectedTicketsUser, setSelectedTicketsUser] = useState(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -37,11 +48,12 @@ const Users = () => {
   });
 
   // =====================================
-  // GET ALL USERS
+  // GET ALL USERS + LOTTERY CONFIGS
   // =====================================
 
   useEffect(() => {
     dispatch(getAllUsers());
+    dispatch(getAllLotteryConfigs());
   }, [dispatch]);
 
   // =====================================
@@ -55,6 +67,85 @@ const Users = () => {
       ...prev,
       [name]: value,
     }));
+  };
+
+  // =====================================
+  // GET USER TICKETS
+  // =====================================
+
+  const getUserTickets = (userId) => {
+    if (!userId || !Array.isArray(configs)) {
+      return [];
+    }
+
+    const tickets = [];
+
+    configs.forEach((config) => {
+      if (!Array.isArray(config?.users)) {
+        return;
+      }
+
+      config.users.forEach((ticket) => {
+        if (
+          ticket?.userId &&
+          String(ticket.userId) === String(userId)
+        ) {
+          tickets.push({
+            ...ticket,
+
+            lotteryId: config._id,
+
+            marketName:
+              config.marketName ||
+              config.name ||
+              "-",
+
+            drawDate: config.drawDate || null,
+
+            drawTime: config.drawTime || "-",
+          });
+        }
+      });
+    });
+
+    return tickets;
+  };
+
+  // =====================================
+  // GET TICKET COUNT
+  // =====================================
+
+  const getUserTicketCount = (user) => {
+    if (!user?._id) {
+      return 0;
+    }
+
+    return getUserTickets(user._id).length;
+  };
+
+  // =====================================
+  // OPEN TICKET MODAL
+  // =====================================
+
+  const handleTicketsClick = (user) => {
+    const tickets = getUserTickets(user?._id);
+
+    if (!tickets.length) {
+      return;
+    }
+
+    setSelectedTicketsUser({
+      user,
+      tickets,
+    });
+  };
+
+  // =====================================
+  // CLOSE TICKET MODAL
+  // =====================================
+
+  const handleCloseTickets = () => {
+    setSelectedTicketsUser(null);
   };
 
   // =====================================
@@ -98,7 +189,9 @@ const Users = () => {
   const handleUpdate = async (e) => {
     e.preventDefault();
 
-    if (!selectedUser) return;
+    if (!selectedUser) {
+      return;
+    }
 
     const updateData = {
       uuid: selectedUser.uuid,
@@ -132,7 +225,10 @@ const Users = () => {
 
   const handleRefresh = () => {
     dispatch(clearAdminError());
+
     dispatch(getAllUsers());
+
+    dispatch(getAllLotteryConfigs());
   };
 
   // =====================================
@@ -140,14 +236,61 @@ const Users = () => {
   // =====================================
 
   const formatDate = (date) => {
-    if (!date) return "-";
+    if (!date) {
+      return "-";
+    }
 
-    return new Date(date).toLocaleDateString("en-IN", {
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "-";
+    }
+
+    return parsedDate.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
     });
   };
+
+  // =====================================
+  // FORMAT DATE TIME
+  // =====================================
+
+  const formatDateTime = (date) => {
+    if (!date) {
+      return "-";
+    }
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "-";
+    }
+
+    return parsedDate.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // =====================================
+  // TOTAL TICKETS
+  // =====================================
+
+  const totalTickets = Array.isArray(configs)
+    ? configs.reduce((total, config) => {
+        return (
+          total +
+          (Array.isArray(config?.users)
+            ? config.users.length
+            : 0)
+        );
+      }, 0)
+    : 0;
 
   // =====================================
   // PAGE
@@ -172,9 +315,9 @@ const Users = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
 
-          {/* Total Users */}
+          {/* TOTAL USERS */}
 
           <div className="rounded-xl bg-white px-5 py-3 shadow-sm">
             <p className="text-xs font-medium text-gray-500">
@@ -186,15 +329,29 @@ const Users = () => {
             </p>
           </div>
 
-          {/* Refresh */}
+          {/* TOTAL TICKETS */}
+
+          <div className="rounded-xl bg-white px-5 py-3 shadow-sm">
+            <p className="text-xs font-medium text-gray-500">
+              Total Tickets
+            </p>
+
+            <p className="text-xl font-bold text-blue-600">
+              {lotteryLoading ? "..." : totalTickets}
+            </p>
+          </div>
+
+          {/* REFRESH */}
 
           <button
             type="button"
             onClick={handleRefresh}
-            disabled={usersLoading}
+            disabled={usersLoading || lotteryLoading}
             className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {usersLoading ? "Loading..." : "Refresh"}
+            {usersLoading || lotteryLoading
+              ? "Loading..."
+              : "Refresh"}
           </button>
 
         </div>
@@ -252,7 +409,7 @@ const Users = () => {
 
         <div className="overflow-x-auto">
 
-          <table className="w-full min-w-[950px]">
+          <table className="w-full min-w-[1050px]">
 
             {/* =================================
                 TABLE HEADER
@@ -283,6 +440,10 @@ const Users = () => {
                 </th>
 
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Tickets
+                </th>
+
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                   UUID
                 </th>
 
@@ -306,12 +467,15 @@ const Users = () => {
 
               {usersLoading ? (
 
-                // Loading
+                /* LOADING */
+
                 <tr>
+
                   <td
-                    colSpan="8"
+                    colSpan="9"
                     className="px-6 py-16 text-center"
                   >
+
                     <div className="flex flex-col items-center justify-center">
 
                       <div className="mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-900" />
@@ -321,149 +485,171 @@ const Users = () => {
                       </p>
 
                     </div>
+
                   </td>
+
                 </tr>
 
               ) : users.length > 0 ? (
 
-                // Users
-                users.map((user, index) => (
+                /* USERS */
 
-                  <tr
-                    key={user.uuid || user._id}
-                    className="transition hover:bg-gray-50"
-                  >
+                users.map((user, index) => {
 
-                    {/* =====================
-                        #
-                    ===================== */}
+                  const ticketCount =
+                    getUserTicketCount(user);
 
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {index + 1}
-                    </td>
+                  return (
+                    <tr
+                      key={
+                        user.uuid ||
+                        user._id ||
+                        index
+                      }
+                      className="transition hover:bg-gray-50"
+                    >
 
-                    {/* =====================
-                        USER
-                    ===================== */}
+                      {/* NUMBER */}
 
-                    <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {index + 1}
+                      </td>
 
-                      <div className="flex items-center gap-3">
+                      {/* USER */}
 
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-900 text-sm font-bold text-white">
+                      <td className="px-6 py-4">
 
-                          {user.name
-                            ?.charAt(0)
-                            ?.toUpperCase() || "U"}
+                        <div className="flex items-center gap-3">
+
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-900 text-sm font-bold text-white">
+
+                            {user.name
+                              ?.charAt(0)
+                              ?.toUpperCase() || "U"}
+
+                          </div>
+
+                          <div className="min-w-0">
+
+                            <p className="truncate font-medium text-gray-900">
+                              {user.name || "-"}
+                            </p>
+
+                            <p className="text-xs text-gray-500">
+                              User
+                            </p>
+
+                          </div>
 
                         </div>
 
-                        <div className="min-w-0">
+                      </td>
 
-                          <p className="truncate font-medium text-gray-900">
-                            {user.name || "-"}
-                          </p>
+                      {/* MOBILE */}
 
-                          <p className="text-xs text-gray-500">
-                            User
-                          </p>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        {user.mobile || "-"}
+                      </td>
 
-                        </div>
+                      {/* ROLE */}
 
-                      </div>
+                      <td className="px-6 py-4">
 
-                    </td>
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                            user.role === "admin"
+                              ? "bg-purple-100 text-purple-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {user.role || "user"}
+                        </span>
 
-                    {/* =====================
-                        MOBILE
-                    ===================== */}
+                      </td>
 
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {user.mobile || "-"}
-                    </td>
+                      {/* WALLET */}
 
-                    {/* =====================
-                        ROLE
-                    ===================== */}
+                      <td className="px-6 py-4">
 
-                    <td className="px-6 py-4">
+                        <span className="font-semibold text-gray-900">
+                          ₹
+                          {Number(
+                            user.wallet || 0
+                          ).toFixed(2)}
+                        </span>
 
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                          user.role === "admin"
-                            ? "bg-purple-100 text-purple-700"
-                            : "bg-blue-100 text-blue-700"
-                        }`}
-                      >
-                        {user.role || "user"}
-                      </span>
+                      </td>
 
-                    </td>
+                      {/* TICKETS */}
 
-                    {/* =====================
-                        WALLET
-                    ===================== */}
+                      <td className="px-6 py-4">
 
-                    <td className="px-6 py-4">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleTicketsClick(user)
+                          }
+                          disabled={ticketCount === 0}
+                          className={`inline-flex min-w-[48px] items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition ${
+                            ticketCount > 0
+                              ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                              : "cursor-not-allowed bg-gray-100 text-gray-400"
+                          }`}
+                          title={
+                            ticketCount > 0
+                              ? "View all tickets"
+                              : "No tickets"
+                          }
+                        >
+                          {ticketCount}
+                        </button>
 
-                      <span className="font-semibold text-gray-900">
-                        ₹
-                        {Number(
-                          user.wallet || 0
-                        ).toFixed(2)}
-                      </span>
+                      </td>
 
-                    </td>
+                      {/* UUID */}
 
-                    {/* =====================
-                        UUID
-                    ===================== */}
+                      <td className="px-6 py-4">
 
-                    <td className="px-6 py-4">
+                        <span className="inline-block max-w-[180px] truncate rounded-md bg-gray-100 px-2 py-1 font-mono text-xs text-gray-600">
+                          {user.uuid || "-"}
+                        </span>
 
-                      <span className="inline-block max-w-[180px] truncate rounded-md bg-gray-100 px-2 py-1 font-mono text-xs text-gray-600">
-                        {user.uuid || "-"}
-                      </span>
+                      </td>
 
-                    </td>
+                      {/* CREATED */}
 
-                    {/* =====================
-                        CREATED
-                    ===================== */}
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {formatDate(user.createdAt)}
+                      </td>
 
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {formatDate(user.createdAt)}
-                    </td>
+                      {/* ACTION */}
 
-                    {/* =====================
-                        ACTION
-                    ===================== */}
+                      <td className="px-6 py-4 text-right">
 
-                    <td className="px-6 py-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleEdit(user)
+                          }
+                          className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700"
+                        >
+                          Edit
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleEdit(user)
-                        }
-                        className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700"
-                      >
-                        Edit
-                      </button>
+                      </td>
 
-                    </td>
-
-                  </tr>
-
-                ))
+                    </tr>
+                  );
+                })
 
               ) : (
 
-                // Empty
+                /* EMPTY */
+
                 <tr>
 
                   <td
-                    colSpan="8"
+                    colSpan="9"
                     className="px-6 py-16 text-center"
                   >
 
@@ -497,9 +683,315 @@ const Users = () => {
 
       </div>
 
-      {/* =====================================
+      {/* =====================================================
+          TICKET DETAILS MODAL
+      ===================================================== */}
+
+      {selectedTicketsUser && (
+
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          onClick={handleCloseTickets}
+        >
+
+          <div
+            className="w-full max-w-6xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+
+            {/* MODAL HEADER */}
+
+            <div className="flex items-center justify-between border-b px-6 py-5">
+
+              <div>
+
+                <h2 className="text-xl font-bold text-gray-900">
+                  User Tickets
+                </h2>
+
+                <p className="mt-1 text-sm text-gray-500">
+
+                  {selectedTicketsUser.user.name ||
+                    "User"}
+
+                  {selectedTicketsUser.user.mobile
+                    ? ` • ${selectedTicketsUser.user.mobile}`
+                    : ""}
+
+                </p>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseTickets}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-2xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+              >
+                ×
+              </button>
+
+            </div>
+
+            {/* SUMMARY */}
+
+            <div className="grid grid-cols-1 gap-4 border-b bg-gray-50 p-5 sm:grid-cols-2 md:grid-cols-4">
+
+              {/* TOTAL TICKETS */}
+
+              <div className="rounded-xl bg-white p-4 shadow-sm">
+
+                <p className="text-xs font-medium text-gray-500">
+                  Total Tickets
+                </p>
+
+                <p className="mt-1 text-2xl font-bold text-blue-600">
+                  {
+                    selectedTicketsUser
+                      .tickets.length
+                  }
+                </p>
+
+              </div>
+
+              {/* TOTAL AMOUNT */}
+
+              <div className="rounded-xl bg-white p-4 shadow-sm">
+
+                <p className="text-xs font-medium text-gray-500">
+                  Total Amount
+                </p>
+
+                <p className="mt-1 text-2xl font-bold text-gray-900">
+
+                  ₹
+                  {selectedTicketsUser.tickets
+                    .reduce(
+                      (total, ticket) =>
+                        total +
+                        Number(
+                          ticket.amount || 0
+                        ),
+                      0
+                    )
+                    .toFixed(2)}
+
+                </p>
+
+              </div>
+
+              {/* USER NAME */}
+
+              <div className="rounded-xl bg-white p-4 shadow-sm">
+
+                <p className="text-xs font-medium text-gray-500">
+                  User
+                </p>
+
+                <p className="mt-1 truncate text-lg font-bold text-gray-900">
+                  {selectedTicketsUser.user.name ||
+                    "-"}
+                </p>
+
+              </div>
+
+              {/* MOBILE */}
+
+              <div className="rounded-xl bg-white p-4 shadow-sm">
+
+                <p className="text-xs font-medium text-gray-500">
+                  Mobile
+                </p>
+
+                <p className="mt-1 text-lg font-bold text-gray-900">
+                  {selectedTicketsUser.user.mobile ||
+                    "-"}
+                </p>
+
+              </div>
+
+            </div>
+
+            {/* TICKET TABLE */}
+
+            <div className="max-h-[60vh] overflow-auto">
+
+              <table className="w-full min-w-[950px]">
+
+                <thead className="sticky top-0 z-10 border-b bg-gray-50">
+
+                  <tr>
+
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      #
+                    </th>
+
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Lottery
+                    </th>
+
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Number
+                    </th>
+
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Amount
+                    </th>
+
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Draw Date
+                    </th>
+
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Draw Time
+                    </th>
+
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Status
+                    </th>
+
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Entry Date
+                    </th>
+
+                  </tr>
+
+                </thead>
+
+                <tbody className="divide-y divide-gray-100">
+
+                  {selectedTicketsUser.tickets.map(
+                    (ticket, index) => (
+
+                      <tr
+                        key={
+                          ticket._id ||
+                          `${ticket.lotteryId}-${index}`
+                        }
+                        className="hover:bg-gray-50"
+                      >
+
+                        {/* NUMBER */}
+
+                        <td className="px-5 py-4 text-sm text-gray-500">
+                          {index + 1}
+                        </td>
+
+                        {/* LOTTERY */}
+
+                        <td className="px-5 py-4">
+
+                          <p className="font-semibold text-gray-900">
+                            {ticket.marketName ||
+                              "-"}
+                          </p>
+
+                          {ticket.lotteryId && (
+                            <p className="mt-1 max-w-[150px] truncate font-mono text-[10px] text-gray-400">
+                              {ticket.lotteryId}
+                            </p>
+                          )}
+
+                        </td>
+
+                        {/* NUMBER */}
+
+                        <td className="px-5 py-4">
+
+                          <span className="rounded-md bg-gray-100 px-3 py-1 font-mono text-sm font-bold tracking-wider text-gray-800">
+                            {ticket.number || "-"}
+                          </span>
+
+                        </td>
+
+                        {/* AMOUNT */}
+
+                        <td className="px-5 py-4 text-sm font-semibold text-gray-900">
+                          ₹
+                          {Number(
+                            ticket.amount || 0
+                          ).toFixed(2)}
+                        </td>
+
+                        {/* DRAW DATE */}
+
+                        <td className="px-5 py-4 text-sm text-gray-600">
+                          {formatDate(
+                            ticket.drawDate
+                          )}
+                        </td>
+
+                        {/* DRAW TIME */}
+
+                        <td className="px-5 py-4 text-sm text-gray-600">
+                          {ticket.drawTime || "-"}
+                        </td>
+
+                        {/* STATUS */}
+
+                        <td className="px-5 py-4">
+
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                              ticket.status ===
+                              "won"
+                                ? "bg-green-100 text-green-700"
+                                : ticket.status ===
+                                  "lost"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-yellow-100 text-yellow-700"
+                            }`}
+                          >
+                            {ticket.status ||
+                              "pending"}
+                          </span>
+
+                        </td>
+
+                        {/* ENTRY DATE */}
+
+                        <td className="px-5 py-4 text-sm text-gray-500">
+                          {formatDateTime(
+                            ticket.createdAt ||
+                              ticket.entryDate
+                          )}
+                        </td>
+
+                      </tr>
+
+                    )
+                  )}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+            {/* MODAL FOOTER */}
+
+            <div className="flex justify-end border-t bg-gray-50 px-6 py-4">
+
+              <button
+                type="button"
+                onClick={handleCloseTickets}
+                className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-700"
+              >
+                Close
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+      {/* =====================================================
           EDIT USER MODAL
-      ===================================== */}
+      ===================================================== */}
 
       {selectedUser && (
 
@@ -510,12 +1002,12 @@ const Users = () => {
 
           <div
             className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
 
-            {/* =================================
-                MODAL HEADER
-            ================================= */}
+            {/* MODAL HEADER */}
 
             <div className="flex items-center justify-between border-b px-6 py-5">
 
@@ -541,16 +1033,14 @@ const Users = () => {
 
             </div>
 
-            {/* =================================
-                FORM
-            ================================= */}
+            {/* FORM */}
 
             <form
               onSubmit={handleUpdate}
               className="space-y-5 p-6"
             >
 
-              {/* Name */}
+              {/* NAME */}
 
               <div>
 
@@ -570,7 +1060,7 @@ const Users = () => {
 
               </div>
 
-              {/* Mobile */}
+              {/* MOBILE */}
 
               <div>
 
@@ -590,7 +1080,7 @@ const Users = () => {
 
               </div>
 
-              {/* Password */}
+              {/* PASSWORD */}
 
               <div>
 
@@ -609,8 +1099,8 @@ const Users = () => {
                 />
 
                 <p className="mt-1.5 text-xs text-gray-400">
-                  Leave empty if you don't want to change
-                  the password.
+                  Leave empty if you don't want to
+                  change the password.
                 </p>
 
               </div>
@@ -629,9 +1119,7 @@ const Users = () => {
 
               </div>
 
-              {/* =================================
-                  BUTTONS
-              ================================= */}
+              {/* BUTTONS */}
 
               <div className="flex gap-3 pt-2">
 

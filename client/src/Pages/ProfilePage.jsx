@@ -30,6 +30,22 @@ import {
   selectMyLotteryTotalEntries,
 } from "../reducer/slice/createLotteryConfigSlice";
 
+/* ==========================================================
+   DEPOSIT REDUCER
+========================================================== */
+
+import {
+  getMyDeposits,
+} from "../reducer/slice/depositSlice";
+
+/* ==========================================================
+   WITHDRAWAL REDUCER
+========================================================== */
+
+import {
+  fetchMyWithdrawals,
+} from "../reducer/slice/withdrawalSlice";
+
 // ==========================================================
 // PROFILE PAGE
 // ==========================================================
@@ -63,6 +79,25 @@ const ProfilePage = () => {
   );
 
   // ========================================================
+  // DEPOSIT DATA
+  // ========================================================
+
+  const {
+    deposits = [],
+    pagination = {},
+    loading: depositLoading = false,
+  } = useSelector((state) => state.deposit || {});
+
+  // ========================================================
+  // WITHDRAWAL DATA
+  // ========================================================
+
+  const {
+    myWithdrawals = [],
+    myWithdrawalsLoading = false,
+  } = useSelector((state) => state.withdrawal || {});
+
+  // ========================================================
   // EDIT PROFILE MODAL
   // ========================================================
 
@@ -80,13 +115,37 @@ const ProfilePage = () => {
   });
 
   // ========================================================
-  // FETCH USER LOTTERY ENTRIES
+  // FETCH USER DATA
   // ========================================================
 
   useEffect(() => {
-    if (user) {
-      dispatch(getMyLotteryEntries());
+    if (!user) {
+      return;
     }
+
+    // --------------------------------------------
+    // FETCH USER LOTTERY ENTRIES
+    // --------------------------------------------
+
+    dispatch(getMyLotteryEntries());
+
+    // --------------------------------------------
+    // FETCH USER DEPOSITS
+    // --------------------------------------------
+
+    dispatch(
+      getMyDeposits({
+        page: 1,
+        limit: 10,
+        sort: "desc",
+      })
+    );
+
+    // --------------------------------------------
+    // FETCH USER WITHDRAWALS
+    // --------------------------------------------
+
+    dispatch(fetchMyWithdrawals());
   }, [dispatch, user]);
 
   // ========================================================
@@ -239,6 +298,14 @@ const ProfilePage = () => {
   };
 
   // ========================================================
+  // OPEN DEPOSIT PAGE
+  // ========================================================
+
+  const handleOpenDeposits = () => {
+    navigate("/deposit");
+  };
+
+  // ========================================================
   // WALLET
   // ========================================================
 
@@ -251,6 +318,22 @@ const ProfilePage = () => {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     });
+
+  // ========================================================
+  // DEPOSIT COUNT
+  // ========================================================
+
+  const totalDeposits = Number(
+    pagination?.total || deposits?.length || 0
+  );
+
+  // ========================================================
+  // WITHDRAWAL COUNT
+  // ========================================================
+
+  const totalWithdrawals = Number(
+    myWithdrawals?.length || 0
+  );
 
   // ========================================================
   // RETURN
@@ -355,6 +438,7 @@ const ProfilePage = () => {
               size={13}
               className="min-[400px]:w-[14px] min-[400px]:h-[14px] min-[450px]:w-[16px] min-[450px]:h-[16px]"
             />
+
             संपादित करें
           </button>
 
@@ -504,7 +588,9 @@ const ProfilePage = () => {
 
       <div className="mt-4 flex flex-col gap-3">
 
-        {/* MY TICKETS */}
+        {/* ==================================================
+            MY TICKETS
+        ================================================== */}
 
         <ProfileMenu
           icon={<Ticket />}
@@ -513,7 +599,39 @@ const ProfilePage = () => {
           onClick={() => navigate("/my-tickets")}
         />
 
-        {/* RESULT */}
+        {/* ==================================================
+            MY DEPOSITS
+        ================================================== */}
+
+        <ProfileMenu
+          icon={<Wallet />}
+          title="मेरे डिपॉजिट"
+          description={
+            depositLoading
+              ? "डिपॉजिट लोड हो रहे हैं..."
+              : `कुल ${totalDeposits} डिपॉजिट देखें`
+          }
+          onClick={handleOpenDeposits}
+        />
+
+        {/* ==================================================
+            WITHDRAWAL HISTORY
+        ================================================== */}
+
+        <ProfileMenu
+          icon={<HandCoins />}
+          title="निकासी इतिहास"
+          description={
+            myWithdrawalsLoading
+              ? "निकासी इतिहास लोड हो रही है..."
+              : `कुल ${totalWithdrawals} निकासी देखें`
+          }
+          onClick={() => navigate("/withdraw-history")}
+        />
+
+        {/* ==================================================
+            RESULT
+        ================================================== */}
 
         <ProfileMenu
           icon={<Trophy />}
@@ -522,7 +640,9 @@ const ProfilePage = () => {
           onClick={() => navigate("/results")}
         />
 
-        {/* WHATSAPP SUPPORT */}
+        {/* ==================================================
+            WHATSAPP SUPPORT
+        ================================================== */}
 
         <ProfileMenu
           icon={<Headphones />}
@@ -531,7 +651,9 @@ const ProfilePage = () => {
           onClick={handleWhatsAppSupport}
         />
 
-        {/* LOGOUT */}
+        {/* ==================================================
+            LOGOUT
+        ================================================== */}
 
         <button
           type="button"
@@ -948,4 +1070,3 @@ const LotusSmall = () => (
 );
 
 export default ProfilePage;
-
