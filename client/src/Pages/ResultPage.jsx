@@ -1,4 +1,3 @@
-
 import {
   CheckCircle2,
   Copy,
@@ -9,6 +8,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { Navigate } from "react-router-dom";
 
 import {
   clearLotteryConfigError,
@@ -37,6 +37,20 @@ const MONTH_NAMES_HI = [
 const ResultPage = () => {
   const dispatch = useDispatch();
 
+  // ==========================================================
+  // AUTH STATE
+  // ==========================================================
+
+  const {
+    user,
+    isAuthenticated,
+    loading: authLoading,
+  } = useSelector((state) => state.auth || {});
+
+  // ==========================================================
+  // LOTTERY STATE
+  // ==========================================================
+
   const {
     myEntries = [],
     myEntriesLoading = false,
@@ -46,13 +60,55 @@ const ResultPage = () => {
     (state) => state.createLotteryConfig || {}
   );
 
+  // ==========================================================
+  // FETCH RESULTS ONLY WHEN USER IS LOGGED IN
+  // ==========================================================
+
   useEffect(() => {
+    if (!isAuthenticated || !user) {
+      return;
+    }
+
     dispatch(getMyLotteryEntries());
 
     return () => {
       dispatch(clearLotteryConfigError());
     };
-  }, [dispatch]);
+  }, [dispatch, isAuthenticated, user]);
+
+  // ==========================================================
+  // AUTH LOADING
+  // ==========================================================
+
+  if (authLoading) {
+    return (
+      <div className="w-full min-h-screen bg-[#030404] text-white flex items-center justify-center">
+        <div className="flex flex-col items-center justify-center">
+          <Trophy
+            size={42}
+            className="text-[#f5c542] animate-pulse"
+          />
+
+          <p className="mt-4 text-[13px] text-white/60">
+            कृपया प्रतीक्षा करें...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================================
+  // USER NOT LOGGED IN
+  // ==========================================================
+
+  if (!isAuthenticated || !user) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
+  }
 
   // ==========================================================
   // MARKET NAME
@@ -156,9 +212,11 @@ const ResultPage = () => {
           day: date.toLocaleDateString("hi-IN", {
             day: "2-digit",
           }),
+
           month: date.toLocaleDateString("hi-IN", {
             month: "long",
           }),
+
           year: date.toLocaleDateString("hi-IN", {
             year: "numeric",
           }),
@@ -227,49 +285,65 @@ const ResultPage = () => {
 
         return {
           id,
+
           number: number
             .slice(0, 6)
             .split(""),
+
           status,
+
           statusText:
             status === "win"
               ? "विजेता"
               : "हार गए",
+
           drawDate,
+
           drawTime:
             item?.drawTime || "—",
+
           price: formatAmount(
             entry?.amount
           ),
+
           purchaseDate: formatDate(
             entry?.entryDate ||
               entry?.createdAt
           ),
+
           purchaseTime: formatTime(
             entry?.createdAt ||
               entry?.entryDate
           ),
+
           message:
             status === "win"
               ? "बधाई हो! आपका टिकट विजेता है"
               : "अगली बार किस्मत आजमाएं",
+
           prizes: {
             first:
               Number(prizes?.first) || 0,
+
             second:
               Number(prizes?.second) || 0,
+
             third:
               Number(prizes?.third) || 0,
           },
+
           prizeType:
             entry?.prizeType || null,
+
           prizeWon: {
             first:
               Number(entry?.prize?.first) ||
               0,
+
             second:
               Number(entry?.prize?.second) ||
               0,
+
             third:
               Number(entry?.prize?.third) ||
               0,
@@ -306,9 +380,12 @@ const ResultPage = () => {
     } catch {}
   };
 
+  // ==========================================================
+  // UI
+  // ==========================================================
+
   return (
     <div className="w-full bg-[#030404] text-white min-h-screen">
-
       <main className="w-full max-w-[680px] mx-auto px-[12px] sm:px-[18px] pt-[22px] pb-[35px]">
 
         {/* ==================================================
@@ -316,9 +393,7 @@ const ResultPage = () => {
         ================================================== */}
 
         <div className="relative flex items-center justify-between gap-[10px]">
-
           <div className="flex items-center gap-[10px] min-w-0">
-
             <Trophy
               size={42}
               strokeWidth={1.8}
@@ -326,7 +401,6 @@ const ResultPage = () => {
             />
 
             <div className="min-w-0">
-
               <h1 className="text-[25px] sm:text-[30px] leading-none font-extrabold tracking-tight">
                 मेरे रिजल्ट
               </h1>
@@ -334,11 +408,8 @@ const ResultPage = () => {
               <p className="mt-[5px] text-[13px] leading-[1.15] text-[#d1d1d1]">
                 आपके जीते और हारे हुए टिकट यहाँ दिखेंगे
               </p>
-
             </div>
-
           </div>
-
         </div>
 
         {/* ==================================================
@@ -346,7 +417,6 @@ const ResultPage = () => {
         ================================================== */}
 
         <div className="grid grid-cols-3 gap-[6px] mt-[22px]">
-
           <ResultStat
             label="कुल रिजल्ट"
             value={totalResults}
@@ -366,7 +436,6 @@ const ResultPage = () => {
             icon={XCircle}
             lost
           />
-
         </div>
 
         {/* ==================================================
@@ -375,7 +444,6 @@ const ResultPage = () => {
 
         {myEntriesLoading ? (
           <div className="h-[160px] mt-[25px] rounded-[16px] border border-[#282b29] bg-[#090b0b] flex flex-col items-center justify-center">
-
             <Trophy
               size={40}
               className="text-[#f5c542] animate-pulse"
@@ -384,7 +452,6 @@ const ResultPage = () => {
             <p className="mt-3 text-[13px] text-white/60">
               आपके रिजल्ट लोड हो रहे हैं...
             </p>
-
           </div>
         ) : null}
 
@@ -396,11 +463,9 @@ const ResultPage = () => {
         error &&
         !resultTickets.length ? (
           <div className="h-[160px] mt-[25px] rounded-[16px] border border-red-500/30 bg-[#090b0b] flex flex-col items-center justify-center px-4 text-center">
-
             <p className="text-[13px] text-red-300">
               {error}
             </p>
-
           </div>
         ) : null}
 
@@ -410,7 +475,6 @@ const ResultPage = () => {
 
         {!myEntriesLoading && (
           <div className="mt-[25px] space-y-[22px]">
-
             {resultTickets.length ? (
               resultTickets.map((ticket) => (
                 <LotteryResultTicket
@@ -422,7 +486,6 @@ const ResultPage = () => {
               ))
             ) : (
               <div className="h-[190px] rounded-[16px] border border-[#282b29] bg-[#090b0b] flex flex-col items-center justify-center text-center px-5">
-
                 <Trophy
                   size={44}
                   className="text-[#f5c542]"
@@ -435,15 +498,11 @@ const ResultPage = () => {
                 <p className="mt-2 text-[12px] leading-[1.4] text-white/50 max-w-[310px]">
                   आपका टिकट ड्रॉ होने के बाद ही यहाँ जीत या हार का रिजल्ट दिखाई देगा।
                 </p>
-
               </div>
             )}
-
           </div>
         )}
-
       </main>
-
     </div>
   );
 };
@@ -469,9 +528,7 @@ const ResultStat = ({
             : "border-[#353938]"
       }`}
     >
-
       <div className="flex items-center gap-[5px]">
-
         <Icon
           size={17}
           strokeWidth={2}
@@ -487,13 +544,11 @@ const ResultStat = ({
         <span className="text-[18px] font-extrabold">
           {value}
         </span>
-
       </div>
 
       <span className="text-[10px] mt-[2px] text-white/55">
         {label}
       </span>
-
     </div>
   );
 };
@@ -544,7 +599,6 @@ const LotteryResultTicket = ({
         </p>
 
         <div className="mt-auto">
-
           <svg
             width="38"
             height="34"
@@ -558,7 +612,6 @@ const LotteryResultTicket = ({
             <path d="M26 41C35 38 44 31 42 23C34 25 28 31 26 41Z" />
             <path d="M26 37C22 28 23 19 26 11C29 19 30 28 26 37Z" />
           </svg>
-
         </div>
 
         <p className="mt-[3px] text-[10px] font-semibold text-white">
@@ -568,7 +621,6 @@ const LotteryResultTicket = ({
         <p className="text-[10px] font-semibold text-white">
           के साथ
         </p>
-
       </div>
 
       {/* ==================================================
@@ -578,23 +630,19 @@ const LotteryResultTicket = ({
       <div className="absolute left-[24%] right-[24%] top-0 bottom-0 px-[8px] py-[13px] text-[#19140c] bg-gradient-to-b from-[#fff1c4] via-[#f8e4ad] to-[#efd394]">
 
         <div className="flex items-center justify-center gap-[4px]">
-
           <span className="text-[#c49a3d] text-[10px]">
             ❧
           </span>
 
           <div className="px-[8px] py-[4px] rounded-full border border-[#d1ad55] bg-[#f9e9b9]">
-
             <p className="text-[11px] font-extrabold whitespace-nowrap">
               भारत की भरोसेमंद लॉटरी
             </p>
-
           </div>
 
           <span className="text-[#c49a3d] text-[10px]">
             ❧
           </span>
-
         </div>
 
         <p className="text-center text-[12px] font-semibold mt-[11px]">
@@ -602,7 +650,6 @@ const LotteryResultTicket = ({
         </p>
 
         <div className="grid grid-cols-6 gap-[3px] mt-[7px]">
-
           {ticket.number.map(
             (digit, index) => (
               <div
@@ -619,11 +666,9 @@ const LotteryResultTicket = ({
               </div>
             )
           )}
-
         </div>
 
         <div className="grid grid-cols-3 gap-[4px] mt-[11px]">
-
           <MiniPrize
             title="प्रथम पुरस्कार"
             amount={formatPrize(
@@ -647,13 +692,11 @@ const LotteryResultTicket = ({
             )}
             subtitle="(4 अंक मिलने पर)"
           />
-
         </div>
 
         <div className="h-px bg-[#c9a85c] mt-[10px]" />
 
         <div className="flex items-center justify-center gap-[3px] mt-[6px]">
-
           <span className="text-[#c09232] text-[9px]">
             ✧
           </span>
@@ -665,9 +708,7 @@ const LotteryResultTicket = ({
           <span className="text-[#c09232] text-[9px]">
             ✧
           </span>
-
         </div>
-
       </div>
 
       {/* ==================================================
@@ -685,7 +726,6 @@ const LotteryResultTicket = ({
               : "bg-gradient-to-b from-[#ed4d4a] to-[#c82729]"
           }`}
         >
-
           {won ? (
             <CheckCircle2
               size={14}
@@ -701,7 +741,6 @@ const LotteryResultTicket = ({
           <span className="text-[10px]">
             {ticket.statusText}
           </span>
-
         </div>
 
         <SideInfo
@@ -731,7 +770,6 @@ const LotteryResultTicket = ({
 
         {won && ticket.prizeType ? (
           <div className="mt-[10px]">
-
             <p className="text-[9px] text-[#6a5533]">
               जीता हुआ पुरस्कार
             </p>
@@ -741,12 +779,10 @@ const LotteryResultTicket = ({
                 ticket.prizeType
               )}
             </p>
-
           </div>
         ) : null}
 
         <div className="mt-[10px]">
-
           <p className="text-[9px] text-[#6a5533]">
             खरीद की तारीख
           </p>
@@ -758,17 +794,14 @@ const LotteryResultTicket = ({
           <p className="text-[9px] mt-[2px]">
             {ticket.purchaseTime}
           </p>
-
         </div>
 
         <div className="mt-[10px]">
-
           <p className="text-[9px] text-[#6a5533]">
             टिकट आईडी
           </p>
 
           <div className="flex items-start gap-[3px] mt-[3px]">
-
             <span className="text-[9px] font-bold break-all leading-[1.1]">
               {ticket.id}
             </span>
@@ -785,15 +818,11 @@ const LotteryResultTicket = ({
                 strokeWidth={1.8}
               />
             </button>
-
           </div>
-
         </div>
-
       </div>
 
       <TicketNotches />
-
     </div>
   );
 };
@@ -872,7 +901,6 @@ const SideInfo = ({
   valueClass = "",
 }) => (
   <div className="mt-[10px]">
-
     <p className="text-[9px] text-[#6a5533]">
       {label}
     </p>
@@ -882,7 +910,6 @@ const SideInfo = ({
     >
       {value}
     </div>
-
   </div>
 );
 
@@ -896,7 +923,6 @@ const MiniPrize = ({
   subtitle,
 }) => (
   <div className="min-w-0 rounded-[7px] border border-[#c79b3d] bg-[#f8e8b4] py-[5px] px-[1px] text-center">
-
     <p className="text-[7px] font-bold leading-[1.1]">
       {title}
     </p>
@@ -908,7 +934,6 @@ const MiniPrize = ({
     <p className="mt-[3px] text-[6px] leading-[1.1]">
       {subtitle}
     </p>
-
   </div>
 );
 
