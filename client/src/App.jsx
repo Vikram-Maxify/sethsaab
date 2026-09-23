@@ -1,5 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { useRef, useState, useEffect } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
 import "./App.css";
 
 // ================= CLIENT =================
@@ -37,8 +36,7 @@ import Recharge from "./Pages/Rechagre";
 const WHATSAPP_NUMBER = "+917234806209";
 
 // ==========================================================
-// ADMIN ROUTES LIST (WhatsApp hide karne ke liye)
-// Saare admin routes /admin se start hote hain
+// ADMIN ROUTES LIST
 // ==========================================================
 const ADMIN_ROUTES = ["/admin"];
 
@@ -46,40 +44,101 @@ function App() {
   return (
     <>
       <Routes>
+
         {/* =====================================================
             CLIENT ROUTES
         ===================================================== */}
+
         <Route element={<PhoneLayout />}>
+
           {/* ================= CLIENT PUBLIC ================= */}
 
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/results" element={<ResultPage />} />
+          <Route
+            path="/"
+            element={<HomePage />}
+          />
 
-          {/* ================= CLIENT PRIVATE ================= */}
+          <Route
+            path="/login"
+            element={<Login />}
+          />
+
+          <Route
+            path="/register"
+            element={<Register />}
+          />
+
+
+          {/* =================================================
+              CLIENT PRIVATE ROUTES
+              Login required for all routes below
+          ================================================= */}
 
           <Route element={<PrivateRoute />}>
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/buy-ticket" element={<BuyTicket />} />
-            <Route path="/my-tickets" element={<MyTickets />} />
-            <Route path="/user/withdraw" element={<WithdrawalRequest />} />
-            <Route path="/recharge" element={<Recharge />} />
 
-            <Route path="/payment-success" element={<PaymentSuccess />} />
+            {/* Profile */}
+            <Route
+              path="/profile"
+              element={<ProfilePage />}
+            />
+
+            {/* Buy Ticket */}
+            <Route
+              path="/buy-ticket"
+              element={<BuyTicket />}
+            />
+
+            {/* My Tickets */}
+            <Route
+              path="/my-tickets"
+              element={<MyTickets />}
+            />
+
+            {/* Results - LOGIN REQUIRED */}
+            <Route
+              path="/results"
+              element={<ResultPage />}
+            />
+
+            {/* Withdraw */}
+            <Route
+              path="/user/withdraw"
+              element={<WithdrawalRequest />}
+            />
+
+            {/* Recharge */}
+            <Route
+              path="/recharge"
+              element={<Recharge />}
+            />
+
+            {/* Payment Success */}
+            <Route
+              path="/payment-success"
+              element={<PaymentSuccess />}
+            />
+
           </Route>
         </Route>
+
 
         {/* =====================================================
             ADMIN PUBLIC ROUTES
         ===================================================== */}
-        <Route path="/admin/login" element={<AdminLogin />} />
+
+        <Route
+          path="/admin/login"
+          element={<AdminLogin />}
+        />
+
 
         {/* =====================================================
             ADMIN PRIVATE ROUTES
-            Saare admin routes /admin/* prefix ke saath
+            Login required
         ===================================================== */}
+
         <Route element={<AdminPrivateRoute />}>
+
           <Route element={<AdminLayout />}>
 
             {/* Dashboard */}
@@ -100,7 +159,7 @@ function App() {
               element={<Amount />}
             />
 
-            {/* ADMIN RESULTS */}
+            {/* Admin Results */}
             <Route
               path="/admin/results"
               element={<AdminResults />}
@@ -134,16 +193,22 @@ function App() {
         </Route>
 
 
-
         {/* =====================================================
             DEFAULT
         ===================================================== */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
+        />
+
       </Routes>
 
       {/* =====================================================
-          WHATSAPP - USER SIDE ONLY (ADMIN SIDE HIDDEN)
+          WHATSAPP - USER SIDE ONLY
+          ADMIN SIDE HIDDEN
       ===================================================== */}
+
     </>
   );
 }

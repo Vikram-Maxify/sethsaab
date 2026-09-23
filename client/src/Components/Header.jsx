@@ -123,7 +123,7 @@ const Header = () => {
           border-[#2a2a2a]
         "
       >
-        <div className="flex items-center justify-between px-5 pt-5 pb-4">
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
           {/* ================= LEFT: LOGO ================= */}
           <div className="flex items-center gap-2.5">
             <div className="relative">

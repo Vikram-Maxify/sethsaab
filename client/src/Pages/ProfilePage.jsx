@@ -440,7 +440,7 @@ const ProfilePage = () => {
       ================================================== */}
 
       <div
-        className="mt-5 rounded-[20px] border border-[#80631f] px-5 py-4 flex items-center justify-between"
+        className="mt-5 rounded-[20px] border border-[#80631f] px-3 py-4 flex items-center justify-between"
         style={{
           background:
             "linear-gradient(110deg, #17130a 0%, #0b0b0b 60%)",
@@ -464,7 +464,7 @@ const ProfilePage = () => {
               वॉलेट बैलेंस
             </p>
 
-            <p className="text-[#f5c542] text-[27px] font-extrabold mt-0.5">
+            <p className="text-[#f5c542] text-[23px] font-extrabold mt-0.5">
               ₹{formattedWalletBalance}
             </p>
 
@@ -477,7 +477,7 @@ const ProfilePage = () => {
         <button
           type="button"
           onClick={() => navigate("/user/withdraw")}
-          className="rounded-xl px-5 py-4 text-black text-[17px] font-extrabold whitespace-nowrap flex items-center gap-2"
+          className="rounded-xl px-3.5 py-3.5 text-black text-[15px] font-extrabold whitespace-nowrap flex items-center gap-1"
           style={{
             background:
               "linear-gradient(180deg, #FFD966 0%, #f5c542 50%, #d4a017 100%)",

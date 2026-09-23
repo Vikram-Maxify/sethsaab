@@ -4,7 +4,7 @@ const Hero = () => {
   return (
     <div className="w-full px-2">
       {/* ================= STATIC HERO BANNER ================= */}
-      <div className="relative w-full overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#111111]">
+      <div className="relative w-full overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#111111] mt-[7px]">
         <img
           src={banner}
           alt="Kuber Ticket"
