@@ -18,12 +18,14 @@ const AdminLogin = () => {
   const location = useLocation();
 
   const {
+    admin,
     isAuthenticated,
     loading,
     error,
   } = useSelector(
     (state) => state.adminAuth
   );
+  console.log(admin)
 
   const [formData, setFormData] = useState({
     mobile: "",
@@ -31,10 +33,23 @@ const AdminLogin = () => {
   });
 
   // Already logged in
-  if (isAuthenticated) {
+  if (isAuthenticated && admin) {
+    const role = String(
+      admin?.role || ""
+    ).toLowerCase();
+
+    if (role === "admin") {
+      return (
+        <Navigate
+          to="/dashboard"
+          replace
+        />
+      );
+    }
+
     return (
       <Navigate
-        to="/dashboard"
+        to="/"
         replace
       />
     );
@@ -57,13 +72,20 @@ const AdminLogin = () => {
     );
 
     if (adminLogin.fulfilled.match(result)) {
-      const from =
-        location.state?.from?.pathname ||
-        "/dashboard";
+      const loggedAdmin = result.payload?.data;
 
-      navigate(from, {
-        replace: true,
-      });
+      const role = String(
+        loggedAdmin?.role || ""
+      ).toLowerCase();
+
+      console.log("ADMIN LOGIN RESPONSE:", result.payload);
+      console.log("ADMIN ROLE:", role);
+
+      if (role === "admin") {
+        navigate("/dashboard", {
+          replace: true,
+        });
+      }
     }
   };
 
@@ -167,4 +189,3 @@ const AdminLogin = () => {
 };
 
 export default AdminLogin;
-

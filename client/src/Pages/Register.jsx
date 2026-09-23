@@ -117,7 +117,7 @@ const Register = () => {
 
         {/* ================= REGISTER SECTION ================= */}
 
-        <section className="relative px-[18px] pt-[18px] pb-[20px]">
+        <section className="relative px-[18px] pt-[14px] pb-[20px]">
           {/* Golden background glow */}
           <div
             className="
@@ -176,7 +176,7 @@ const Register = () => {
 
             <form
               onSubmit={handleSubmit}
-              className="flex flex-col gap-[9px]"
+              className="flex flex-col gap-[7px]"
             >
               {/* ================= MOBILE ================= */}
 
@@ -498,27 +498,28 @@ const Register = () => {
               )}
 
               {/* ================= REGISTER BUTTON ================= */}
+              {/* ================= REGISTER BUTTON ================= */}
 
               <button
                 type="submit"
                 disabled={registerLoading}
                 className="
-                  mt-[3px]
-                  h-[54px]
-                  w-full
-                  rounded-[12px]
-                  flex
-                  items-center
-                  justify-center
-                  gap-[9px]
-                  text-black
-                  text-[17px]
-                  font-extrabold
-                  active:scale-[0.985]
-                  transition-all
-                  disabled:opacity-60
-                  disabled:cursor-not-allowed
-                "
+    mt-[3px]
+    h-[54px]
+    w-full
+    rounded-[12px]
+    flex
+    items-center
+    justify-center
+    gap-[9px]
+    text-black
+    text-[17px]
+    font-extrabold
+    active:scale-[0.985]
+    transition-all
+    disabled:opacity-60
+    disabled:cursor-not-allowed
+  "
                 style={{
                   background:
                     "linear-gradient(180deg, #ffe27a 0%, #f5c542 52%, #dfa925 100%)",
@@ -547,36 +548,45 @@ const Register = () => {
                 )}
               </button>
 
-              {/* ================= LOGIN — RIGHT SIDE ================= */}
+              {/* ================= LOGIN BUTTON — BELOW REGISTER ================= */}
 
-              <div className="flex justify-end -mt-[2px]">
-                <button
-                  type="button"
-                  onClick={() => navigate("/login")}
-                  disabled={registerLoading}
-                  className="
-                    inline-flex
-                    items-center
-                    justify-center
-                    gap-[5px]
-                    text-[#f5c542]
-                    text-[11px]
-                    font-semibold
-                    transition-all
-                    hover:text-[#ffe27a]
-                    active:scale-[0.97]
-                    disabled:opacity-60
-                    disabled:cursor-not-allowed
-                    mt-1
-                  "
-                >
-                  पहले से अकाउंट है? लॉगिन करें
-                  <ArrowRight
-                    size={14}
-                    strokeWidth={2.5}
-                  />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/login")}
+                disabled={registerLoading}
+                className="
+    mt-[10px]
+    h-[54px]
+    w-full
+    rounded-[12px]
+    flex
+    items-center
+    justify-center
+    gap-[9px]
+    text-[#f5c542]
+    text-[16px]
+    font-extrabold
+    border
+    border-[#f5c542]/45
+    bg-[#f5c542]/[0.06]
+    active:scale-[0.985]
+    transition-all
+    hover:bg-[#f5c542]/[0.11]
+    hover:border-[#f5c542]/70
+    disabled:opacity-60
+    disabled:cursor-not-allowed
+  "
+              >
+                पहले से अकाउंट है? लॉगिन करें
+
+                <ArrowRight
+                  size={20}
+                  strokeWidth={2.8}
+                  className="text-[#f5c542]"
+                />
+              </button>
+
+
             </form>
 
             {/* ================= LOTUS DIVIDER ================= */}

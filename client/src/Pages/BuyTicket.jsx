@@ -852,7 +852,7 @@ const BuyTicket = () => {
 
       {/* BANNER */}
 
-      <section className="w-full px-3">
+      <section className="w-full px-3 mt-[9px]">
         <img
           src={kuberBanner}
           alt="Kuber Ticket"
@@ -860,7 +860,7 @@ const BuyTicket = () => {
         />
       </section>
 
-      <main className="px-[14px] pt-3">
+      <main className="px-[14px] pt-2.5">
 
         {/* LOTTERY INFO */}
 

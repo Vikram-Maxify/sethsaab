@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useRef, useState, useEffect } from "react";
 import "./App.css";
 
 // ================= CLIENT =================
@@ -29,8 +30,6 @@ import AdminLottery from "./admin/adminPages/AdminLottery";
 import AdminDeposits from "./admin/adminPages/AdminDeposits";
 import WithdrawalManagement from "./admin/adminPages/WithdrawalManagement";
 import Recharge from "./Pages/Rechagre";
-import Deposit from "./Pages/Deposit";
-import WithdrawHistory from "./Pages/WithdrawHistory";
 
 // ==========================================================
 // WHATSAPP SUPPORT NUMBER
@@ -38,10 +37,28 @@ import WithdrawHistory from "./Pages/WithdrawHistory";
 const WHATSAPP_NUMBER = "+917234806209";
 
 // ==========================================================
-// ADMIN ROUTES LIST
+// ADMIN ROUTES LIST (WhatsApp hide karne ke liye)
+// Saare admin routes /admin se start hote hain
 // ==========================================================
 const ADMIN_ROUTES = ["/admin"];
 
+// ==========================================================
+// HOME ROUTE
+// Home par aane par HomePage fresh mount hoga
+// ==========================================================
+const HomeRoute = () => {
+  const location = useLocation();
+
+  return (
+    <HomePage
+      key={location.key}
+    />
+  );
+};
+
+// ==========================================================
+// APP
+// ==========================================================
 function App() {
   return (
     <>
@@ -55,26 +72,32 @@ function App() {
 
           {/* ================= CLIENT PUBLIC ================= */}
 
+          {/* Home */}
           <Route
             path="/"
-            element={<HomePage />}
+            element={<HomeRoute />}
           />
 
+          {/* Login */}
           <Route
             path="/login"
             element={<Login />}
           />
 
+          {/* Register */}
           <Route
             path="/register"
             element={<Register />}
           />
 
+          {/* Results */}
+          <Route
+            path="/results"
+            element={<ResultPage />}
+          />
 
-          {/* =================================================
-              CLIENT PRIVATE ROUTES
-              Login required for all routes below
-          ================================================= */}
+
+          {/* ================= CLIENT PRIVATE ================= */}
 
           <Route element={<PrivateRoute />}>
 
@@ -96,12 +119,6 @@ function App() {
               element={<MyTickets />}
             />
 
-            {/* Results - LOGIN REQUIRED */}
-            <Route
-              path="/results"
-              element={<ResultPage />}
-            />
-
             {/* Withdraw */}
             <Route
               path="/user/withdraw"
@@ -121,6 +138,7 @@ function App() {
             />
 
           </Route>
+
         </Route>
 
 
@@ -136,7 +154,7 @@ function App() {
 
         {/* =====================================================
             ADMIN PRIVATE ROUTES
-            Login required
+            Saare admin routes /admin/* prefix ke saath
         ===================================================== */}
 
         <Route element={<AdminPrivateRoute />}>
@@ -161,7 +179,7 @@ function App() {
               element={<Amount />}
             />
 
-            {/* Admin Results */}
+            {/* ADMIN RESULTS */}
             <Route
               path="/admin/results"
               element={<AdminResults />}
@@ -192,6 +210,7 @@ function App() {
             />
 
           </Route>
+
         </Route>
 
 
@@ -201,14 +220,19 @@ function App() {
 
         <Route
           path="*"
-          element={<Navigate to="/" replace />}
+          element={
+            <Navigate
+              to="/"
+              replace
+            />
+          }
         />
 
       </Routes>
 
+
       {/* =====================================================
-          WHATSAPP - USER SIDE ONLY
-          ADMIN SIDE HIDDEN
+          WHATSAPP - USER SIDE ONLY (ADMIN SIDE HIDDEN)
       ===================================================== */}
 
     </>
