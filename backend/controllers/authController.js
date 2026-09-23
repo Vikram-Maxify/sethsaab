@@ -107,8 +107,8 @@ const login = async (req, res) => {
     const token = jwt.sign(
       {
         uuid: user.uuid,
-        id:user._id,
-        role:user.role
+        id: user._id,
+        role: user.role
       },
       process.env.JWT_SECRET,
       {
@@ -130,6 +130,8 @@ const login = async (req, res) => {
         uuid: user.uuid,
         name: user.name,
         mobile: user.mobile,
+        role: user.role
+
       },
     });
   } catch (error) {
@@ -165,7 +167,8 @@ const getProfile = async (req, res) => {
         uuid: user.uuid,
         name: user.name,
         mobile: user.mobile,
-        wallet:user.wallet,
+        wallet: user.wallet,
+        role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
