@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -8,9 +7,12 @@ import {
   ShieldCheck,
   Ticket,
   Users,
+  Wallet,
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+
+import { fetchProfile } from "../reducer/slice/authSlice";
 
 import {
   getActiveLotteryConfig,
@@ -129,30 +131,14 @@ const getDrawTimestamp = (activeConfig) => {
     return null;
   }
 
-  /*
-   * API:
-   * drawDate = "2026-09-20T18:30:00.000Z"
-   *
-   * drawTime = "18:50"
-   *
-   * drawTime ko IST maana ja raha hai.
-   *
-   * India timezone = UTC + 05:30
-   *
-   * Example:
-   * 18:50 IST
-   * =
-   * 13:20 UTC
-   */
-
   const date =
     activeConfig.drawDate
       ? new Date(activeConfig.drawDate)
       : new Date(
-        Number(activeConfig.year),
-        Number(activeConfig.month) - 1,
-        Number(activeConfig.date || 1)
-      );
+          Number(activeConfig.year),
+          Number(activeConfig.month) - 1,
+          Number(activeConfig.date || 1)
+        );
 
   if (Number.isNaN(date.getTime())) {
     return null;
@@ -259,6 +245,23 @@ const HomeLotterySection = () => {
   );
 
   // =====================================================
+  // USER / WALLET
+  // =====================================================
+
+  const user = useSelector(
+    (state) => state.auth?.user
+  );
+
+  const isAuthenticated = useSelector(
+    (state) => state.auth?.isAuthenticated
+  );
+
+  const walletAmount =
+    user?.wallet ??
+    user?.balance ??
+    0;
+
+  // =====================================================
   // COUNTDOWN STATE
   // =====================================================
 
@@ -272,7 +275,19 @@ const HomeLotterySection = () => {
   });
 
   // =====================================================
-  // FETCH ACTIVE CONFIG ON MOUNT
+  // FETCH LATEST PROFILE / WALLET
+  // =====================================================
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    dispatch(fetchProfile());
+  }, [dispatch, isAuthenticated]);
+
+  // =====================================================
+  // FETCH ACTIVE LOTTERY CONFIG ON MOUNT
   // =====================================================
 
   useEffect(() => {
@@ -401,8 +416,12 @@ const HomeLotterySection = () => {
     navigate("/buy-ticket");
   };
 
+  const handleWithdraw = () => {
+    navigate("/user/withdraw");
+  };
+
   return (
-    <section className="w-full px-[10px] pt-2 pb-3 bg-[#050505]">
+    <section className="w-full px-[10px] pt-1 pb-3 bg-[#050505]">
 
       {/* =====================================================
           NEXT DRAW CARD
@@ -410,14 +429,110 @@ const HomeLotterySection = () => {
 
       <div
         className="
-    relative
-    w-full
-    h-[114px]
-    rounded-[18px]
-    border border-[#292b29]
-    overflow-hidden
-    bg-[#0b0c0a]
-  "
+          relative
+          mt-[4px]
+          w-full
+          min-h-[72px]
+          rounded-[16px]
+          border border-[#292b29]
+          overflow-hidden
+          flex items-center
+          justify-between
+          px-[14px]
+        "
+        style={{
+          background:
+            "linear-gradient(180deg, #0d0f0e 0%, #070808 100%)",
+          boxShadow:
+            "inset 0 1px 0 rgba(255,255,255,0.04)",
+        }}
+      >
+
+        {/* Gold top highlight */}
+        <div className="absolute top-0 left-[18px] right-[18px] h-[1px] bg-[#f5c542]/25" />
+
+        {/* WALLET LEFT */}
+        <div className="flex items-center gap-[11px] min-w-0">
+
+          <div
+            className="
+              w-[43px]
+              h-[43px]
+              rounded-[12px]
+              border border-[#f5c542]/25
+              bg-[#f5c542]/[0.07]
+              flex
+              items-center
+              justify-center
+              flex-shrink-0
+            "
+          >
+            <Wallet
+              size={23}
+              strokeWidth={2.3}
+              className="text-[#f5c542]"
+            />
+          </div>
+
+          <div className="min-w-0">
+
+            <p className="text-[#bdbdbd] text-[14px] font-medium leading-none">
+              वॉलेट बैलेंस
+            </p>
+
+            <p className="text-[#f5c542] text-[20px] font-extrabold leading-none mt-[6px] whitespace-nowrap">
+              ₹{Number(walletAmount || 0).toLocaleString("en-IN")}
+            </p>
+
+          </div>
+        </div>
+
+        {/* WITHDRAW RIGHT */}
+        <button
+          type="button"
+          onClick={handleWithdraw}
+          className="
+            h-[42px]
+            px-[14px]
+            rounded-[11px]
+            border border-[#f5c542]/40
+            bg-[#f5c542]
+            text-[#090909]
+            flex
+            items-center
+            justify-center
+            gap-[7px]
+            text-[13px]
+            font-extrabold
+            flex-shrink-0
+            active:scale-[0.97]
+            transition-all
+            duration-150
+          "
+        >
+          <span>
+            Withdraw
+          </span>
+
+          <ArrowRight
+            size={18}
+            strokeWidth={2.8}
+          />
+        </button>
+
+      </div>
+
+      <div
+        className="
+          relative
+          w-full
+          h-[114px]
+          rounded-[18px]
+          border border-[#292b29]
+          overflow-hidden
+          bg-[#0b0c0a]
+          mt-[7px]
+        "
         style={{
           background:
             "linear-gradient(135deg, #171914 0%, #0c0d0b 48%, #090a09 100%)",
@@ -425,6 +540,7 @@ const HomeLotterySection = () => {
             "inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.25)",
         }}
       >
+
         {/* Top highlight */}
         <div className="absolute top-0 left-0 right-0 h-[1px] bg-white/[0.05]" />
 
@@ -433,24 +549,22 @@ const HomeLotterySection = () => {
 
         <div className="relative h-full flex items-center px-[8px]">
 
-          {/* =====================================================
-        CALENDAR + DATE
-    ===================================================== */}
+          {/* CALENDAR + DATE */}
 
           <div className="flex items-center flex-1 min-w-0">
 
-            {/* Calendar */}
             <div className="w-[70px] flex justify-center flex-shrink-0">
+
               <div
                 className="
-            w-[52px]
-            h-[52px]
-            rounded-[15px]
-            border border-[#f5c542]/20
-            bg-[#f5c542]/[0.06]
-            flex items-center
-            justify-center
-          "
+                  w-[52px]
+                  h-[52px]
+                  rounded-[15px]
+                  border border-[#f5c542]/20
+                  bg-[#f5c542]/[0.06]
+                  flex items-center
+                  justify-center
+                "
               >
                 <CalendarDays
                   size={36}
@@ -458,19 +572,21 @@ const HomeLotterySection = () => {
                   className="text-[#f5c542]"
                 />
               </div>
+
             </div>
 
             {/* Draw Date */}
+
             <div className="flex-1 min-w-0">
 
               <p
                 className="
-            text-[#d1d1d1]
-            text-[11px]
-            font-medium
-            leading-none
-            whitespace-nowrap
-          "
+                  text-[#d1d1d1]
+                  text-[11px]
+                  font-medium
+                  leading-none
+                  whitespace-nowrap
+                "
               >
                 {loading
                   ? "लॉटरी जानकारी लोड हो रही है..."
@@ -481,14 +597,14 @@ const HomeLotterySection = () => {
 
               <p
                 className="
-            text-[#f5c542]
-            text-[clamp(10px,3.7vw,22px)]
-            font-extrabold
-            leading-none
-            mt-[9px]
-            tracking-tight
-            whitespace-nowrap
-          "
+                  text-[#f5c542]
+                  text-[clamp(10px,3.7vw,22px)]
+                  font-extrabold
+                  leading-none
+                  mt-[9px]
+                  tracking-tight
+                  whitespace-nowrap
+                "
               >
                 {drawDateText}
               </p>
@@ -496,29 +612,25 @@ const HomeLotterySection = () => {
             </div>
           </div>
 
-          {/* =====================================================
-        DIVIDER
-    ===================================================== */}
+          {/* DIVIDER */}
 
           <div className="h-[66px] w-[1px] bg-[#292b29] mx-[7px] flex-shrink-0" />
 
-          {/* =====================================================
-        COUNTDOWN
-    ===================================================== */}
+          {/* COUNTDOWN */}
 
           <div
             className="
-        relative
-        w-[160px]
-        h-[94px]
-        flex-shrink-0
-        rounded-[14px]
-        border border-[#8f2026]
-        overflow-hidden
-        flex flex-col
-        items-center
-        justify-center
-      "
+              relative
+              w-[160px]
+              h-[94px]
+              flex-shrink-0
+              rounded-[14px]
+              border border-[#8f2026]
+              overflow-hidden
+              flex flex-col
+              items-center
+              justify-center
+            "
             style={{
               background:
                 "linear-gradient(180deg, #b82a30 0%, #711116 100%)",
@@ -530,9 +642,7 @@ const HomeLotterySection = () => {
             {/* Small glow */}
             <div className="absolute -right-[20px] -top-[25px] w-[70px] h-[70px] rounded-full bg-white/[0.05] blur-[15px]" />
 
-            {/* =================================================
-          COUNTDOWN HEADER
-      ================================================= */}
+            {/* COUNTDOWN HEADER */}
 
             <div className="relative flex items-center gap-2 whitespace-nowrap">
 
@@ -556,9 +666,7 @@ const HomeLotterySection = () => {
 
             </div>
 
-            {/* =================================================
-          LIVE COUNTDOWN
-      ================================================= */}
+            {/* LIVE COUNTDOWN */}
 
             <div className="relative flex items-center justify-center mt-[7px]">
 
@@ -573,18 +681,23 @@ const HomeLotterySection = () => {
                 <div className="flex items-center gap-[3px] whitespace-nowrap">
 
                   {/* DAYS */}
+
                   {countdown.days > 0 && (
                     <>
                       <div className="flex flex-col items-center min-w-[27px]">
+
                         <div className="flex items-center justify-center min-w-[27px] h-[25px] rounded-[5px] bg-black/15 border border-white/[0.08]">
+
                           <span className="text-white text-[18px] font-extrabold leading-none">
                             {String(countdown.days).padStart(2, "0")}
                           </span>
+
                         </div>
 
                         <span className="text-white/65 text-[7px] font-semibold mt-[2px]">
                           दिन
                         </span>
+
                       </div>
 
                       <span className="text-white text-[17px] font-bold mb-[8px]">
@@ -594,16 +707,21 @@ const HomeLotterySection = () => {
                   )}
 
                   {/* HOURS */}
+
                   <div className="flex flex-col items-center min-w-[27px]">
+
                     <div className="flex items-center justify-center min-w-[27px] h-[25px] rounded-[5px] bg-black/15 border border-white/[0.08]">
+
                       <span className="text-white text-[18px] font-extrabold leading-none">
                         {formattedHours}
                       </span>
+
                     </div>
 
                     <span className="text-white/65 text-[7px] font-semibold mt-[2px]">
                       घंटे
                     </span>
+
                   </div>
 
                   <span className="text-white text-[17px] font-bold mb-[8px]">
@@ -611,16 +729,21 @@ const HomeLotterySection = () => {
                   </span>
 
                   {/* MINUTES */}
+
                   <div className="flex flex-col items-center min-w-[27px]">
+
                     <div className="flex items-center justify-center min-w-[27px] h-[25px] rounded-[5px] bg-black/15 border border-white/[0.08]">
+
                       <span className="text-white text-[18px] font-extrabold leading-none">
                         {formattedMinutes}
                       </span>
+
                     </div>
 
                     <span className="text-white/65 text-[7px] font-semibold mt-[2px]">
                       मिनट
                     </span>
+
                   </div>
 
                   <span className="text-white text-[17px] font-bold mb-[8px]">
@@ -628,16 +751,21 @@ const HomeLotterySection = () => {
                   </span>
 
                   {/* SECONDS */}
+
                   <div className="flex flex-col items-center min-w-[27px]">
+
                     <div className="flex items-center justify-center min-w-[27px] h-[25px] rounded-[5px] bg-black/15 border border-white/[0.08]">
+
                       <span className="text-white text-[18px] font-extrabold leading-none">
                         {formattedSeconds}
                       </span>
+
                     </div>
 
                     <span className="text-white/65 text-[7px] font-semibold mt-[2px]">
                       सेकंड
                     </span>
+
                   </div>
 
                 </div>
@@ -654,8 +782,6 @@ const HomeLotterySection = () => {
           </div>
         </div>
       </div>
-
-
 
       {/* =====================================================
           PRIZE CARDS
@@ -697,10 +823,11 @@ const HomeLotterySection = () => {
         type="button"
         onClick={handleBuyTicket}
         disabled={!isActive}
-        className={`relative mt-[16px] w-full h-[70px] rounded-[13px] flex items-center justify-center gap-[12px] text-black overflow-hidden transition-all duration-200 ${isActive
-          ? "active:scale-[0.99] cursor-pointer hover:brightness-105"
-          : "opacity-60 cursor-not-allowed"
-          }`}
+        className={`relative mt-[16px] w-full h-[70px] rounded-[13px] flex items-center justify-center gap-[12px] text-black overflow-hidden transition-all duration-200 ${
+          isActive
+            ? "active:scale-[0.99] cursor-pointer hover:brightness-105"
+            : "opacity-60 cursor-not-allowed"
+        }`}
         style={{
           background:
             "linear-gradient(180deg, #fff08a 0%, #f5c542 52%, #e4ae16 100%)",
@@ -822,7 +949,6 @@ const HomeLotterySection = () => {
           </div>
 
         </div>
-
       </div>
 
       {/* =====================================================
@@ -852,6 +978,7 @@ const PrizeCard = ({
   subtitle,
   image,
 }) => {
+
   const amountColor = {
     first: "#fff0a3",
     second: "#ffffff",
@@ -905,7 +1032,6 @@ const PrizeCard = ({
         </p>
 
       </div>
-
     </div>
   );
 };
@@ -932,4 +1058,3 @@ const TrustItem = ({
 );
 
 export default HomeLotterySection;
-
