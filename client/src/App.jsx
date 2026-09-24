@@ -30,6 +30,8 @@ import AdminLottery from "./admin/adminPages/AdminLottery";
 import AdminDeposits from "./admin/adminPages/AdminDeposits";
 import WithdrawalManagement from "./admin/adminPages/WithdrawalManagement";
 import Recharge from "./Pages/Rechagre";
+import Deposit from "./Pages/Deposit";
+import WithdrawHistory from "./Pages/WithdrawHistory";
 
 // ==========================================================
 // WHATSAPP SUPPORT NUMBER
@@ -125,10 +127,14 @@ function App() {
               element={<WithdrawalRequest />}
             />
 
-            {/* Recharge */}
             <Route
-              path="/recharge"
-              element={<Recharge />}
+              path="/withdraw-history"
+              element={<WithdrawHistory />}
+            />
+            <Route path="/recharge" element={<Recharge />} />
+            <Route
+              path="/deposit"
+              element={<Deposit />}
             />
 
             {/* Payment Success */}
@@ -136,6 +142,7 @@ function App() {
               path="/payment-success"
               element={<PaymentSuccess />}
             />
+
 
           </Route>
 
