@@ -135,10 +135,10 @@ const getDrawTimestamp = (activeConfig) => {
     activeConfig.drawDate
       ? new Date(activeConfig.drawDate)
       : new Date(
-          Number(activeConfig.year),
-          Number(activeConfig.month) - 1,
-          Number(activeConfig.date || 1)
-        );
+        Number(activeConfig.year),
+        Number(activeConfig.month) - 1,
+        Number(activeConfig.date || 1)
+      );
 
   if (Number.isNaN(date.getTime())) {
     return null;
@@ -279,12 +279,8 @@ const HomeLotterySection = () => {
   // =====================================================
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      return;
-    }
-
     dispatch(fetchProfile());
-  }, [dispatch, isAuthenticated]);
+  }, [dispatch]);
 
   // =====================================================
   // FETCH ACTIVE LOTTERY CONFIG ON MOUNT
@@ -823,11 +819,10 @@ const HomeLotterySection = () => {
         type="button"
         onClick={handleBuyTicket}
         disabled={!isActive}
-        className={`relative mt-[16px] w-full h-[70px] rounded-[13px] flex items-center justify-center gap-[12px] text-black overflow-hidden transition-all duration-200 ${
-          isActive
+        className={`relative mt-[16px] w-full h-[70px] rounded-[13px] flex items-center justify-center gap-[12px] text-black overflow-hidden transition-all duration-200 ${isActive
             ? "active:scale-[0.99] cursor-pointer hover:brightness-105"
             : "opacity-60 cursor-not-allowed"
-        }`}
+          }`}
         style={{
           background:
             "linear-gradient(180deg, #fff08a 0%, #f5c542 52%, #e4ae16 100%)",
