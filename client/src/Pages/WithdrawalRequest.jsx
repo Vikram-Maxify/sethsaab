@@ -155,7 +155,7 @@ const WithdrawalRequest = () => {
             WALLET
           </p>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold mt-1">
+          <h1 className="text-2xl sm:text-3xl font-extrabold mt-1">
             पैसे निकालें
           </h1>
 
