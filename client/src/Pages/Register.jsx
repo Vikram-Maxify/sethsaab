@@ -1,4 +1,3 @@
-
 import {
   ArrowRight,
   Eye,
@@ -15,8 +14,8 @@ import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
-import { register } from "../reducer/slice/authSlice";
 import registerBanner from "../assets/1ban.png";
+import { register } from "../reducer/slice/authSlice";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -33,9 +32,7 @@ const Register = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
 
-  const { registerLoading, registerError } = useSelector(
-    (state) => state.auth
-  );
+  const { registerLoading, registerError } = useSelector((state) => state.auth);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -64,12 +61,7 @@ const Register = () => {
     e.preventDefault();
     setError("");
 
-    if (
-      !form.number ||
-      !form.name ||
-      !form.password ||
-      !form.confirmPassword
-    ) {
+    if (!form.number || !form.name || !form.password || !form.confirmPassword) {
       setError("कृपया सभी फ़ील्ड भरें");
       return;
     }
@@ -94,10 +86,15 @@ const Register = () => {
         name: form.name.trim(),
         mobile: form.number,
         password: form.password,
-      })
+      }),
     );
 
     if (register.fulfilled.match(result)) {
+      // Meta Pixel - Registration Complete
+      if (typeof window.fbq === "function") {
+        window.fbq("track", "CompleteRegistration");
+      }
+
       navigate("/");
     }
   };
@@ -163,8 +160,7 @@ const Register = () => {
                   leading-[1.2]
                 "
               >
-                अपना अकाउंट{" "}
-                <span className="text-[#f5c542]">बनाएं</span>
+                अपना अकाउंट <span className="text-[#f5c542]">बनाएं</span>
               </h1>
 
               <p className="mt-[5px] text-[#999] text-[12px]">
@@ -174,10 +170,7 @@ const Register = () => {
 
             {/* ================= FORM ================= */}
 
-            <form
-              onSubmit={handleSubmit}
-              className="flex flex-col gap-[7px]"
-            >
+            <form onSubmit={handleSubmit} className="flex flex-col gap-[7px]">
               {/* ================= MOBILE ================= */}
 
               <div
@@ -578,15 +571,12 @@ const Register = () => {
   "
               >
                 पहले से अकाउंट है? लॉगिन करें
-
                 <ArrowRight
                   size={20}
                   strokeWidth={2.8}
                   className="text-[#f5c542]"
                 />
               </button>
-
-
             </form>
 
             {/* ================= LOTUS DIVIDER ================= */}
@@ -594,12 +584,7 @@ const Register = () => {
             <div className="flex items-center gap-[10px] my-[16px]">
               <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[#80651b]" />
 
-              <svg
-                width="24"
-                height="14"
-                viewBox="0 0 24 14"
-                fill="#f5c542"
-              >
+              <svg width="24" height="14" viewBox="0 0 24 14" fill="#f5c542">
                 <path d="M12 2c-1.5 0-2.5 1-2.5 2s1 2 2.5 2 2.5-1 2.5-2-1-2-2.5-2z" />
                 <path d="M12 6c-3 0-6 1.5-8 4 2 1.5 5 2.5 8 2.5s6-1 8-2.5c-2-2.5-5-4-8-4z" />
                 <path d="M6 4c-1 .5-2 1.5-3 2.5L5 8c.5-1.5 1-2.5 1-4zM18 4c1 .5 2 1.5 3 2.5L19 8c-.5-1.5-1-2.5-1-4-1-1z" />
@@ -627,11 +612,7 @@ const Register = () => {
                     mb-[5px]
                   "
                 >
-                  <Zap
-                    size={21}
-                    fill="currentColor"
-                    strokeWidth={2.2}
-                  />
+                  <Zap size={21} fill="currentColor" strokeWidth={2.2} />
                 </div>
 
                 <p className="text-white text-[10px] leading-[1.25]">
@@ -666,10 +647,7 @@ const Register = () => {
                     mb-[5px]
                   "
                 >
-                  <ShieldCheck
-                    size={21}
-                    strokeWidth={2.2}
-                  />
+                  <ShieldCheck size={21} strokeWidth={2.2} />
                 </div>
 
                 <p className="text-white text-[10px] leading-[1.25]">
@@ -695,10 +673,7 @@ const Register = () => {
                     mb-[5px]
                   "
                 >
-                  <Users
-                    size={21}
-                    strokeWidth={2.2}
-                  />
+                  <Users size={21} strokeWidth={2.2} />
                 </div>
 
                 <p className="text-white text-[10px] leading-[1.25]">
@@ -716,4 +691,3 @@ const Register = () => {
 };
 
 export default Register;
-
