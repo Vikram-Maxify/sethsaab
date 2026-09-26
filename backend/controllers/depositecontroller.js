@@ -5,6 +5,9 @@ const mongoose = require("mongoose");
 const Deposit = require("../models/Deposit.js");
 const User = require("../models/userModel");
 const TransactionHistory = require("../models/TransactionHistory");
+const QwackPayCallbackLog = require(
+  "../models/QwackPayCallbackLog"
+);
 
 // =====================================================
 // STATUS CONSTANTS
@@ -984,37 +987,36 @@ const getDepositStatusByIdentifier =
 // QWACKPAY WEBHOOK / CALLBACK
 // =====================================================
 
-const onlinePayCallback = async (
-  req,
-  res
-) => {
-  console.log(
-    "================================================="
-  );
-
-  console.log(
-    "QWACKPAY WEBHOOK RECEIVED"
-  );
-
-  console.log(
-    "METHOD:",
-    req.method
-  );
-
-  console.log(
-    "BODY:",
-    JSON.stringify(
-      req.body,
-      null,
-      2
-    )
-  );
-
-  console.log(
-    "================================================="
-  );
+const onlinePayCallback = async (req, res) => {
+  let callbackLog = null;
 
   try {
+    console.log(
+      "================================================="
+    );
+
+    console.log(
+      "QWACKPAY CALLBACK RECEIVED"
+    );
+
+    console.log(
+      "METHOD:",
+      req.method
+    );
+
+    console.log(
+      "BODY:",
+      JSON.stringify(
+        req.body,
+        null,
+        2
+      )
+    );
+
+    console.log(
+      "================================================="
+    );
+
     const {
       merchant_order_id,
       qwack_order_id,
@@ -1025,12 +1027,82 @@ const onlinePayCallback = async (
     } = req.body || {};
 
     // =================================================
-    // ORDER ID
+    // SAVE RAW CALLBACK LOG
+    // =================================================
+
+    callbackLog =
+      await QwackPayCallbackLog.create({
+        merchantOrderId:
+          merchant_order_id || "",
+
+        qwackOrderId:
+          qwack_order_id || "",
+
+        amount:
+          Number(amount) || 0,
+
+        gatewayStatus:
+          String(status || ""),
+
+        utr:
+          String(utr || ""),
+
+        sign:
+          String(sign || ""),
+
+        signValid: false,
+
+        method:
+          req.method || "",
+
+        url:
+          req.originalUrl ||
+          req.url ||
+          "",
+
+        ip:
+          req.headers["cf-connecting-ip"] ||
+          req.headers["x-forwarded-for"] ||
+          req.ip ||
+          "",
+
+        body:
+          req.body || {},
+
+        headers:
+          req.headers || {},
+
+        event:
+          "RECEIVED",
+
+        processingStatus:
+          "RECEIVED",
+
+        message:
+          "QwackPay callback received",
+      });
+
+    console.log(
+      "QWACKPAY CALLBACK LOG SAVED:",
+      callbackLog._id
+    );
+
+    // =================================================
+    // ORDER ID CHECK
     // =================================================
 
     if (!merchant_order_id) {
-      console.error(
-        "QWACKPAY WEBHOOK: ORDER ID MISSING"
+      await QwackPayCallbackLog.findByIdAndUpdate(
+        callbackLog._id,
+        {
+          $set: {
+            event: "INVALID",
+            processingStatus: "FAILED",
+            message:
+              "Order ID missing",
+            processedAt: new Date(),
+          },
+        }
       );
 
       return res
@@ -1061,13 +1133,33 @@ const onlinePayCallback = async (
         .trim()
         .toUpperCase();
 
-    if (
-      String(expectedSign)
-        .toUpperCase() !==
-      receivedSign
-    ) {
+    const signValid =
+      expectedSign.toUpperCase() ===
+      receivedSign;
+
+    // =================================================
+    // UPDATE SIGN RESULT
+    // =================================================
+
+    await QwackPayCallbackLog.findByIdAndUpdate(
+      callbackLog._id,
+      {
+        $set: {
+          signValid,
+          event: signValid
+            ? "SIGN_VALID"
+            : "SIGN_INVALID",
+        },
+      }
+    );
+
+    // =================================================
+    // INVALID SIGN
+    // =================================================
+
+    if (!signValid) {
       console.error(
-        "QWACKPAY WEBHOOK SIGN MISMATCH"
+        "QWACKPAY SIGN MISMATCH"
       );
 
       console.error(
@@ -1078,6 +1170,25 @@ const onlinePayCallback = async (
       console.error(
         "Received:",
         receivedSign
+      );
+
+      await QwackPayCallbackLog.findByIdAndUpdate(
+        callbackLog._id,
+        {
+          $set: {
+            processingStatus:
+              "FAILED",
+
+            message:
+              "Invalid callback signature",
+
+            error:
+              `Expected ${expectedSign}, received ${receivedSign}`,
+
+            processedAt:
+              new Date(),
+          },
+        }
       );
 
       return res
@@ -1091,19 +1202,47 @@ const onlinePayCallback = async (
 
     const deposit =
       await Deposit.findOne({
-        orderId: String(
-          merchant_order_id
-        ),
+        orderId:
+          String(
+            merchant_order_id
+          ),
       });
 
     if (!deposit) {
-      console.warn(
-        `Deposit not found: ${merchant_order_id}`
+      await QwackPayCallbackLog.findByIdAndUpdate(
+        callbackLog._id,
+        {
+          $set: {
+            event: "DEPOSIT_NOT_FOUND",
+
+            processingStatus:
+              "FAILED",
+
+            message:
+              `Deposit not found for ${merchant_order_id}`,
+
+            processedAt:
+              new Date(),
+          },
+        }
       );
 
-      // ACK gateway
       return res.send("success");
     }
+
+    // =================================================
+    // SAVE DEPOSIT ID
+    // =================================================
+
+    await QwackPayCallbackLog.findByIdAndUpdate(
+      callbackLog._id,
+      {
+        $set: {
+          depositId:
+            deposit._id,
+        },
+      }
+    );
 
     // =================================================
     // ALREADY SUCCESS
@@ -1113,8 +1252,23 @@ const onlinePayCallback = async (
       Number(deposit.status) ===
       STATUS.SUCCESS
     ) {
-      console.log(
-        `Webhook already processed: ${merchant_order_id}`
+      await QwackPayCallbackLog.findByIdAndUpdate(
+        callbackLog._id,
+        {
+          $set: {
+            event:
+              "ALREADY_PROCESSED",
+
+            processingStatus:
+              "SUCCESS",
+
+            message:
+              "Payment already processed",
+
+            processedAt:
+              new Date(),
+          },
+        }
       );
 
       return res.send("success");
@@ -1128,15 +1282,30 @@ const onlinePayCallback = async (
       Number(deposit.status) ===
       STATUS.CANCELLED
     ) {
-      console.log(
-        `Ignoring webhook for cancelled deposit: ${merchant_order_id}`
+      await QwackPayCallbackLog.findByIdAndUpdate(
+        callbackLog._id,
+        {
+          $set: {
+            event:
+              "CANCELLED_DEPOSIT",
+
+            processingStatus:
+              "SUCCESS",
+
+            message:
+              "Deposit was already cancelled",
+
+            processedAt:
+              new Date(),
+          },
+        }
       );
 
       return res.send("success");
     }
 
     // =================================================
-    // NORMALIZE STATUS
+    // STATUS
     // =================================================
 
     const webhookStatus =
@@ -1145,21 +1314,15 @@ const onlinePayCallback = async (
         .toLowerCase();
 
     const isSuccess =
-      webhookStatus ===
-        "success" ||
+      webhookStatus === "success" ||
       webhookStatus === "1" ||
-      webhookStatus ===
-        "paid";
+      webhookStatus === "paid";
 
     // =================================================
-    // FAILED PAYMENT
+    // FAILED
     // =================================================
 
     if (!isSuccess) {
-      console.log(
-        `QwackPay payment failed: ${merchant_order_id}, status=${status}`
-      );
-
       await Deposit.findOneAndUpdate(
         {
           _id: deposit._id,
@@ -1229,19 +1392,30 @@ const onlinePayCallback = async (
         }
       );
 
+      await QwackPayCallbackLog.findByIdAndUpdate(
+        callbackLog._id,
+        {
+          $set: {
+            event:
+              "PAYMENT_FAILED",
+
+            processingStatus:
+              "SUCCESS",
+
+            message:
+              `Payment failed with status ${status}`,
+
+            processedAt:
+              new Date(),
+          },
+        }
+      );
+
       return res.send("success");
     }
 
     // =================================================
-    // SUCCESS PAYMENT
-    // =================================================
-
-    console.log(
-      `QWACKPAY PAYMENT SUCCESS: ${merchant_order_id}`
-    );
-
-    // =================================================
-    // USER
+    // SUCCESS
     // =================================================
 
     const user =
@@ -1250,8 +1424,23 @@ const onlinePayCallback = async (
       );
 
     if (!user) {
-      console.error(
-        `User not found for deposit: ${merchant_order_id}`
+      await QwackPayCallbackLog.findByIdAndUpdate(
+        callbackLog._id,
+        {
+          $set: {
+            event:
+              "USER_NOT_FOUND",
+
+            processingStatus:
+              "FAILED",
+
+            message:
+              "User not found",
+
+            processedAt:
+              new Date(),
+          },
+        }
       );
 
       return res.send("success");
@@ -1272,9 +1461,23 @@ const onlinePayCallback = async (
       ) ||
       creditAmount <= 0
     ) {
-      console.error(
-        `Invalid credit amount for ${merchant_order_id}:`,
-        amount
+      await QwackPayCallbackLog.findByIdAndUpdate(
+        callbackLog._id,
+        {
+          $set: {
+            event:
+              "INVALID_AMOUNT",
+
+            processingStatus:
+              "FAILED",
+
+            message:
+              `Invalid amount: ${amount}`,
+
+            processedAt:
+              new Date(),
+          },
+        }
       );
 
       return res.send("success");
@@ -1282,13 +1485,6 @@ const onlinePayCallback = async (
 
     // =================================================
     // ATOMIC CLAIM
-    // =================================================
-    //
-    // Only one webhook can change
-    // PENDING -> SUCCESS.
-    //
-    // Duplicate callback will not
-    // enter wallet credit section.
     // =================================================
 
     const claimed =
@@ -1325,8 +1521,23 @@ const onlinePayCallback = async (
     // =================================================
 
     if (!claimed) {
-      console.log(
-        `Webhook already claimed: ${merchant_order_id}`
+      await QwackPayCallbackLog.findByIdAndUpdate(
+        callbackLog._id,
+        {
+          $set: {
+            event:
+              "ALREADY_CLAIMED",
+
+            processingStatus:
+              "SUCCESS",
+
+            message:
+              "Webhook was already processed",
+
+            processedAt:
+              new Date(),
+          },
+        }
       );
 
       return res.send("success");
@@ -1340,16 +1551,10 @@ const onlinePayCallback = async (
       user._id,
       {
         $inc: {
-          wallet: creditAmount,
+          wallet:
+            creditAmount,
         },
-      },
-      {
-        new: true,
       }
-    );
-
-    console.log(
-      `WALLET CREDITED: ₹${creditAmount} to user ${user._id} (${user.mobile})`
     );
 
     // =================================================
@@ -1412,10 +1617,6 @@ const onlinePayCallback = async (
     // =================================================
 
     if (!transactionUpdate) {
-      console.log(
-        `Pending transaction history not found. Creating SUCCESS history: ${merchant_order_id}`
-      );
-
       await TransactionHistory.create({
         orderId:
           String(
@@ -1442,68 +1643,76 @@ const onlinePayCallback = async (
         remark:
           successRemark,
       });
-    } else {
-      console.log(
-        `TransactionHistory updated PENDING -> SUCCESS: ${merchant_order_id}`
-      );
     }
 
     // =================================================
-    // FINAL LOG
+    // FINAL CALLBACK LOG
     // =================================================
 
-    console.log(
-      "================================================="
+    await QwackPayCallbackLog.findByIdAndUpdate(
+      callbackLog._id,
+      {
+        $set: {
+          event:
+            "PAYMENT_SUCCESS",
+
+          processingStatus:
+            "SUCCESS",
+
+          message:
+            `₹${creditAmount} credited successfully`,
+
+          processedAt:
+            new Date(),
+        },
+      }
     );
 
     console.log(
-      "PAYMENT SUCCESS COMPLETED"
+      "QWACKPAY CALLBACK SUCCESS"
     );
-
-    console.log(
-      `Order ID: ${merchant_order_id}`
-    );
-
-    console.log(
-      `Amount: ₹${creditAmount}`
-    );
-
-    console.log(
-      `Deposit Status: ${STATUS.SUCCESS}`
-    );
-
-    console.log(
-      `Transaction Status: ${STATUS.SUCCESS}`
-    );
-
-    console.log(
-      "================================================="
-    );
-
-    // =================================================
-    // QWACKPAY ACK
-    // =================================================
 
     return res.send("success");
   } catch (error) {
     console.error(
-      "================================================="
+      "QWACKPAY CALLBACK ERROR:",
+      error
     );
 
-    console.error(
-      "QWACKPAY WEBHOOK ERROR:"
-    );
+    // =================================================
+    // SAVE ERROR IN CALLBACK LOG
+    // =================================================
 
-    console.error(error);
+    if (callbackLog?._id) {
+      try {
+        await QwackPayCallbackLog.findByIdAndUpdate(
+          callbackLog._id,
+          {
+            $set: {
+              event:
+                "EXCEPTION",
 
-    console.error(
-      "================================================="
-    );
+              processingStatus:
+                "ERROR",
 
-    /*
-      Gateway ko ACK dena hai taaki
-      unnecessary repeated webhook na aaye.
-    */
+              message:
+                "Callback processing exception",
+
+              error:
+                error.message,
+
+              processedAt:
+                new Date(),
+            },
+          }
+        );
+      } catch (logError) {
+        console.error(
+          "CALLBACK ERROR LOG FAILED:",
+          logError.message
+        );
+      }
+    }
 
     return res.send("success");
   }
