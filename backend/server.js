@@ -31,15 +31,45 @@ const startLotteryDepositCron = require("./cron/lotteryDepositCron");
 const app = express();
 
 // =======================
+// TRUST PROXY
+// =======================
+// Required when running behind nginx/any reverse proxy so that
+// req.ip and the X-Forwarded-For header resolve to the real
+// client IP instead of the proxy's own address. The deposit
+// callback controller's getCallbackIp() relies on this being
+// correct.
+app.set("trust proxy", 1);
+
+// =======================
+// RAW REQUEST LOGGER (FIRST MIDDLEWARE - BEFORE EVERYTHING)
+// =======================
+// Logs every single request that reaches this Node process,
+// before CORS, before body parsing, before routing. This is the
+// ultimate reachability check: if a real QwackPay webhook never
+// shows up here in the logs, the request is dying somewhere
+// between QwackPay and this process (DNS, SSL, firewall, or the
+// nginx/reverse-proxy config) - not in application code, since
+// nothing in the app has even run yet at this point.
+app.use((req, res, next) => {
+  console.log(
+    `[RAW HIT] ${new Date().toISOString()} ${req.method} ${req.originalUrl} ip=${req.ip} ua=${req.headers["user-agent"] || ""}`
+  );
+  next();
+});
+
+// =======================
 // CORS
 // =======================
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://www.setthelife.com",
+      "https://setthelife.com",
+    ],
     credentials: true,
   })
 );
-
 // =======================
 // MIDDLEWARE
 // =======================

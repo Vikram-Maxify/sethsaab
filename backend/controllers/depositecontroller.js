@@ -87,6 +87,13 @@ const getQwackPayReturnUrl = () => {
 //
 // Final URL:
 // https://setthelife.com/api/deposit/callback
+//
+// If QWACKPAY_CALLBACK_URL / BACKEND_URL are not set to the real
+// public HTTPS domain in production, QwackPay physically cannot
+// reach this endpoint and NOTHING in this file will ever run for
+// that payment - not even the "RECEIVED" log. Verify this value
+// by checking the "QWACKPAY CREATE REQUEST" console log printed
+// when a deposit is created, and curl it directly.
 // =====================================================
 
 const getQwackPayCallbackUrl = () => {
@@ -169,10 +176,6 @@ const createDeposit = async (req, res) => {
       utr,
     } = req.body || {};
 
-    // =================================================
-    // AMOUNT VALIDATION
-    // =================================================
-
     if (
       amount === undefined ||
       amount === null ||
@@ -196,10 +199,6 @@ const createDeposit = async (req, res) => {
       });
     }
 
-    // =================================================
-    // USER
-    // =================================================
-
     const userId = getUserIdFromRequest(req);
 
     if (!userId) {
@@ -218,18 +217,10 @@ const createDeposit = async (req, res) => {
       });
     }
 
-    // =================================================
-    // NORMALIZE CHANNEL
-    // =================================================
-
     const normalizedChannel = String(channel || "")
       .trim()
       .toLowerCase()
       .replace(/[\s_-]/g, "");
-
-    // =====================================================
-    // QWACKPAY FLOW
-    // =====================================================
 
     if (normalizedChannel === "qwackpay") {
       const finalPaymentMethod = "INR";
@@ -240,47 +231,24 @@ const createDeposit = async (req, res) => {
         Math.random() * 1000
       )}`;
 
-      // =================================================
-      // CREATE PENDING DEPOSIT
-      // =================================================
-
       const deposit = await Deposit.create({
         userId: user._id,
-
         gatewayId: null,
-
         uid: user.uuid,
-
         phone: user.mobile,
-
         username: user.username,
-
         orderId,
-
         paymentMethod: finalPaymentMethod,
-
         type: finalPaymentMethod,
-
         channel: finalChannel,
-
         amount: money,
-
         exchangeRate: 0,
-
         transactionId: orderId,
-
         utr: "",
-
         paymentProof: "",
-
         paymentUrl: "",
-
         status: STATUS.PENDING,
       });
-
-      // =================================================
-      // CUSTOMER EMAIL
-      // =================================================
 
       const existingEmail = String(
         user.email || ""
@@ -290,62 +258,42 @@ const createDeposit = async (req, res) => {
         existingEmail ||
         `customer${String(user._id)}@setthelife.com`;
 
-      // =================================================
-      // QWACKPAY ORDER PAYLOAD
-      // =================================================
-
       const orderPayload = {
         merchant_id: QWACKPAY_MERCHANT_ID,
-
         amount: Math.round(numericAmount),
-
         order_id: orderId,
-
-        customer_phone: String(
-          user.mobile || ""
-        ).trim(),
-
+        customer_phone: String(user.mobile || "").trim(),
         customer_email: customerEmail,
-
-        // Browser redirect
         return_url: getQwackPayReturnUrl(),
-
-        // Backend webhook
+        // QwackPay's docs refer to this as "notify_url" (that's the field
+        // name their Create Order API is documented to read). We were
+        // previously only sending "callback_url", which QwackPay's API may
+        // not recognize at all - meaning it never knew where to send the
+        // webhook. Sending both is a safe bet either way.
+        notify_url: getQwackPayCallbackUrl(),
         callback_url: getQwackPayCallbackUrl(),
       };
-
-      // =================================================
-      // SIGN
-      // =================================================
 
       orderPayload.sign = generateQwackPaySign(
         orderPayload,
         QWACKPAY_API_KEY
       );
 
-      console.log(
-        "================================================="
-      );
-
+      console.log("=================================================");
       console.log("QWACKPAY CREATE REQUEST");
-
       console.log({
         merchant_id: QWACKPAY_MERCHANT_ID,
         amount: orderPayload.amount,
         order_id: orderPayload.order_id,
-        customer_phone:
-          orderPayload.customer_phone,
-        customer_email:
-          orderPayload.customer_email,
-        return_url:
-          orderPayload.return_url,
-        callback_url:
-          orderPayload.callback_url,
+        customer_phone: orderPayload.customer_phone,
+        customer_email: orderPayload.customer_email,
+        return_url: orderPayload.return_url,
+        // This is the URL QwackPay will actually try to hit.
+        // If this is not a public HTTPS URL reachable from the
+        // internet, the callback will NEVER arrive.
+        callback_url: orderPayload.callback_url,
       });
-
-      console.log(
-        "================================================="
-      );
+      console.log("=================================================");
 
       try {
         const response = await axios.post(
@@ -359,29 +307,10 @@ const createDeposit = async (req, res) => {
 
         const gatewayResponse = response.data;
 
-        console.log(
-          "================================================="
-        );
-
-        console.log(
-          "QWACKPAY CREATE RESPONSE:"
-        );
-
-        console.log(
-          JSON.stringify(
-            gatewayResponse,
-            null,
-            2
-          )
-        );
-
-        console.log(
-          "================================================="
-        );
-
-        // =================================================
-        // PAYMENT URL
-        // =================================================
+        console.log("=================================================");
+        console.log("QWACKPAY CREATE RESPONSE:");
+        console.log(JSON.stringify(gatewayResponse, null, 2));
+        console.log("=================================================");
 
         const paymentUrl =
           gatewayResponse?.data?.payment_url ||
@@ -390,20 +319,12 @@ const createDeposit = async (req, res) => {
           gatewayResponse?.paymentUrl ||
           "";
 
-        // =================================================
-        // RETURNED MERCHANT ORDER ID
-        // =================================================
-
         const returnedOrderId =
           gatewayResponse?.data?.merchant_order_id ||
           gatewayResponse?.data?.order_id ||
           gatewayResponse?.merchant_order_id ||
           gatewayResponse?.order_id ||
           orderId;
-
-        // =================================================
-        // QWACK ORDER ID
-        // =================================================
 
         const qwackOrderId =
           gatewayResponse?.data?.qwack_order_id ||
@@ -412,10 +333,6 @@ const createDeposit = async (req, res) => {
           gatewayResponse?.qwackOrderId ||
           "";
 
-        // =================================================
-        // GATEWAY CODE
-        // =================================================
-
         const gatewayCode = Number(
           gatewayResponse?.code ??
             gatewayResponse?.status_code ??
@@ -423,138 +340,71 @@ const createDeposit = async (req, res) => {
             0
         );
 
-        // =================================================
-        // SUCCESSFUL ORDER CREATION
-        // =================================================
-
         if (paymentUrl) {
-          deposit.paymentUrl = String(
-            paymentUrl
-          );
-
-          deposit.orderId = String(
-            returnedOrderId
-          );
-
+          deposit.paymentUrl = String(paymentUrl);
+          deposit.orderId = String(returnedOrderId);
           deposit.transactionId = String(
-            qwackOrderId ||
-              returnedOrderId ||
-              orderId
+            qwackOrderId || returnedOrderId || orderId
           );
-
           deposit.status = STATUS.PENDING;
 
           await deposit.save();
 
-          // =================================================
-          // CREATE TRANSACTION HISTORY
-          // =================================================
-
           await TransactionHistory.create({
             orderId: deposit.orderId,
-
             userId: user._id,
-
             uid: user.uuid,
-
             phone: user.mobile,
-
             type: "Deposit",
-
             amount: money,
-
             status: STATUS.PENDING,
-
-            remark:
-              "Pending QwackPay recharge",
+            remark: "Pending QwackPay recharge",
           });
 
           return res.status(201).json({
             success: true,
-
-            message:
-              "QwackPay recharge order created successfully.",
-
+            message: "QwackPay recharge order created successfully.",
             paymentUrl: String(paymentUrl),
-
-            successUrl:
-              getQwackPayReturnUrl(),
-
-            callbackUrl:
-              getQwackPayCallbackUrl(),
-
+            successUrl: getQwackPayReturnUrl(),
+            callbackUrl: getQwackPayCallbackUrl(),
             orderId: deposit.orderId,
-
             depositId: deposit._id,
-
             amount: money,
-
             status: "pending",
-
             deposit,
-
             gatewayResponse,
           });
         }
 
-        // =================================================
-        // GATEWAY FAILED
-        // =================================================
-
         deposit.status = STATUS.FAILED;
-
         await deposit.save();
 
         return res.status(400).json({
           success: false,
-
           message:
             gatewayResponse?.error ||
             gatewayResponse?.message ||
             gatewayResponse?.data?.message ||
             `QwackPay payment URL not received. Gateway code: ${gatewayCode}`,
-
           paymentUrl: "",
-
           orderId: deposit.orderId,
-
           gatewayResponse,
         });
       } catch (gatewayErr) {
-        console.error(
-          "================================================="
-        );
-
-        console.error(
-          "QWACKPAY CREATE ERROR:"
-        );
-
-        console.error(
-          gatewayErr.response?.data ||
-            gatewayErr.message
-        );
-
-        console.error(
-          "================================================="
-        );
+        console.error("=================================================");
+        console.error("QWACKPAY CREATE ERROR:");
+        console.error(gatewayErr.response?.data || gatewayErr.message);
+        console.error("=================================================");
 
         deposit.status = STATUS.FAILED;
-
         await deposit.save();
 
         return res.status(502).json({
           success: false,
-
-          message:
-            "QwackPay payment request failed.",
-
+          message: "QwackPay payment request failed.",
           paymentUrl: "",
-
           orderId: deposit.orderId,
-
-          error:
-            gatewayErr.response?.data ||
-            gatewayErr.message,
+          error: gatewayErr.response?.data || gatewayErr.message,
         });
       }
     }
@@ -566,23 +416,16 @@ const createDeposit = async (req, res) => {
     if (!paymentMethod || !channel) {
       return res.status(400).json({
         success: false,
-
-        message:
-          "paymentMethod and channel are required",
+        message: "paymentMethod and channel are required",
       });
     }
 
     const usdRet = 92;
-
-    const finalPaymentMethod =
-      paymentMethod;
-
+    const finalPaymentMethod = paymentMethod;
     const finalChannel = channel;
 
     const money =
-      String(
-        finalPaymentMethod
-      ).toUpperCase() === "INR"
+      String(finalPaymentMethod).toUpperCase() === "INR"
         ? numericAmount
         : numericAmount * usdRet;
 
@@ -592,99 +435,57 @@ const createDeposit = async (req, res) => {
 
     let imageUrl = "";
 
-    if (
-      req.files &&
-      req.files.image &&
-      req.files.image[0]
-    ) {
-      imageUrl =
-        req.files.image[0].path || "";
+    if (req.files && req.files.image && req.files.image[0]) {
+      imageUrl = req.files.image[0].path || "";
     }
 
     const deposit = await Deposit.create({
       userId: user._id,
-
       gatewayId: null,
-
       uid: user.uuid,
-
       phone: user.mobile,
-
       username: user.username,
-
       orderId,
-
-      paymentMethod:
-        finalPaymentMethod,
-
-      type:
-        finalPaymentMethod,
-
+      paymentMethod: finalPaymentMethod,
+      type: finalPaymentMethod,
       channel: finalChannel,
-
       amount: money,
-
       exchangeRate:
-        String(
-          finalPaymentMethod
-        ).toUpperCase() === "USDT"
+        String(finalPaymentMethod).toUpperCase() === "USDT"
           ? usdRet
           : 0,
-
       transactionId: orderId,
-
       utr: utr || "",
-
       paymentProof: imageUrl,
-
       paymentUrl: "",
-
       status: STATUS.PENDING,
     });
 
     await TransactionHistory.create({
       orderId,
-
       userId: user._id,
-
       uid: user.uuid,
-
       phone: user.mobile,
-
       type: "Deposit",
-
       amount: money,
-
       status: STATUS.PENDING,
-
       remark: `Recharge request submitted via ${finalChannel}`,
     });
 
     return res.status(201).json({
       success: true,
-
-      message:
-        "Recharge request submitted successfully.",
-
+      message: "Recharge request submitted successfully.",
       paymentUrl: "",
-
       orderId,
-
       depositId: deposit._id,
-
       deposit,
     });
   } catch (error) {
-    console.error(
-      "CREATE DEPOSIT ERROR:",
-      error
-    );
+    console.error("CREATE DEPOSIT ERROR:", error);
 
     return res.status(500).json({
       success: false,
-
       message: "Server Error",
-
       error: error.message,
     });
   }
@@ -697,45 +498,28 @@ const createDeposit = async (req, res) => {
 const cancelDeposit = async (req, res) => {
   try {
     const userId = getUserIdFromRequest(req);
-
-    const { depositId } =
-      req.params;
-
-    const {
-      reason = "User cancelled at gateway",
-    } = req.body || {};
+    const { depositId } = req.params;
+    const { reason = "User cancelled at gateway" } = req.body || {};
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message:
-          "Authentication required",
+        message: "Authentication required",
       });
     }
 
     if (!depositId) {
       return res.status(400).json({
         success: false,
-        message:
-          "Deposit ID is required",
+        message: "Deposit ID is required",
       });
     }
 
-    const query =
-      mongoose.Types.ObjectId.isValid(
-        depositId
-      )
-        ? {
-            _id: depositId,
-            userId,
-          }
-        : {
-            orderId: String(depositId),
-            userId,
-          };
+    const query = mongoose.Types.ObjectId.isValid(depositId)
+      ? { _id: depositId, userId }
+      : { orderId: String(depositId), userId };
 
-    const deposit =
-      await Deposit.findOne(query);
+    const deposit = await Deposit.findOne(query);
 
     if (!deposit) {
       return res.status(404).json({
@@ -744,95 +528,45 @@ const cancelDeposit = async (req, res) => {
       });
     }
 
-    // =================================================
-    // ALREADY SUCCESS
-    // =================================================
-
-    if (
-      Number(deposit.status) ===
-      STATUS.SUCCESS
-    ) {
+    if (Number(deposit.status) === STATUS.SUCCESS) {
       return res.status(400).json({
         success: false,
-
-        message:
-          "Deposit already successful, cannot cancel",
-
+        message: "Deposit already successful, cannot cancel",
         status: deposit.status,
       });
     }
 
-    // =================================================
-    // ALREADY CANCELLED
-    // =================================================
-
-    if (
-      Number(deposit.status) ===
-      STATUS.CANCELLED
-    ) {
+    if (Number(deposit.status) === STATUS.CANCELLED) {
       return res.status(200).json({
         success: true,
-
-        message:
-          "Deposit already cancelled",
-
+        message: "Deposit already cancelled",
         depositId: deposit._id,
-
         orderId: deposit.orderId,
-
         status: STATUS.CANCELLED,
-
-        cancelledAt:
-          deposit.cancelledAt,
+        cancelledAt: deposit.cancelledAt,
       });
     }
 
-    // =================================================
-    // CANCEL
-    // =================================================
-
-    deposit.status =
-      STATUS.CANCELLED;
-
-    deposit.cancelReason =
-      String(reason);
-
-    deposit.cancelledAt =
-      new Date();
-
-    deposit.cancelledBy =
-      "USER";
+    deposit.status = STATUS.CANCELLED;
+    deposit.cancelReason = String(reason);
+    deposit.cancelledAt = new Date();
+    deposit.cancelledBy = "USER";
 
     await deposit.save();
-
-    // =================================================
-    // TRANSACTION HISTORY
-    // =================================================
 
     try {
       await TransactionHistory.updateOne(
         {
-          orderId:
-            deposit.orderId,
-
-          userId:
-            deposit.userId,
-
+          orderId: deposit.orderId,
+          userId: deposit.userId,
           type: "Deposit",
-
-          status:
-            STATUS.PENDING,
+          status: STATUS.PENDING,
         },
         {
           $set: {
-            status:
-              STATUS.CANCELLED,
-
-            remark:
-              `User cancelled payment. Reason: ${reason}`,
-
-            updatedAt:
-              new Date(),
+            status: STATUS.CANCELLED,
+            remark: `User cancelled payment. Reason: ${reason}`,
+            updatedAt: new Date(),
           },
         }
       );
@@ -845,30 +579,18 @@ const cancelDeposit = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-
-      message:
-        "Deposit cancelled",
-
+      message: "Deposit cancelled",
       depositId: deposit._id,
-
       orderId: deposit.orderId,
-
       status: STATUS.CANCELLED,
-
-      cancelledAt:
-        deposit.cancelledAt,
+      cancelledAt: deposit.cancelledAt,
     });
   } catch (error) {
-    console.error(
-      "CANCEL DEPOSIT ERROR:",
-      error
-    );
+    console.error("CANCEL DEPOSIT ERROR:", error);
 
     return res.status(500).json({
       success: false,
-
       message: "Server Error",
-
       error: error.message,
     });
   }
@@ -878,113 +600,66 @@ const cancelDeposit = async (req, res) => {
 // GET DEPOSIT STATUS
 // =====================================================
 
-const getDepositStatusByIdentifier =
-  async (req, res) => {
-    try {
-      const { identifier } =
-        req.params;
+const getDepositStatusByIdentifier = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const userId = getUserIdFromRequest(req);
 
-      const userId =
-        getUserIdFromRequest(req);
-
-      if (!identifier) {
-        return res.status(400).json({
-          success: false,
-
-          message:
-            "Deposit identifier is required",
-        });
-      }
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-
-          message:
-            "Authentication required",
-        });
-      }
-
-      const query =
-        mongoose.Types.ObjectId.isValid(
-          identifier
-        )
-          ? {
-              _id: identifier,
-              userId,
-            }
-          : {
-              orderId:
-                String(identifier),
-              userId,
-            };
-
-      const deposit =
-        await Deposit.findOne(
-          query
-        ).lean();
-
-      if (!deposit) {
-        return res.status(404).json({
-          success: false,
-
-          message:
-            "Deposit not found",
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-
-        deposit: {
-          _id: deposit._id,
-
-          orderId:
-            deposit.orderId,
-
-          amount:
-            deposit.amount,
-
-          status:
-            deposit.status,
-
-          paymentMethod:
-            deposit.paymentMethod,
-
-          channel:
-            deposit.channel,
-
-          utr:
-            deposit.utr || "",
-
-          cancelReason:
-            deposit.cancelReason || "",
-
-          cancelledAt:
-            deposit.cancelledAt || null,
-
-          createdAt:
-            deposit.createdAt,
-        },
-      });
-    } catch (error) {
-      console.error(
-        "GET DEPOSIT STATUS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
+    if (!identifier) {
+      return res.status(400).json({
         success: false,
-
-        message: "Server Error",
-
-        error: error.message,
+        message: "Deposit identifier is required",
       });
     }
-  };
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    const query = mongoose.Types.ObjectId.isValid(identifier)
+      ? { _id: identifier, userId }
+      : { orderId: String(identifier), userId };
+
+    const deposit = await Deposit.findOne(query).lean();
+
+    if (!deposit) {
+      return res.status(404).json({
+        success: false,
+        message: "Deposit not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      deposit: {
+        _id: deposit._id,
+        orderId: deposit.orderId,
+        amount: deposit.amount,
+        status: deposit.status,
+        paymentMethod: deposit.paymentMethod,
+        channel: deposit.channel,
+        utr: deposit.utr || "",
+        cancelReason: deposit.cancelReason || "",
+        cancelledAt: deposit.cancelledAt || null,
+        createdAt: deposit.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("GET DEPOSIT STATUS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
 
 // =====================================================
-// QWACKPAY WEBHOOK / CALLBACK
+// QWACKPAY WEBHOOK / CALLBACK HELPERS
 // =====================================================
 
 const getCallbackValue = (body = {}, query = {}, keys = []) => {
@@ -1036,9 +711,7 @@ const getCallbackIp = (req) => {
 
   return (
     req.headers?.["cf-connecting-ip"] ||
-    (forwarded
-      ? String(forwarded).split(",")[0].trim()
-      : "") ||
+    (forwarded ? String(forwarded).split(",")[0].trim() : "") ||
     req.headers?.["x-real-ip"] ||
     req.ip ||
     req.socket?.remoteAddress ||
@@ -1051,17 +724,35 @@ const getCallbackIp = (req) => {
 // =====================================================
 
 const onlinePayCallback = async (req, res) => {
+  // ---------------------------------------------------
+  // ABSOLUTE FIRST LINE.
+  // This proves the request physically reached this
+  // process, independent of Mongo, parsing, or anything
+  // else below. If you NEVER see this line in your
+  // server logs for a real payment, the request is not
+  // reaching this server at all (wrong callback_url,
+  // proxy/firewall blocking it, wrong port, etc) - no
+  // code change in this file can fix that; it has to be
+  // fixed in QWACKPAY_CALLBACK_URL / BACKEND_URL / your
+  // reverse proxy config.
+  // ---------------------------------------------------
+  console.log(
+    `[QWACKPAY CALLBACK HIT] ${new Date().toISOString()} method=${req.method} url=${req.originalUrl || req.url}`
+  );
+
   let callbackLog = null;
 
   const setCallbackLog = async (values) => {
     if (!callbackLog?._id) return;
     try {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        { $set: values }
-      );
+      await QwackPayCallbackLog.findByIdAndUpdate(callbackLog._id, {
+        $set: values,
+      });
     } catch (logError) {
-      console.error("QWACKPAY CALLBACK LOG UPDATE ERROR:", logError.message);
+      console.error(
+        "QWACKPAY CALLBACK LOG UPDATE ERROR:",
+        logError.message
+      );
     }
   };
 
@@ -1263,88 +954,100 @@ const onlinePayCallback = async (req, res) => {
     };
   };
 
+  // ---------------------------------------------------
+  // Parse the request body/query. Kept outside the main
+  // try so we still have these values even if logging
+  // or DB writes fail later.
+  // ---------------------------------------------------
+  const body =
+    req.body && typeof req.body === "object" ? req.body : {};
+
+  const query =
+    req.query && typeof req.query === "object" ? req.query : {};
+
+  console.log("=================================================");
+  console.log("QWACKPAY CALLBACK RECEIVED");
+  console.log("METHOD:", req.method);
+  console.log("URL:", req.originalUrl || req.url || "");
+  console.log("IP:", getCallbackIp(req));
+  console.log("BODY:", JSON.stringify(body, null, 2));
+  console.log("QUERY:", JSON.stringify(query, null, 2));
+  console.log("=================================================");
+
+  const merchantOrderId = String(
+    getCallbackValue(body, query, [
+      "merchant_order_id",
+      "merchantOrderId",
+      "merchant_order",
+      "merchantOrder",
+      "order_id",
+      "orderId",
+    ]) || ""
+  ).trim();
+
+  const qwackOrderId = String(
+    getCallbackValue(body, query, [
+      "qwack_order_id",
+      "qwackOrderId",
+      "transaction_id",
+      "transactionId",
+      "payment_id",
+      "paymentId",
+    ]) || ""
+  ).trim();
+
+  const amountRaw = getCallbackValue(body, query, [
+    "amount",
+    "paid_amount",
+    "paidAmount",
+    "total_amount",
+    "totalAmount",
+  ]);
+
+  const gatewayStatus = String(
+    getCallbackValue(body, query, [
+      "status",
+      "payment_status",
+      "paymentStatus",
+      "transaction_status",
+      "transactionStatus",
+      "order_status",
+      "orderStatus",
+    ]) || ""
+  ).trim();
+
+  const utr = String(
+    getCallbackValue(body, query, [
+      "utr",
+      "utr_number",
+      "utrNumber",
+      "rrn",
+      "reference",
+      "reference_number",
+    ]) || ""
+  ).trim();
+
+  const receivedSign = String(
+    getCallbackValue(body, query, ["sign", "signature"]) || ""
+  ).trim();
+
+  const callbackAmount = Number(amountRaw);
+
+  // ---------------------------------------------------
+  // FIX: log creation is now its own try/catch. Before,
+  // if this single insert threw for any reason (a brief
+  // Mongo hiccup, a validation edge case, etc.) the error
+  // jumped straight to the outer catch and the function
+  // returned WITHOUT ever crediting the wallet - even
+  // though the callback data had already been received
+  // and parsed. That silent, total abort on a pure
+  // logging failure is the most likely reason you saw
+  // "payment success, but nothing credited, and no log
+  // row" - the insert itself was the thing failing.
+  // Now a log failure is only logged to console; payment
+  // processing continues either way.
+  // ---------------------------------------------------
   try {
-    const body =
-      req.body && typeof req.body === "object"
-        ? req.body
-        : {};
-
-    const query =
-      req.query && typeof req.query === "object"
-        ? req.query
-        : {};
-
-    console.log("=================================================");
-    console.log("QWACKPAY CALLBACK RECEIVED");
-    console.log("METHOD:", req.method);
-    console.log("URL:", req.originalUrl || req.url || "");
-    console.log("IP:", getCallbackIp(req));
-    console.log("BODY:", JSON.stringify(body, null, 2));
-    console.log("QUERY:", JSON.stringify(query, null, 2));
-    console.log("=================================================");
-
-    const merchantOrderId = String(
-      getCallbackValue(body, query, [
-        "merchant_order_id",
-        "merchantOrderId",
-        "merchant_order",
-        "merchantOrder",
-        "order_id",
-        "orderId",
-      ]) || ""
-    ).trim();
-
-    const qwackOrderId = String(
-      getCallbackValue(body, query, [
-        "qwack_order_id",
-        "qwackOrderId",
-        "transaction_id",
-        "transactionId",
-        "payment_id",
-        "paymentId",
-      ]) || ""
-    ).trim();
-
-    const amountRaw = getCallbackValue(body, query, [
-      "amount",
-      "paid_amount",
-      "paidAmount",
-      "total_amount",
-      "totalAmount",
-    ]);
-
-    const gatewayStatus = String(
-      getCallbackValue(body, query, [
-        "status",
-        "payment_status",
-        "paymentStatus",
-        "transaction_status",
-        "transactionStatus",
-        "order_status",
-        "orderStatus",
-      ]) || ""
-    ).trim();
-
-    const utr = String(
-      getCallbackValue(body, query, [
-        "utr",
-        "utr_number",
-        "utrNumber",
-        "rrn",
-        "reference",
-        "reference_number",
-      ]) || ""
-    ).trim();
-
-    const receivedSign = String(
-      getCallbackValue(body, query, [
-        "sign",
-        "signature",
-      ]) || ""
-    ).trim();
-
-    const callbackAmount = Number(amountRaw);
-
     callbackLog = await QwackPayCallbackLog.create({
       merchantOrderId,
       qwackOrderId,
@@ -1364,8 +1067,19 @@ const onlinePayCallback = async (req, res) => {
       message: "QwackPay callback received",
     });
 
-    console.log("QWACKPAY CALLBACK LOG SAVED:", callbackLog._id.toString());
+    console.log(
+      "QWACKPAY CALLBACK LOG SAVED:",
+      callbackLog._id.toString()
+    );
+  } catch (logCreateError) {
+    console.error(
+      "QWACKPAY CALLBACK LOG CREATE ERROR (continuing without log):",
+      logCreateError.message
+    );
+    callbackLog = null;
+  }
 
+  try {
     // Browser/crawler GET without an order is only a health hit.
     if (req.method === "GET" && !merchantOrderId && !qwackOrderId) {
       await setCallbackLog({
@@ -1391,7 +1105,6 @@ const onlinePayCallback = async (req, res) => {
 
     // ---------------------------------------------------
     // FIND LOCAL DEPOSIT FIRST
-    // ---------------------------------------------------
     // Local merchant order ID is the source of truth.
     // ---------------------------------------------------
 
@@ -1433,7 +1146,6 @@ const onlinePayCallback = async (req, res) => {
 
     await setCallbackLog({ depositId: deposit._id });
 
-    // Already successfully processed.
     if (Number(deposit.status) === STATUS.SUCCESS) {
       await setCallbackLog({
         event: "ALREADY_PROCESSED",
@@ -1458,11 +1170,13 @@ const onlinePayCallback = async (req, res) => {
 
     // ---------------------------------------------------
     // SIGNATURE CHECK
-    // ---------------------------------------------------
-    // The callback signature is still verified whenever supplied.
-    // If QwackPay's callback signature format differs from the
-    // create-order signature, we do NOT blindly reject a real payment;
-    // we verify the order directly through QwackPay /order/query.
+    // We verify the callback signature whenever supplied,
+    // but we never treat "signature didn't match our
+    // create-order style signing" as a final failure -
+    // gateways commonly sign webhooks differently from
+    // order-create requests. Instead we always fall back
+    // to /order/query to independently verify with
+    // QwackPay's servers.
     // ---------------------------------------------------
 
     const webhookPayload = {
@@ -1523,8 +1237,6 @@ const onlinePayCallback = async (req, res) => {
       "3",
     ].includes(callbackStatusLower);
 
-    // Always query QwackPay when signature is missing/invalid,
-    // when callback is pending/unknown, or when callback amount is bad.
     const mustQueryGateway =
       !signValid ||
       !callbackLooksSuccess ||
@@ -1557,10 +1269,6 @@ const onlinePayCallback = async (req, res) => {
       }
     }
 
-    // ---------------------------------------------------
-    // USE VERIFIED GATEWAY DATA WHEN AVAILABLE
-    // ---------------------------------------------------
-
     const finalStatus = gatewayResult?.isSuccess
       ? "success"
       : gatewayResult?.isFailed
@@ -1568,26 +1276,21 @@ const onlinePayCallback = async (req, res) => {
       : callbackStatusLower;
 
     const finalAmount =
-      gatewayResult && Number.isFinite(gatewayResult.amount) && gatewayResult.amount > 0
+      gatewayResult &&
+      Number.isFinite(gatewayResult.amount) &&
+      gatewayResult.amount > 0
         ? gatewayResult.amount
         : callbackAmount;
 
-    const finalUtr =
-      gatewayResult?.utr ||
-      utr ||
-      deposit.utr ||
-      "";
+    const finalUtr = gatewayResult?.utr || utr || deposit.utr || "";
 
-    const finalQwackOrderId =
-      gatewayResult?.qwackOrderId ||
-      qwackOrderId ||
-      "";
+    const finalQwackOrderId = gatewayResult?.qwackOrderId || qwackOrderId || "";
 
     // ---------------------------------------------------
     // DO NOT FAIL PENDING/UNKNOWN PAYMENTS
-    // ---------------------------------------------------
-    // A redirect/callback can arrive before the payment is finalized.
-    // Keep local deposit PENDING until a verified failure is received.
+    // A redirect/callback can arrive before the payment is
+    // finalized. Keep local deposit PENDING until a
+    // verified failure is received.
     // ---------------------------------------------------
 
     if (!verified && !signValid) {
@@ -1619,9 +1322,7 @@ const onlinePayCallback = async (req, res) => {
             status: STATUS.FAILED,
             utr: finalUtr,
             transactionId:
-              finalQwackOrderId ||
-              finalUtr ||
-              deposit.transactionId,
+              finalQwackOrderId || finalUtr || deposit.transactionId,
           },
         }
       );
@@ -1727,11 +1428,6 @@ const onlinePayCallback = async (req, res) => {
     // ---------------------------------------------------
     // ATOMIC WALLET + DEPOSIT TRANSACTION
     // ---------------------------------------------------
-    // IMPORTANT FIX:
-    // Previously Deposit was changed to SUCCESS BEFORE wallet credit.
-    // If wallet update failed, deposit stayed SUCCESS and retry could
-    // never credit the user. Now both operations commit together.
-    // ---------------------------------------------------
 
     const session = await mongoose.startSession();
 
@@ -1775,9 +1471,7 @@ const onlinePayCallback = async (req, res) => {
               status: STATUS.SUCCESS,
               utr: finalUtr,
               transactionId:
-                finalQwackOrderId ||
-                finalUtr ||
-                freshDeposit.transactionId,
+                finalQwackOrderId || finalUtr || freshDeposit.transactionId,
             },
           },
           { new: true, session }
@@ -1787,8 +1481,7 @@ const onlinePayCallback = async (req, res) => {
           throw new Error("Deposit could not be claimed");
         }
 
-        const successRemark =
-          `Wallet recharge successful via QwackPay. UTR: ${finalUtr || "N/A"}. ₹${finalAmount} credited to wallet.`;
+        const successRemark = `Wallet recharge successful via QwackPay. UTR: ${finalUtr || "N/A"}. ₹${finalAmount} credited to wallet.`;
 
         const historyUpdate = await TransactionHistory.findOneAndUpdate(
           {
@@ -1807,11 +1500,7 @@ const onlinePayCallback = async (req, res) => {
               updatedAt: new Date(),
             },
           },
-          {
-            new: true,
-            sort: { createdAt: -1 },
-            session,
-          }
+          { new: true, sort: { createdAt: -1 }, session }
         );
 
         if (!historyUpdate) {
@@ -1894,64 +1583,46 @@ const onlinePayCallback = async (req, res) => {
 // CHECK QWACKPAY ORDER STATUS
 // =====================================================
 
-const checkQwackPayOrderStatus =
-  async (orderId) => {
-    try {
-      if (!orderId) {
-        return null;
-      }
-
-      const payload = {
-        merchant_id:
-          QWACKPAY_MERCHANT_ID,
-
-        order_id:
-          orderId,
-      };
-
-      payload.sign =
-        generateQwackPaySign(
-          payload,
-          QWACKPAY_API_KEY
-        );
-
-      const response =
-        await axios.post(
-          `${QWACKPAY_BASE_URL}/order/query`,
-          payload,
-          {
-            headers:
-              getQwackPayHeaders(),
-
-            timeout: 30000,
-          }
-        );
-
-      console.log(
-        "QWACKPAY QUERY RESPONSE:",
-        response.data
-      );
-
-      return response.data;
-    } catch (error) {
-      console.error(
-        "QWACKPAY QUERY ERROR:",
-        error.response?.data ||
-          error.message
-      );
-
+const checkQwackPayOrderStatus = async (orderId) => {
+  try {
+    if (!orderId) {
       return null;
     }
-  };
+
+    const payload = {
+      merchant_id: QWACKPAY_MERCHANT_ID,
+      order_id: orderId,
+    };
+
+    payload.sign = generateQwackPaySign(payload, QWACKPAY_API_KEY);
+
+    const response = await axios.post(
+      `${QWACKPAY_BASE_URL}/order/query`,
+      payload,
+      {
+        headers: getQwackPayHeaders(),
+        timeout: 30000,
+      }
+    );
+
+    console.log("QWACKPAY QUERY RESPONSE:", response.data);
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "QWACKPAY QUERY ERROR:",
+      error.response?.data || error.message
+    );
+
+    return null;
+  }
+};
 
 // =====================================================
 // GET MY DEPOSITS
 // =====================================================
 
-const getMyDeposits = async (
-  req,
-  res
-) => {
+const getMyDeposits = async (req, res) => {
   try {
     const {
       status,
@@ -1971,328 +1642,125 @@ const getMyDeposits = async (
       sort = "desc",
     } = req.query;
 
-    const userId =
-      getUserIdFromRequest(req);
+    const userId = getUserIdFromRequest(req);
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-
-        message:
-          "Authentication required",
+        message: "Authentication required",
       });
     }
 
-    const query = {
-      userId,
-    };
+    const query = { userId };
 
-    // =================================================
-    // STATUS
-    // =================================================
-
-    if (
-      status !== undefined &&
-      status !== ""
-    ) {
-      const statusNumber =
-        Number(status);
-
-      if (
-        Number.isInteger(
-          statusNumber
-        )
-      ) {
-        query.status =
-          statusNumber;
+    if (status !== undefined && status !== "") {
+      const statusNumber = Number(status);
+      if (Number.isInteger(statusNumber)) {
+        query.status = statusNumber;
       }
     }
 
-    // =================================================
-    // PAYMENT METHOD
-    // =================================================
-
-    if (
-      paymentMethod &&
-      paymentMethod.trim()
-    ) {
-      query.paymentMethod = {
-        $regex:
-          paymentMethod.trim(),
-        $options: "i",
-      };
+    if (paymentMethod && paymentMethod.trim()) {
+      query.paymentMethod = { $regex: paymentMethod.trim(), $options: "i" };
     }
 
-    // =================================================
-    // CHANNEL
-    // =================================================
-
-    if (
-      channel &&
-      channel.trim()
-    ) {
-      query.channel = {
-        $regex:
-          channel.trim(),
-        $options: "i",
-      };
+    if (channel && channel.trim()) {
+      query.channel = { $regex: channel.trim(), $options: "i" };
     }
 
-    // =================================================
-    // PHONE
-    // =================================================
-
-    if (
-      phone &&
-      phone.trim()
-    ) {
-      query.phone = {
-        $regex:
-          phone.trim(),
-        $options: "i",
-      };
+    if (phone && phone.trim()) {
+      query.phone = { $regex: phone.trim(), $options: "i" };
     }
 
-    // =================================================
-    // USERNAME
-    // =================================================
-
-    if (
-      username &&
-      username.trim()
-    ) {
-      query.username = {
-        $regex:
-          username.trim(),
-        $options: "i",
-      };
+    if (username && username.trim()) {
+      query.username = { $regex: username.trim(), $options: "i" };
     }
 
-    // =================================================
-    // ORDER ID
-    // =================================================
-
-    if (
-      orderId &&
-      orderId.trim()
-    ) {
-      query.orderId = {
-        $regex:
-          orderId.trim(),
-        $options: "i",
-      };
+    if (orderId && orderId.trim()) {
+      query.orderId = { $regex: orderId.trim(), $options: "i" };
     }
 
-    // =================================================
-    // TRANSACTION ID
-    // =================================================
-
-    if (
-      transactionId &&
-      transactionId.trim()
-    ) {
-      query.transactionId = {
-        $regex:
-          transactionId.trim(),
-        $options: "i",
-      };
+    if (transactionId && transactionId.trim()) {
+      query.transactionId = { $regex: transactionId.trim(), $options: "i" };
     }
 
-    // =================================================
-    // UTR
-    // =================================================
-
-    if (
-      utr &&
-      utr.trim()
-    ) {
-      query.utr = {
-        $regex:
-          utr.trim(),
-        $options: "i",
-      };
+    if (utr && utr.trim()) {
+      query.utr = { $regex: utr.trim(), $options: "i" };
     }
 
-    // =================================================
-    // AMOUNT FILTER
-    // =================================================
-
-    if (
-      minAmount !== undefined ||
-      maxAmount !== undefined
-    ) {
+    if (minAmount !== undefined || maxAmount !== undefined) {
       const amountQuery = {};
 
-      if (
-        minAmount !== undefined &&
-        minAmount !== ""
-      ) {
-        const min =
-          Number(minAmount);
-
-        if (
-          Number.isFinite(min)
-        ) {
-          amountQuery.$gte =
-            min;
+      if (minAmount !== undefined && minAmount !== "") {
+        const min = Number(minAmount);
+        if (Number.isFinite(min)) {
+          amountQuery.$gte = min;
         }
       }
 
-      if (
-        maxAmount !== undefined &&
-        maxAmount !== ""
-      ) {
-        const max =
-          Number(maxAmount);
-
-        if (
-          Number.isFinite(max)
-        ) {
-          amountQuery.$lte =
-            max;
+      if (maxAmount !== undefined && maxAmount !== "") {
+        const max = Number(maxAmount);
+        if (Number.isFinite(max)) {
+          amountQuery.$lte = max;
         }
       }
 
-      if (
-        Object.keys(
-          amountQuery
-        ).length > 0
-      ) {
-        query.amount =
-          amountQuery;
+      if (Object.keys(amountQuery).length > 0) {
+        query.amount = amountQuery;
       }
     }
-
-    // =================================================
-    // DATE FILTER
-    // =================================================
 
     if (fromDate || toDate) {
       const dateQuery = {};
 
       if (fromDate) {
-        const startDate =
-          new Date(fromDate);
-
-        if (
-          !Number.isNaN(
-            startDate.getTime()
-          )
-        ) {
-          startDate.setHours(
-            0,
-            0,
-            0,
-            0
-          );
-
-          dateQuery.$gte =
-            startDate;
+        const startDate = new Date(fromDate);
+        if (!Number.isNaN(startDate.getTime())) {
+          startDate.setHours(0, 0, 0, 0);
+          dateQuery.$gte = startDate;
         }
       }
 
       if (toDate) {
-        const endDate =
-          new Date(toDate);
-
-        if (
-          !Number.isNaN(
-            endDate.getTime()
-          )
-        ) {
-          endDate.setHours(
-            23,
-            59,
-            59,
-            999
-          );
-
-          dateQuery.$lte =
-            endDate;
+        const endDate = new Date(toDate);
+        if (!Number.isNaN(endDate.getTime())) {
+          endDate.setHours(23, 59, 59, 999);
+          dateQuery.$lte = endDate;
         }
       }
 
-      if (
-        Object.keys(
-          dateQuery
-        ).length > 0
-      ) {
-        query.createdAt =
-          dateQuery;
+      if (Object.keys(dateQuery).length > 0) {
+        query.createdAt = dateQuery;
       }
     }
 
-    // =================================================
-    // PAGINATION
-    // =================================================
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const perPage = Math.min(Math.max(Number(limit) || 10, 1), 100);
 
-    const currentPage =
-      Math.max(
-        Number(page) || 1,
-        1
-      );
+    const total = await Deposit.countDocuments(query);
 
-    const perPage =
-      Math.min(
-        Math.max(
-          Number(limit) || 10,
-          1
-        ),
-        100
-      );
+    const sortDirection = String(sort).toLowerCase() === "asc" ? 1 : -1;
 
-    const total =
-      await Deposit.countDocuments(
-        query
-      );
-
-    const sortDirection =
-      String(sort)
-        .toLowerCase() ===
-      "asc"
-        ? 1
-        : -1;
-
-    const deposits =
-      await Deposit.find(query)
-        .sort({
-          createdAt:
-            sortDirection,
-        })
-        .skip(
-          (currentPage - 1) *
-            perPage
-        )
-        .limit(perPage)
-        .lean();
+    const deposits = await Deposit.find(query)
+      .sort({ createdAt: sortDirection })
+      .skip((currentPage - 1) * perPage)
+      .limit(perPage)
+      .lean();
 
     return res.status(200).json({
       success: true,
-
       total,
-
       currentPage,
-
-      totalPages:
-        Math.ceil(
-          total / perPage
-        ),
-
+      totalPages: Math.ceil(total / perPage),
       limit: perPage,
-
       deposits,
     });
   } catch (error) {
-    console.error(
-      "GET MY DEPOSITS ERROR:",
-      error
-    );
+    console.error("GET MY DEPOSITS ERROR:", error);
 
     return res.status(500).json({
       success: false,
-
       message: "Server Error",
-
       error: error.message,
     });
   }
@@ -2302,610 +1770,273 @@ const getMyDeposits = async (
 // GET MY TURNOVER HISTORY
 // =====================================================
 
-const getMyTurnoverHistory =
-  async (req, res) => {
-    try {
-      const userId =
-        getUserIdFromRequest(req);
+const getMyTurnoverHistory = async (req, res) => {
+  try {
+    const userId = getUserIdFromRequest(req);
 
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-
-          message:
-            "Authentication required",
-        });
-      }
-
-      const user =
-        await User.findById(
-          userId
-        );
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-
-          message:
-            "User not found",
-        });
-      }
-
-      const downlineCount =
-        await User.countDocuments({
-          referral:
-            user.refCode,
-        });
-
-      const commissions =
-        await TransactionHistory.find(
-          {
-            userId:
-              userId.toString(),
-
-            type:
-              "Referral Bonus",
-
-            status:
-              STATUS.SUCCESS,
-          }
-        ).sort({
-          createdAt: -1,
-        });
-
-      const formattedCommissions =
-        commissions.map(
-          (commission) => {
-            const match =
-              commission.remark
-                ? commission.remark.match(
-                    /from deposit of (.+)/
-                  )
-                : null;
-
-            const referredUsername =
-              match
-                ? match[1]
-                : "Referred User";
-
-            const rechargeAmount =
-              Number(
-                (
-                  Number(
-                    commission.amount ||
-                      0
-                  ) * 10
-                ).toFixed(2)
-              );
-
-            return {
-              id:
-                commission._id,
-
-              amount:
-                commission.amount,
-
-              rechargeAmount,
-
-              referredUsername,
-
-              date:
-                commission.createdAt
-                  ? new Date(
-                      commission.createdAt
-                    ).toLocaleDateString(
-                      "en-GB",
-                      {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      }
-                    )
-                  : "-",
-
-              createdAt:
-                commission.createdAt,
-            };
-          }
-        );
-
-      const now =
-        new Date();
-
-      const oneWeekAgo =
-        new Date();
-
-      oneWeekAgo.setDate(
-        now.getDate() - 7
-      );
-
-      const oneMonthAgo =
-        new Date();
-
-      oneMonthAgo.setDate(
-        now.getDate() - 30
-      );
-
-      let weeklyCommission = 0;
-      let monthlyCommission = 0;
-      let totalCommission = 0;
-
-      formattedCommissions.forEach(
-        (commission) => {
-          const amount =
-            Number(
-              commission.amount ||
-                0
-            );
-
-          totalCommission +=
-            amount;
-
-          const commissionDate =
-            new Date(
-              commission.createdAt
-            );
-
-          if (
-            commissionDate >=
-            oneWeekAgo
-          ) {
-            weeklyCommission +=
-              amount;
-          }
-
-          if (
-            commissionDate >=
-            oneMonthAgo
-          ) {
-            monthlyCommission +=
-              amount;
-          }
-        }
-      );
-
-      totalCommission =
-        Number(
-          totalCommission.toFixed(
-            2
-          )
-        );
-
-      weeklyCommission =
-        Number(
-          weeklyCommission.toFixed(
-            2
-          )
-        );
-
-      monthlyCommission =
-        Number(
-          monthlyCommission.toFixed(
-            2
-          )
-        );
-
-      const totalTurnover =
-        Number(
-          (
-            totalCommission * 10
-          ).toFixed(2)
-        );
-
-      const weeklyTurnover =
-        Number(
-          (
-            weeklyCommission * 10
-          ).toFixed(2)
-        );
-
-      const monthlyTurnover =
-        Number(
-          (
-            monthlyCommission * 10
-          ).toFixed(2)
-        );
-
-      return res.status(200).json({
-        success: true,
-
-        downlineCount,
-
-        stats: {
-          totalCommission,
-
-          weeklyCommission,
-
-          monthlyCommission,
-
-          totalTurnover,
-
-          weeklyTurnover,
-
-          monthlyTurnover,
-        },
-
-        commissions:
-          formattedCommissions,
-      });
-    } catch (error) {
-      console.error(
-        "GET TURNOVER HISTORY ERROR:",
-        error
-      );
-
-      return res.status(500).json({
+    if (!userId) {
+      return res.status(401).json({
         success: false,
-
-        message: "Server Error",
-
-        error: error.message,
+        message: "Authentication required",
       });
     }
-  };
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const downlineCount = await User.countDocuments({
+      referral: user.refCode,
+    });
+
+    const commissions = await TransactionHistory.find({
+      userId: userId.toString(),
+      type: "Referral Bonus",
+      status: STATUS.SUCCESS,
+    }).sort({ createdAt: -1 });
+
+    const formattedCommissions = commissions.map((commission) => {
+      const match = commission.remark
+        ? commission.remark.match(/from deposit of (.+)/)
+        : null;
+
+      const referredUsername = match ? match[1] : "Referred User";
+
+      const rechargeAmount = Number(
+        (Number(commission.amount || 0) * 10).toFixed(2)
+      );
+
+      return {
+        id: commission._id,
+        amount: commission.amount,
+        rechargeAmount,
+        referredUsername,
+        date: commission.createdAt
+          ? new Date(commission.createdAt).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : "-",
+        createdAt: commission.createdAt,
+      };
+    });
+
+    const now = new Date();
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(now.getDate() - 7);
+
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setDate(now.getDate() - 30);
+
+    let weeklyCommission = 0;
+    let monthlyCommission = 0;
+    let totalCommission = 0;
+
+    formattedCommissions.forEach((commission) => {
+      const amount = Number(commission.amount || 0);
+
+      totalCommission += amount;
+
+      const commissionDate = new Date(commission.createdAt);
+
+      if (commissionDate >= oneWeekAgo) {
+        weeklyCommission += amount;
+      }
+
+      if (commissionDate >= oneMonthAgo) {
+        monthlyCommission += amount;
+      }
+    });
+
+    totalCommission = Number(totalCommission.toFixed(2));
+    weeklyCommission = Number(weeklyCommission.toFixed(2));
+    monthlyCommission = Number(monthlyCommission.toFixed(2));
+
+    const totalTurnover = Number((totalCommission * 10).toFixed(2));
+    const weeklyTurnover = Number((weeklyCommission * 10).toFixed(2));
+    const monthlyTurnover = Number((monthlyCommission * 10).toFixed(2));
+
+    return res.status(200).json({
+      success: true,
+      downlineCount,
+      stats: {
+        totalCommission,
+        weeklyCommission,
+        monthlyCommission,
+        totalTurnover,
+        weeklyTurnover,
+        monthlyTurnover,
+      },
+      commissions: formattedCommissions,
+    });
+  } catch (error) {
+    console.error("GET TURNOVER HISTORY ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
 
 // =====================================================
 // ADMIN: GET ALL DEPOSITS
 // =====================================================
 
-const getAllDepositsForAdmin =
-  async (req, res) => {
-    try {
-      const {
-        status,
-        paymentMethod,
-        channel,
-        phone,
-        username,
-        uid,
-        orderId,
-        transactionId,
-        utr,
-        fromDate,
-        toDate,
-        minAmount,
-        maxAmount,
-        page = 1,
-        limit = 20,
-        sort = "desc",
-      } = req.query;
+const getAllDepositsForAdmin = async (req, res) => {
+  try {
+    const {
+      status,
+      paymentMethod,
+      channel,
+      phone,
+      username,
+      uid,
+      orderId,
+      transactionId,
+      utr,
+      fromDate,
+      toDate,
+      minAmount,
+      maxAmount,
+      page = 1,
+      limit = 20,
+      sort = "desc",
+    } = req.query;
 
-      const query = {};
+    const query = {};
 
-      // =================================================
-      // STATUS
-      // =================================================
-
-      if (
-        status !== undefined &&
-        status !== ""
-      ) {
-        const statusNumber =
-          Number(status);
-
-        if (
-          Number.isInteger(
-            statusNumber
-          )
-        ) {
-          query.status =
-            statusNumber;
-        }
+    if (status !== undefined && status !== "") {
+      const statusNumber = Number(status);
+      if (Number.isInteger(statusNumber)) {
+        query.status = statusNumber;
       }
-
-      // =================================================
-      // PAYMENT METHOD
-      // =================================================
-
-      if (
-        paymentMethod &&
-        paymentMethod.trim()
-      ) {
-        query.paymentMethod = {
-          $regex:
-            paymentMethod.trim(),
-          $options: "i",
-        };
-      }
-
-      // =================================================
-      // CHANNEL
-      // =================================================
-
-      if (
-        channel &&
-        channel.trim()
-      ) {
-        query.channel = {
-          $regex:
-            channel.trim(),
-          $options: "i",
-        };
-      }
-
-      // =================================================
-      // PHONE
-      // =================================================
-
-      if (
-        phone &&
-        phone.trim()
-      ) {
-        query.phone = {
-          $regex:
-            phone.trim(),
-          $options: "i",
-        };
-      }
-
-      // =================================================
-      // USERNAME
-      // =================================================
-
-      if (
-        username &&
-        username.trim()
-      ) {
-        query.username = {
-          $regex:
-            username.trim(),
-          $options: "i",
-        };
-      }
-
-      // =================================================
-      // UID
-      // =================================================
-
-      if (
-        uid &&
-        uid.trim()
-      ) {
-        query.uid = {
-          $regex:
-            uid.trim(),
-          $options: "i",
-        };
-      }
-
-      // =================================================
-      // ORDER ID
-      // =================================================
-
-      if (
-        orderId &&
-        orderId.trim()
-      ) {
-        query.orderId = {
-          $regex:
-            orderId.trim(),
-          $options: "i",
-        };
-      }
-
-      // =================================================
-      // TRANSACTION ID
-      // =================================================
-
-      if (
-        transactionId &&
-        transactionId.trim()
-      ) {
-        query.transactionId = {
-          $regex:
-            transactionId.trim(),
-          $options: "i",
-        };
-      }
-
-      // =================================================
-      // UTR
-      // =================================================
-
-      if (
-        utr &&
-        utr.trim()
-      ) {
-        query.utr = {
-          $regex:
-            utr.trim(),
-          $options: "i",
-        };
-      }
-
-      // =================================================
-      // AMOUNT FILTER
-      // =================================================
-
-      if (
-        minAmount !== undefined ||
-        maxAmount !== undefined
-      ) {
-        const amountQuery = {};
-
-        if (
-          minAmount !== undefined &&
-          minAmount !== ""
-        ) {
-          const min =
-            Number(minAmount);
-
-          if (
-            Number.isFinite(min)
-          ) {
-            amountQuery.$gte =
-              min;
-          }
-        }
-
-        if (
-          maxAmount !== undefined &&
-          maxAmount !== ""
-        ) {
-          const max =
-            Number(maxAmount);
-
-          if (
-            Number.isFinite(max)
-          ) {
-            amountQuery.$lte =
-              max;
-          }
-        }
-
-        if (
-          Object.keys(
-            amountQuery
-          ).length > 0
-        ) {
-          query.amount =
-            amountQuery;
-        }
-      }
-
-      // =================================================
-      // DATE FILTER
-      // =================================================
-
-      if (fromDate || toDate) {
-        const dateQuery = {};
-
-        if (fromDate) {
-          const startDate =
-            new Date(fromDate);
-
-          if (
-            !Number.isNaN(
-              startDate.getTime()
-            )
-          ) {
-            startDate.setHours(
-              0,
-              0,
-              0,
-              0
-            );
-
-            dateQuery.$gte =
-              startDate;
-          }
-        }
-
-        if (toDate) {
-          const endDate =
-            new Date(toDate);
-
-          if (
-            !Number.isNaN(
-              endDate.getTime()
-            )
-          ) {
-            endDate.setHours(
-              23,
-              59,
-              59,
-              999
-            );
-
-            dateQuery.$lte =
-              endDate;
-          }
-        }
-
-        if (
-          Object.keys(
-            dateQuery
-          ).length > 0
-        ) {
-          query.createdAt =
-            dateQuery;
-        }
-      }
-
-      // =================================================
-      // PAGINATION
-      // =================================================
-
-      const currentPage =
-        Math.max(
-          Number(page) || 1,
-          1
-        );
-
-      const perPage =
-        Math.min(
-          Math.max(
-            Number(limit) || 20,
-            1
-          ),
-          100
-        );
-
-      const skip =
-        (currentPage - 1) *
-        perPage;
-
-      const sortDirection =
-        String(sort)
-          .toLowerCase() ===
-      "asc"
-        ? 1
-        : -1;
-
-      const total =
-        await Deposit.countDocuments(
-          query
-        );
-
-      const deposits =
-        await Deposit.find(query)
-          .sort({
-            createdAt:
-              sortDirection,
-          })
-          .skip(skip)
-          .limit(perPage)
-          .lean();
-
-      return res.status(200).json({
-        success: true,
-
-        message:
-          "All deposits fetched successfully",
-
-        total,
-
-        currentPage,
-
-        perPage,
-
-        totalPages:
-          Math.ceil(
-            total / perPage
-          ),
-
-        deposits,
-      });
-    } catch (error) {
-      console.error(
-        "GET ALL DEPOSITS FOR ADMIN ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message: "Server Error",
-
-        error: error.message,
-      });
     }
-  };
 
-  // =====================================================
+    if (paymentMethod && paymentMethod.trim()) {
+      query.paymentMethod = { $regex: paymentMethod.trim(), $options: "i" };
+    }
+
+    if (channel && channel.trim()) {
+      query.channel = { $regex: channel.trim(), $options: "i" };
+    }
+
+    if (phone && phone.trim()) {
+      query.phone = { $regex: phone.trim(), $options: "i" };
+    }
+
+    if (username && username.trim()) {
+      query.username = { $regex: username.trim(), $options: "i" };
+    }
+
+    if (uid && uid.trim()) {
+      query.uid = { $regex: uid.trim(), $options: "i" };
+    }
+
+    if (orderId && orderId.trim()) {
+      query.orderId = { $regex: orderId.trim(), $options: "i" };
+    }
+
+    if (transactionId && transactionId.trim()) {
+      query.transactionId = { $regex: transactionId.trim(), $options: "i" };
+    }
+
+    if (utr && utr.trim()) {
+      query.utr = { $regex: utr.trim(), $options: "i" };
+    }
+
+    if (minAmount !== undefined || maxAmount !== undefined) {
+      const amountQuery = {};
+
+      if (minAmount !== undefined && minAmount !== "") {
+        const min = Number(minAmount);
+        if (Number.isFinite(min)) {
+          amountQuery.$gte = min;
+        }
+      }
+
+      if (maxAmount !== undefined && maxAmount !== "") {
+        const max = Number(maxAmount);
+        if (Number.isFinite(max)) {
+          amountQuery.$lte = max;
+        }
+      }
+
+      if (Object.keys(amountQuery).length > 0) {
+        query.amount = amountQuery;
+      }
+    }
+
+    if (fromDate || toDate) {
+      const dateQuery = {};
+
+      if (fromDate) {
+        const startDate = new Date(fromDate);
+        if (!Number.isNaN(startDate.getTime())) {
+          startDate.setHours(0, 0, 0, 0);
+          dateQuery.$gte = startDate;
+        }
+      }
+
+      if (toDate) {
+        const endDate = new Date(toDate);
+        if (!Number.isNaN(endDate.getTime())) {
+          endDate.setHours(23, 59, 59, 999);
+          dateQuery.$lte = endDate;
+        }
+      }
+
+      if (Object.keys(dateQuery).length > 0) {
+        query.createdAt = dateQuery;
+      }
+    }
+
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const perPage = Math.min(Math.max(Number(limit) || 20, 1), 100);
+    const skip = (currentPage - 1) * perPage;
+
+    const sortDirection = String(sort).toLowerCase() === "asc" ? 1 : -1;
+
+    const total = await Deposit.countDocuments(query);
+
+    const deposits = await Deposit.find(query)
+      .sort({ createdAt: sortDirection })
+      .skip(skip)
+      .limit(perPage)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      message: "All deposits fetched successfully",
+      total,
+      currentPage,
+      perPage,
+      totalPages: Math.ceil(total / perPage),
+      deposits,
+    });
+  } catch (error) {
+    console.error("GET ALL DEPOSITS FOR ADMIN ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+// =====================================================
 // TEST ONLY: GENERATE QWACKPAY SIGN
 // REMOVE/DISABLE IN PRODUCTION
 // =====================================================
+
 const generateTestQwackPaySign = async (req, res) => {
   try {
     const {
@@ -2959,10 +2090,7 @@ const generateTestQwackPaySign = async (req, res) => {
       utr: String(utr || "").trim(),
     };
 
-    const sign = generateQwackPaySign(
-      payload,
-      QWACKPAY_API_KEY
-    );
+    const sign = generateQwackPaySign(payload, QWACKPAY_API_KEY);
 
     console.log("===============================================");
     console.log("QWACKPAY TEST SIGN");
@@ -2979,10 +2107,7 @@ const generateTestQwackPaySign = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(
-      "GENERATE QWACKPAY TEST SIGN ERROR:",
-      error
-    );
+    console.error("GENERATE QWACKPAY TEST SIGN ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -2998,23 +2123,14 @@ const generateTestQwackPaySign = async (req, res) => {
 
 module.exports = {
   createDeposit,
-
   cancelDeposit,
-
   onlinePayCallback,
-
   getDepositStatusByIdentifier,
-
   getMyDeposits,
-
   getMyTurnoverHistory,
-
   getAllDepositsForAdmin,
-
   checkQwackPayOrderStatus,
-
   generateQwackPaySign,
   generateTestQwackPaySign,
-
   STATUS,
 };
