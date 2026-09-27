@@ -6,7 +6,7 @@ const Deposit = require("../models/Deposit.js");
 const User = require("../models/userModel");
 const TransactionHistory = require("../models/TransactionHistory");
 const QwackPayCallbackLog = require("../models/QwackPayCallbackLog");
-const LotteryEntry = require("../models/LotteryConfig.js");
+const LotteryEntry = require("../models/LotteryEntry.js/index.js");
 const LotteryConfig = require("../models/LotteryConfig");
 
 // =====================================================
