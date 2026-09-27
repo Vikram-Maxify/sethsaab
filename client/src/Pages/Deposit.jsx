@@ -7,7 +7,7 @@ import {
   selectDepositLoading,
   selectDepositOrderId,
   selectDepositPaymentUrl,
-} from "../redux/slices/depositSlice";
+} from "../reducer/slice/depositSlice";
 
 export default function QwackPayDeposit() {
   const dispatch = useDispatch();
