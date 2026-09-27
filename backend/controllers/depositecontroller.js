@@ -6,7 +6,6 @@ const Deposit = require("../models/Deposit.js");
 const User = require("../models/userModel");
 const TransactionHistory = require("../models/TransactionHistory");
 const QwackPayCallbackLog = require("../models/QwackPayCallbackLog");
-const LotteryEntry = require("../models/LotteryEntry.js");
 const LotteryConfig = require("../models/LotteryConfig");
 
 // =====================================================
@@ -111,6 +110,18 @@ const getUserIdFromRequest = (req) => {
 };
 
 // =====================================================
+// HELPER: ENTRY DATE (YYYY-MM-DD)
+// =====================================================
+
+const getEntryDateString = (date = new Date()) => {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+// =====================================================
 // CREATE DEPOSIT (WITH LOTTERY TICKET SUPPORT)
 // =====================================================
 
@@ -184,7 +195,6 @@ const createDeposit = async (req, res) => {
       let normalizedLotteryNumbers = [];
 
       if (Array.isArray(lotteryNumbers) && lotteryNumbers.length > 0) {
-        // Validate configId
         if (!configId || !mongoose.Types.ObjectId.isValid(configId)) {
           return res.status(400).json({
             success: false,
@@ -192,7 +202,6 @@ const createDeposit = async (req, res) => {
           });
         }
 
-        // Verify config exists and is active
         const lotteryConfig = await LotteryConfig.findById(configId);
 
         if (!lotteryConfig) {
@@ -209,7 +218,6 @@ const createDeposit = async (req, res) => {
           });
         }
 
-        // Validate each number
         for (let i = 0; i < lotteryNumbers.length; i++) {
           const num = String(lotteryNumbers[i] || "").trim();
 
@@ -223,7 +231,6 @@ const createDeposit = async (req, res) => {
           normalizedLotteryNumbers.push(num);
         }
 
-        // Check duplicate numbers in same purchase
         const uniqueNumbers = new Set(normalizedLotteryNumbers);
 
         if (uniqueNumbers.size !== normalizedLotteryNumbers.length) {
@@ -233,7 +240,6 @@ const createDeposit = async (req, res) => {
           });
         }
 
-        // Verify amount matches ticket count * ticket price
         const ticketPrice = Number(lotteryConfig.ticketPrice) || 0;
 
         if (ticketPrice > 0) {
@@ -250,10 +256,6 @@ const createDeposit = async (req, res) => {
       }
 
       const orderId = `DEP${Date.now()}${Math.floor(Math.random() * 1000)}`;
-
-      // =====================================================
-      // CREATE DEPOSIT WITH LOTTERY DATA
-      // =====================================================
 
       const deposit = await Deposit.create({
         userId: user._id,
@@ -273,7 +275,6 @@ const createDeposit = async (req, res) => {
         paymentUrl: "",
         status: STATUS.PENDING,
 
-        // Lottery data
         configId: configId || null,
         lotteryNumbers: normalizedLotteryNumbers,
         number:
@@ -520,6 +521,7 @@ const createDeposit = async (req, res) => {
 
 // =====================================================
 // PROCESS LOTTERY ENTRIES ON SUCCESS
+// Adds entries into LotteryConfig.users[] array
 // =====================================================
 
 const processLotteryEntries = async (deposit, user, session = null) => {
@@ -551,67 +553,94 @@ const processLotteryEntries = async (deposit, user, session = null) => {
     ).session(session);
 
     if (!lotteryConfig) {
-      console.error(
-        "LOTTERY CONFIG NOT FOUND:",
-        deposit.configId
-      );
+      console.error("LOTTERY CONFIG NOT FOUND:", deposit.configId);
       return { processed: false, reason: "config_not_found" };
     }
 
     if (!lotteryConfig.isActive) {
-      console.error(
-        "LOTTERY CONFIG NOT ACTIVE:",
-        deposit.configId
-      );
+      console.error("LOTTERY CONFIG NOT ACTIVE:", deposit.configId);
       return { processed: false, reason: "config_not_active" };
     }
 
-    const ticketPrice = Number(lotteryConfig.ticketPrice) || 0;
+    // =====================================================
+    // TICKET PRICE (config ya deposit se fallback)
+    // =====================================================
 
-    // Prepare entries
-    const entries = deposit.lotteryNumbers.map((number) => ({
-      userId: user._id,
-      configId: deposit.configId,
-      depositId: deposit._id,
-      orderId: deposit.orderId,
-      uid: user.uuid || "",
-      phone: user.mobile || "",
-      username: user.username || "",
-      number: String(number),
-      amount: ticketPrice,
-      status: STATUS.SUCCESS,
-    }));
+    let ticketPrice = Number(lotteryConfig.ticketPrice) || 0;
 
-    // Insert entries (ignore duplicates)
-    const createdEntries = [];
+    if (!ticketPrice || ticketPrice <= 0) {
+      const totalNumbers = deposit.lotteryNumbers.length || 1;
+      const depositAmount = Number(deposit.amount) || 0;
+      ticketPrice =
+        depositAmount > 0
+          ? Number((depositAmount / totalNumbers).toFixed(2))
+          : 0;
+    }
 
-    for (const entry of entries) {
-      try {
-        const existing = await LotteryEntry.findOne({
-          userId: entry.userId,
-          configId: entry.configId,
-          number: entry.number,
-        }).session(session);
+    // =====================================================
+    // ENTRY DATE (YYYY-MM-DD)
+    // =====================================================
 
-        if (existing) {
-          console.log(
-            `LOTTERY ENTRY ALREADY EXISTS: user=${entry.userId} number=${entry.number}`
-          );
-          continue;
-        }
+    const entryDate = getEntryDateString(
+      deposit.lotteryProcessedAt || new Date()
+    );
 
-        const created = await LotteryEntry.create([entry], { session });
-        createdEntries.push(created[0]);
-      } catch (entryError) {
-        // Handle duplicate key error gracefully
-        if (entryError.code === 11000) {
-          console.log(
-            `DUPLICATE LOTTERY ENTRY SKIPPED: number=${entry.number}`
-          );
-          continue;
-        }
-        throw entryError;
+    // =====================================================
+    // BUILD NEW ENTRIES (skip duplicates)
+    // =====================================================
+
+    const existingNumbers = new Set(
+      (lotteryConfig.users || [])
+        .filter(
+          (u) =>
+            String(u.userId) === String(user._id) &&
+            u.entryDate === entryDate
+        )
+        .map((u) => String(u.number))
+    );
+
+    const newEntries = [];
+    let skippedCount = 0;
+
+    for (const num of deposit.lotteryNumbers) {
+      const numberStr = String(num);
+
+      if (existingNumbers.has(numberStr)) {
+        console.log(
+          `LOTTERY ENTRY ALREADY EXISTS: user=${user._id} number=${numberStr}`
+        );
+        skippedCount++;
+        continue;
       }
+
+      newEntries.push({
+        userId: String(user._id),
+        entryDate,
+        number: numberStr,
+        amount: ticketPrice,
+        isBuy: true,
+        prize: { first: 0, second: 0, third: 0 },
+        prizeType: null,
+        status: "pending",
+      });
+
+      existingNumbers.add(numberStr);
+    }
+
+    // =====================================================
+    // PUSH ENTRIES INTO CONFIG.USERS[]
+    // =====================================================
+
+    if (newEntries.length > 0) {
+      await LotteryConfig.findByIdAndUpdate(
+        deposit.configId,
+        {
+          $push: {
+            users: { $each: newEntries },
+          },
+        },
+        { session, new: true }
+      );
     }
 
     // Mark deposit as lottery processed
@@ -627,21 +656,20 @@ const processLotteryEntries = async (deposit, user, session = null) => {
     );
 
     console.log("=================================================");
-    console.log("LOTTERY ENTRIES CREATED:");
+    console.log("LOTTERY ENTRIES ADDED TO CONFIG.USERS[]");
     console.log("DEPOSIT:", deposit._id);
     console.log("CONFIG:", deposit.configId);
-    console.log("ENTRIES CREATED:", createdEntries.length);
-    console.log(
-      "ENTRIES SKIPPED:",
-      entries.length - createdEntries.length
-    );
+    console.log("ENTRY DATE:", entryDate);
+    console.log("TICKET PRICE:", ticketPrice);
+    console.log("ENTRIES ADDED:", newEntries.length);
+    console.log("ENTRIES SKIPPED:", skippedCount);
     console.log("=================================================");
 
     return {
       processed: true,
-      createdCount: createdEntries.length,
-      skippedCount: entries.length - createdEntries.length,
-      entries: createdEntries,
+      createdCount: newEntries.length,
+      skippedCount,
+      entries: newEntries,
     };
   } catch (error) {
     console.error("PROCESS LOTTERY ENTRIES ERROR:", error);
@@ -793,13 +821,31 @@ const getDepositStatusByIdentifier = async (req, res) => {
       });
     }
 
-    // Get lottery entries if deposit was successful
+    // =====================================================
+    // FETCH LOTTERY ENTRIES FROM CONFIG.USERS[]
+    // =====================================================
+
     let lotteryEntries = [];
 
-    if (Number(deposit.status) === STATUS.SUCCESS) {
-      lotteryEntries = await LotteryEntry.find({
-        depositId: deposit._id,
-      }).lean();
+    if (
+      Number(deposit.status) === STATUS.SUCCESS &&
+      deposit.configId &&
+      Array.isArray(deposit.lotteryNumbers) &&
+      deposit.lotteryNumbers.length > 0
+    ) {
+      const config = await LotteryConfig.findById(deposit.configId).lean();
+
+      if (config && Array.isArray(config.users)) {
+        const wantedNumbers = new Set(
+          deposit.lotteryNumbers.map((n) => String(n))
+        );
+
+        lotteryEntries = config.users.filter(
+          (u) =>
+            String(u.userId) === String(deposit.userId) &&
+            wantedNumbers.has(String(u.number))
+        );
+      }
     }
 
     return res.status(200).json({
@@ -827,6 +873,10 @@ const getDepositStatusByIdentifier = async (req, res) => {
           number: e.number,
           amount: e.amount,
           status: e.status,
+          prizeType: e.prizeType || null,
+          prize: e.prize || { first: 0, second: 0, third: 0 },
+          isBuy: e.isBuy || false,
+          entryDate: e.entryDate,
           createdAt: e.createdAt,
         })),
       },
@@ -904,7 +954,9 @@ const getCallbackIp = (req) => {
 };
 
 // =====================================================
-// QWACKPAY WEBHOOK / CALLBACK (WITH LOTTERY PROCESSING)
+// QWACKPAY WEBHOOK / CALLBACK
+// WALLET CREDIT DISABLED — amount only saved in Deposit
+// Lottery entries pushed into LotteryConfig.users[]
 // =====================================================
 
 const onlinePayCallback = async (req, res) => {
@@ -1250,7 +1302,7 @@ const onlinePayCallback = async (req, res) => {
       await setCallbackLog({
         event: "NO_ORDER_ID",
         processingStatus: "SUCCESS",
-        message: "Callback received without order ID; no wallet action taken",
+        message: "Callback received without order ID; no action taken",
         processedAt: new Date(),
       });
 
@@ -1598,7 +1650,8 @@ const onlinePayCallback = async (req, res) => {
     }
 
     // =====================================================
-    // ATOMIC WALLET + DEPOSIT + LOTTERY TRANSACTION
+    // ATOMIC DEPOSIT + LOTTERY TRANSACTION
+    // ⚠️ WALLET CREDIT DISABLED
     // =====================================================
 
     const session = await mongoose.startSession();
@@ -1626,18 +1679,17 @@ const onlinePayCallback = async (req, res) => {
           throw new Error("User not found while processing QwackPay payment");
         }
 
-        // Credit wallet
-        const walletUpdate = await User.findOneAndUpdate(
-          { _id: freshUser._id },
-          { $inc: { wallet: finalAmount } },
-          { new: true, session }
-        );
+        // =====================================================
+        // ❌ WALLET CREDIT DISABLED
+        // User wallet is NOT updated. Amount only saved in Deposit.
+        // =====================================================
 
-        if (!walletUpdate) {
-          throw new Error("Wallet update returned null");
-        }
+        updatedWallet = freshUser.wallet;
 
-        // Update deposit
+        // =====================================================
+        // UPDATE DEPOSIT → SUCCESS
+        // =====================================================
+
         const depositUpdate = await Deposit.findOneAndUpdate(
           {
             _id: freshDeposit._id,
@@ -1658,10 +1710,17 @@ const onlinePayCallback = async (req, res) => {
           throw new Error("Deposit could not be claimed");
         }
 
-        // Update transaction history
-        const successRemark = `Wallet recharge successful via QwackPay. UTR: ${
-          finalUtr || "N/A"
-        }. ₹${finalAmount} credited to wallet.`;
+        // =====================================================
+        // UPDATE TRANSACTION HISTORY
+        // =====================================================
+
+        const successRemark = freshDeposit.lotteryNumbers?.length
+          ? `Lottery purchase successful via QwackPay. UTR: ${
+              finalUtr || "N/A"
+            }. ${freshDeposit.lotteryNumbers.length} ticket(s) added. Amount: ₹${finalAmount}`
+          : `Payment successful via QwackPay. UTR: ${
+              finalUtr || "N/A"
+            }. Amount: ₹${finalAmount}`;
 
         const historyUpdate = await TransactionHistory.findOneAndUpdate(
           {
@@ -1702,7 +1761,7 @@ const onlinePayCallback = async (req, res) => {
         }
 
         // =====================================================
-        // PROCESS LOTTERY ENTRIES (if this was a ticket purchase)
+        // PROCESS LOTTERY ENTRIES (push into LotteryConfig.users[])
         // =====================================================
 
         if (
@@ -1718,7 +1777,6 @@ const onlinePayCallback = async (req, res) => {
           );
         }
 
-        updatedWallet = walletUpdate.wallet;
         transactionCommitted = true;
       });
     } finally {
@@ -1740,9 +1798,9 @@ const onlinePayCallback = async (req, res) => {
       event: "PAYMENT_SUCCESS",
       processingStatus: "SUCCESS",
       signValid: signValid || Boolean(gatewayResult?.isSuccess),
-      message: `₹${finalAmount} credited successfully. Wallet=${updatedWallet}. Lottery entries: ${
+      message: `₹${finalAmount} processed (wallet unchanged). Lottery entries: ${
         lotteryResult?.createdCount || 0
-      } created.`,
+      } added.`,
       processedAt: new Date(),
     });
 
@@ -1753,11 +1811,11 @@ const onlinePayCallback = async (req, res) => {
     console.log("AMOUNT:", finalAmount);
     console.log("UTR:", finalUtr);
     console.log("USER:", user._id.toString());
-    console.log("NEW WALLET:", updatedWallet);
+    console.log("WALLET:", updatedWallet, "(unchanged)");
     console.log(
       "LOTTERY ENTRIES:",
       lotteryResult?.createdCount || 0,
-      "created,",
+      "added,",
       lotteryResult?.skippedCount || 0,
       "skipped"
     );
