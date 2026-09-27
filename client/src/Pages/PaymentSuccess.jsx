@@ -9,6 +9,7 @@ import {
   Wallet,
   Home,
   RefreshCw,
+  HelpCircle,
 } from "lucide-react";
 
 import {
@@ -87,9 +88,17 @@ const PaymentSuccess = () => {
     const id = getOrderIdFromSources(searchParams);
 
     if (!id) {
-      // Never show success without a verifiable order ID.
+      // We genuinely don't know which order this is. This is NOT the
+      // same as a failed payment - the gateway may have redirected
+      // without an order id, or local/session storage didn't survive
+      // the round trip (common on some mobile webviews). The webhook
+      // may still credit the wallet independently in the background.
+      // Showing a hard "Failed" here was misleading users whose
+      // payments actually succeeded, so we show a neutral
+      // "couldn't verify" state instead and point them at their
+      // wallet/deposit history rather than telling them it failed.
       setOrderId("");
-      setLocalStatus("failed");
+      setLocalStatus("unverifiable");
       setPollingFinished(true);
       return;
     }
@@ -336,6 +345,22 @@ const PaymentSuccess = () => {
               <RefreshCw size={16} className={statusLoading ? "animate-spin" : ""} />
               Check Payment Again
             </button>
+          </>
+        )}
+
+        {localStatus === "unverifiable" && (
+          <>
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-500/10">
+              <HelpCircle size={52} className="text-blue-400" />
+            </div>
+            <h1 className="mt-5 text-2xl font-extrabold text-blue-400">
+              Couldn't Auto-Verify
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-white/60">
+              हम इस payment को automatically identify नहीं कर पाए, लेकिन इसका
+              मतलब payment fail नहीं हुआ। कृपया अपना wallet balance ya
+              deposit history check करें।
+            </p>
           </>
         )}
 

@@ -264,7 +264,17 @@ const createDeposit = async (req, res) => {
         order_id: orderId,
         customer_phone: String(user.mobile || "").trim(),
         customer_email: customerEmail,
-        return_url: getQwackPayReturnUrl(),
+        // Order ID is embedded directly in the return_url as a query
+        // param. Previously the return_url was always the same static
+        // URL, so the payment-success page had to rely entirely on
+        // localStorage to know which order to check. On some mobile
+        // browsers / in-app webviews (especially UPI intent redirects),
+        // localStorage does not survive the round trip to the gateway
+        // and back, so the frontend had no order ID and immediately
+        // showed "Payment Failed" even though the webhook later
+        // credited the wallet successfully. Putting order_id in the
+        // URL itself makes it independent of any client-side storage.
+        return_url: `${getQwackPayReturnUrl()}?order_id=${encodeURIComponent(orderId)}`,
         // QwackPay's docs refer to this as "notify_url" (that's the field
         // name their Create Order API is documented to read). We were
         // previously only sending "callback_url", which QwackPay's API may
