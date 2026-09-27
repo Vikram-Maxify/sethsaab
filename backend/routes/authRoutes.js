@@ -7,6 +7,7 @@ const {
   logout,
   updateProfile,
   getAllUsers,
+  adminUpdateUserProfile,
 } = require("../controllers/authController");
 
 const authMiddleware = require("../middleware/authMiddleware");
@@ -22,6 +23,8 @@ router.post("/login", login);
 router.get("/profile", authMiddleware, getProfile);
 router.put("/profile", authMiddleware, updateProfile);
 router.get("/all", authMiddleware,adminMiddleware, getAllUsers);
+router.put("/:uuid",authMiddleware,adminMiddleware, adminUpdateUserProfile);
+
 
 
 router.post("/logout", authMiddleware, logout);

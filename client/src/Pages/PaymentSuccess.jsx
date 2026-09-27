@@ -10,6 +10,8 @@ import {
   Home,
   RefreshCw,
   HelpCircle,
+  Ticket,
+  Trophy,
 } from "lucide-react";
 
 import {
@@ -24,15 +26,10 @@ const STATUS = {
   CANCELLED: 3,
 };
 
-const POLL_INTERVAL_FAST = 3000; // first phase: check quickly
-const POLL_INTERVAL_SLOW = 8000; // second phase: keep checking, less often
-const FAST_POLL_ATTEMPTS = 10; // ~30s of fast polling
-const SLOW_POLL_ATTEMPTS = 20; // ~160s more of slow polling
-// Total ~3+ minutes before we stop auto-polling. UPI/gateway webhooks
-// can legitimately take 30-90+ seconds to arrive after the redirect,
-// so giving up after only 30s (the old MAX_POLL_ATTEMPTS=10 @ 3s) was
-// showing "still pending" to users whose payment had already been
-// credited by the webhook moments later.
+const POLL_INTERVAL_FAST = 3000;
+const POLL_INTERVAL_SLOW = 8000;
+const FAST_POLL_ATTEMPTS = 10;
+const SLOW_POLL_ATTEMPTS = 20;
 
 const getOrderIdFromSources = (searchParams) => {
   const urlOrderId =
@@ -52,6 +49,39 @@ const getOrderIdFromSources = (searchParams) => {
   } catch {
     return "";
   }
+};
+
+// =====================================================
+// TICKET STATUS BADGE
+// =====================================================
+
+const getTicketBadge = (ticketStatus) => {
+  const s = String(ticketStatus || "").toLowerCase();
+
+  if (s === "win") {
+    return {
+      label: "WINNER",
+      className:
+        "border-green-500/30 bg-green-500/10 text-green-400",
+      icon: <Trophy size={12} />,
+    };
+  }
+
+  if (s === "lost") {
+    return {
+      label: "NOT WON",
+      className: "border-red-500/30 bg-red-500/10 text-red-400",
+      icon: <XCircle size={12} />,
+    };
+  }
+
+  // default = pending
+  return {
+    label: "PENDING DRAW",
+    className:
+      "border-yellow-500/30 bg-yellow-500/10 text-yellow-400",
+    icon: <Clock size={12} />,
+  };
 };
 
 const PaymentSuccess = () => {
@@ -95,15 +125,6 @@ const PaymentSuccess = () => {
     const id = getOrderIdFromSources(searchParams);
 
     if (!id) {
-      // We genuinely don't know which order this is. This is NOT the
-      // same as a failed payment - the gateway may have redirected
-      // without an order id, or local/session storage didn't survive
-      // the round trip (common on some mobile webviews). The webhook
-      // may still credit the wallet independently in the background.
-      // Showing a hard "Failed" here was misleading users whose
-      // payments actually succeeded, so we show a neutral
-      // "couldn't verify" state instead and point them at their
-      // wallet/deposit history rather than telling them it failed.
       setOrderId("");
       setLocalStatus("unverifiable");
       setPollingFinished(true);
@@ -116,8 +137,6 @@ const PaymentSuccess = () => {
     pollCountRef.current = 0;
     startedRef.current = false;
 
-    // Do not remove qwackpay_order_id yet; it is a useful fallback until
-    // the backend has confirmed the payment.
     try {
       sessionStorage.removeItem("deposit_pending_id");
       sessionStorage.removeItem("deposit_pending_amount");
@@ -175,7 +194,6 @@ const PaymentSuccess = () => {
       return;
     }
 
-    // Unknown/0 status is never treated as success.
     setLocalStatus("pending");
   }, [currentDeposit]);
 
@@ -219,7 +237,6 @@ const PaymentSuccess = () => {
 
   useEffect(() => {
     if (error && !currentDeposit) {
-      // API error is not a successful payment.
       setLocalStatus("pending");
     }
   }, [error, currentDeposit]);
@@ -260,6 +277,23 @@ const PaymentSuccess = () => {
     !Number.isNaN(Number(amount))
       ? Number(amount).toFixed(2)
       : null;
+
+  // =====================================================
+  // TICKET DATA
+  // =====================================================
+
+  const lotteryEntries = Array.isArray(currentDeposit?.lotteryEntries)
+    ? currentDeposit.lotteryEntries
+    : [];
+
+  const lotteryNumbersFallback =
+    !lotteryEntries.length &&
+    Array.isArray(currentDeposit?.lotteryNumbers)
+      ? currentDeposit.lotteryNumbers
+      : [];
+
+  const hasTickets =
+    lotteryEntries.length > 0 || lotteryNumbersFallback.length > 0;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#050606] px-4 py-8 text-white">
@@ -310,6 +344,76 @@ const PaymentSuccess = () => {
                 Payment successfully verified by server.
               </p>
             </div>
+
+            {/* =====================================================
+                YOUR LOTTERY TICKETS
+            ===================================================== */}
+
+            {hasTickets && (
+              <div className="mt-5 rounded-xl border border-[#f5ce54]/20 bg-[#f5ce54]/5 p-4 text-left">
+                <div className="mb-3 flex items-center gap-2">
+                  <Ticket size={16} className="text-[#f5ce54]" />
+                  <h2 className="text-sm font-bold text-[#f5ce54]">
+                    Your Lottery Tickets
+                  </h2>
+                </div>
+
+                <div className="space-y-2">
+                  {/* Case 1: full entries with status */}
+                  {lotteryEntries.map((entry, idx) => {
+                    const badge = getTicketBadge(entry.status);
+
+                    return (
+                      <div
+                        key={entry._id || `${entry.number}-${idx}`}
+                        className="flex items-center justify-between rounded-lg border border-[#2a2a2a] bg-[#0f1111] px-3 py-2.5"
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-mono text-base font-bold tracking-[0.2em] text-white">
+                            {entry.number}
+                          </span>
+                          {entry.amount !== undefined &&
+                            entry.amount !== null && (
+                              <span className="mt-0.5 text-[10px] text-white/40">
+                                ₹{Number(entry.amount).toFixed(2)}
+                              </span>
+                            )}
+                        </div>
+
+                        <span
+                          className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${badge.className}`}
+                        >
+                          {badge.icon}
+                          {badge.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {/* Case 2: fallback — only numbers (no per-ticket status) */}
+                  {!lotteryEntries.length &&
+                    lotteryNumbersFallback.map((num, idx) => (
+                      <div
+                        key={`${num}-${idx}`}
+                        className="flex items-center justify-between rounded-lg border border-[#2a2a2a] bg-[#0f1111] px-3 py-2.5"
+                      >
+                        <span className="font-mono text-base font-bold tracking-[0.2em] text-white">
+                          {String(num)}
+                        </span>
+                        <span className="flex items-center gap-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 text-[10px] font-bold text-yellow-400">
+                          <Clock size={12} />
+                          PENDING DRAW
+                        </span>
+                      </div>
+                    ))}
+                </div>
+
+                <p className="mt-3 text-[10px] leading-4 text-white/40">
+                  अगर आपका number draw में आता है तो prize amount अपने आप
+                  आपके wallet में add हो जाएगा।
+                </p>
+              </div>
+            )}
           </>
         )}
 
@@ -354,7 +458,10 @@ const PaymentSuccess = () => {
               disabled={statusLoading}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-[12px] border border-[#353535] bg-[#121515] px-5 py-3 text-sm font-bold text-white transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <RefreshCw size={16} className={statusLoading ? "animate-spin" : ""} />
+              <RefreshCw
+                size={16}
+                className={statusLoading ? "animate-spin" : ""}
+              />
               Check Payment Again
             </button>
           </>

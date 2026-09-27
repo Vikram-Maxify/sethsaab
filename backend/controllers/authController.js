@@ -305,6 +305,122 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+const adminUpdateUserProfile = async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const { name, mobile, password } = req.body;
+
+    // UUID required
+    if (!uuid) {
+      return res.status(400).json({
+        success: false,
+        message: "User UUID is required",
+      });
+    }
+
+    // Find user by UUID
+    const user = await User.findOne({ uuid }).select("+password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // =======================
+    // UPDATE NAME
+    // =======================
+    if (name !== undefined) {
+      if (typeof name !== "string" || !name.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Name cannot be empty",
+        });
+      }
+
+      user.name = name.trim();
+    }
+
+    // =======================
+    // UPDATE MOBILE
+    // =======================
+    if (mobile !== undefined) {
+      if (typeof mobile !== "string" || !mobile.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Mobile cannot be empty",
+        });
+      }
+
+      const cleanMobile = mobile.trim();
+
+      // Check mobile belongs to another user
+      const existingUser = await User.findOne({
+        mobile: cleanMobile,
+        uuid: { $ne: uuid },
+      });
+
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          message: "Mobile number already registered",
+        });
+      }
+
+      user.mobile = cleanMobile;
+    }
+
+    // =======================
+    // UPDATE PASSWORD
+    // =======================
+    if (password !== undefined && password !== "") {
+      if (typeof password !== "string" || password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be at least 6 characters",
+        });
+      }
+
+      user.password = await bcrypt.hash(password, 12);
+    }
+
+    await user.save();
+
+    // =======================
+    // RESPONSE
+    // =======================
+    return res.status(200).json({
+      success: true,
+      message: "User profile updated successfully",
+      data: {
+        uuid: user.uuid,
+        name: user.name,
+        mobile: user.mobile,
+        role: user.role,
+        wallet: user.wallet,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Admin Update User Profile Error:", error);
+
+    // MongoDB duplicate key
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Mobile number already exists",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
 // =======================
 // LOGOUT
 // =======================
@@ -335,6 +451,7 @@ module.exports = {
   login,
   getProfile,
   updateProfile,
+  adminUpdateUserProfile,
   getAllUsers,
   logout,
 };

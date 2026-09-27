@@ -44,6 +44,22 @@ const depositSchema = new mongoose.Schema(
     },
 
     // ===============================================
+    // MULTIPLE LOTTERY NUMBERS (for bulk ticket purchase)
+    // ===============================================
+
+    lotteryNumbers: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: function (arr) {
+          if (!arr || arr.length === 0) return true;
+          return arr.every((n) => /^\d{6}$/.test(String(n)));
+        },
+        message: "All lottery numbers must be exactly 6 digits",
+      },
+    },
+
+    // ===============================================
     // USER DETAILS
     // ===============================================
 
@@ -91,7 +107,7 @@ const depositSchema = new mongoose.Schema(
     // 0 = pending
     // 1 = success
     // 2 = failed
-    // 3 = cancelled   <-- NEW
+    // 3 = cancelled
     // ===============================================
 
     status: {
@@ -104,7 +120,7 @@ const depositSchema = new mongoose.Schema(
     adminRemark: { type: String, default: "" },
 
     // ===============================================
-    // CANCEL META  <-- NEW
+    // CANCEL META
     // ===============================================
 
     cancelReason: { type: String, default: "" },
@@ -113,6 +129,21 @@ const depositSchema = new mongoose.Schema(
       type: String,
       enum: ["USER", "ADMIN", "SYSTEM", ""],
       default: "",
+    },
+
+    // ===============================================
+    // LOTTERY PROCESSING FLAG
+    // ===============================================
+
+    lotteryProcessed: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    lotteryProcessedAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }
@@ -125,5 +156,6 @@ const depositSchema = new mongoose.Schema(
 depositSchema.index({ userId: 1, createdAt: -1 });
 depositSchema.index({ configId: 1, entryId: 1 });
 depositSchema.index({ status: 1, createdAt: -1 });
+depositSchema.index({ lotteryProcessed: 1, status: 1 });
 
 module.exports = mongoose.model("Deposit", depositSchema);

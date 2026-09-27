@@ -48,6 +48,12 @@ const Users = () => {
   });
 
   // =====================================
+  // SEARCH STATE (NEW)
+  // =====================================
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // =====================================
   // GET ALL USERS + LOTTERY CONFIGS
   // =====================================
 
@@ -293,6 +299,35 @@ const Users = () => {
     : 0;
 
   // =====================================
+  // FILTERED USERS (NEW)
+  // =====================================
+
+  const filteredUsers = users.filter((user) => {
+    if (!searchTerm.trim()) {
+      return true;
+    }
+
+    const term = searchTerm.trim().toLowerCase();
+
+    // Search by mobile
+    const mobileMatch = (user.mobile || "")
+      .toLowerCase()
+      .includes(term);
+
+    // Search by name
+    const nameMatch = (user.name || "")
+      .toLowerCase()
+      .includes(term);
+
+    // Search by UUID
+    const uuidMatch = (user.uuid || "")
+      .toLowerCase()
+      .includes(term);
+
+    return mobileMatch || nameMatch || uuidMatch;
+  });
+
+  // =====================================
   // PAGE
   // =====================================
 
@@ -355,6 +390,69 @@ const Users = () => {
           </button>
 
         </div>
+      </div>
+
+      {/* =====================================
+          SEARCH BAR (NEW)
+      ===================================== */}
+
+      <div className="mb-5">
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+            <svg
+              className="h-5 w-5 text-gray-400"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
+              />
+            </svg>
+          </div>
+
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by number, name, or UUID..."
+            className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-10 text-sm text-gray-700 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+          />
+
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm("")}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 transition hover:text-gray-600"
+              title="Clear search"
+            >
+              <svg
+                className="h-5 w-5"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {searchTerm.trim() && (
+          <p className="mt-2 text-xs text-gray-500">
+            Showing {filteredUsers.length} of {users.length} users
+          </p>
+        )}
       </div>
 
       {/* =====================================
@@ -490,11 +588,11 @@ const Users = () => {
 
                 </tr>
 
-              ) : users.length > 0 ? (
+              ) : filteredUsers.length > 0 ? (
 
                 /* USERS */
 
-                users.map((user, index) => {
+                filteredUsers.map((user, index) => {
 
                   const ticketCount =
                     getUserTicketCount(user);
@@ -644,7 +742,7 @@ const Users = () => {
 
               ) : (
 
-                /* EMPTY */
+                /* EMPTY / NO SEARCH RESULTS */
 
                 <tr>
 
@@ -656,16 +754,30 @@ const Users = () => {
                     <div className="flex flex-col items-center">
 
                       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-xl">
-                        👤
+                        {searchTerm.trim() ? "🔍" : "👤"}
                       </div>
 
                       <p className="font-medium text-gray-900">
-                        No users found
+                        {searchTerm.trim()
+                          ? "No matching users found"
+                          : "No users found"}
                       </p>
 
                       <p className="mt-1 text-sm text-gray-500">
-                        There are no registered users.
+                        {searchTerm.trim()
+                          ? `No results for "${searchTerm}"`
+                          : "There are no registered users."}
                       </p>
+
+                      {searchTerm.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchTerm("")}
+                          className="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700"
+                        >
+                          Clear Search
+                        </button>
+                      )}
 
                     </div>
 

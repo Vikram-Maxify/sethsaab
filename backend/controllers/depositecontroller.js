@@ -5,17 +5,12 @@ const mongoose = require("mongoose");
 const Deposit = require("../models/Deposit.js");
 const User = require("../models/userModel");
 const TransactionHistory = require("../models/TransactionHistory");
-const QwackPayCallbackLog = require(
-  "../models/QwackPayCallbackLog"
-);
+const QwackPayCallbackLog = require("../models/QwackPayCallbackLog");
+const LotteryEntry = require("../models/LotteryConfig.js");
+const LotteryConfig = require("../models/LotteryConfig");
 
 // =====================================================
 // STATUS CONSTANTS
-// =====================================================
-// 0 = PENDING
-// 1 = SUCCESS
-// 2 = FAILED
-// 3 = CANCELLED
 // =====================================================
 
 const STATUS = {
@@ -30,18 +25,16 @@ const STATUS = {
 // =====================================================
 
 const QWACKPAY_BASE_URL = (
-  process.env.QWACKPAY_BASE_URL ||
-  "https://qwackpay.com/api/v1"
+  process.env.QWACKPAY_BASE_URL || "https://qwackpay.com/api/v1"
 ).replace(/\/+$/, "");
 
 const QWACKPAY_MERCHANT_ID =
   process.env.QWACKPAY_MERCHANT_ID || "636055076";
 
-const QWACKPAY_API_KEY =
-  process.env.QWACKPAY_API_KEY || "";
+const QWACKPAY_API_KEY = process.env.QWACKPAY_API_KEY || "";
 
 // =====================================================
-// FRONTEND URL
+// URL HELPERS
 // =====================================================
 
 const getFrontendUrl = () => {
@@ -52,49 +45,18 @@ const getFrontendUrl = () => {
   ).replace(/\/+$/, "");
 };
 
-// =====================================================
-// BACKEND URL
-// =====================================================
-
 const getBackendUrl = () => {
-  return (
-    process.env.BACKEND_URL ||
-    "http://localhost:5000"
-  ).replace(/\/+$/, "");
+  return (process.env.BACKEND_URL || "http://localhost:5000").replace(
+    /\/+$/,
+    ""
+  );
 };
-
-// =====================================================
-// QWACKPAY RETURN URL
-// =====================================================
 
 const getQwackPayReturnUrl = () => {
   return (
-    process.env.QWACKPAY_RETURN_URL ||
-    `${getFrontendUrl()}/payment-success`
+    process.env.QWACKPAY_RETURN_URL || `${getFrontendUrl()}/payment-success`
   ).replace(/\/+$/, "");
 };
-
-// =====================================================
-// QWACKPAY CALLBACK URL
-// =====================================================
-//
-// IMPORTANT:
-// Route:
-// router.post("/deposit/callback", onlinePayCallback)
-//
-// If main router is mounted:
-// app.use("/api", depositRoutes)
-//
-// Final URL:
-// https://setthelife.com/api/deposit/callback
-//
-// If QWACKPAY_CALLBACK_URL / BACKEND_URL are not set to the real
-// public HTTPS domain in production, QwackPay physically cannot
-// reach this endpoint and NOTHING in this file will ever run for
-// that payment - not even the "RECEIVED" log. Verify this value
-// by checking the "QWACKPAY CREATE REQUEST" console log printed
-// when a deposit is created, and curl it directly.
-// =====================================================
 
 const getQwackPayCallbackUrl = () => {
   return (
@@ -109,19 +71,13 @@ const getQwackPayCallbackUrl = () => {
 
 const generateQwackPaySign = (params, apiKey) => {
   const clean = { ...(params || {}) };
-
   delete clean.sign;
 
   const filtered = {};
 
   Object.keys(clean).forEach((key) => {
     const value = clean[key];
-
-    if (
-      value !== null &&
-      value !== undefined &&
-      value !== ""
-    ) {
+    if (value !== null && value !== undefined && value !== "") {
       filtered[key] = value;
     }
   });
@@ -134,11 +90,7 @@ const generateQwackPaySign = (params, apiKey) => {
 
   const signString = `${queryString}&key=${apiKey}`;
 
-  return crypto
-    .createHash("md5")
-    .update(signString)
-    .digest("hex")
-    .toUpperCase();
+  return crypto.createHash("md5").update(signString).digest("hex").toUpperCase();
 };
 
 // =====================================================
@@ -155,16 +107,11 @@ const getQwackPayHeaders = () => ({
 // =====================================================
 
 const getUserIdFromRequest = (req) => {
-  return (
-    req.user?.id ||
-    req.user?._id ||
-    req.user?.uuid ||
-    null
-  );
+  return req.user?.id || req.user?._id || req.user?.uuid || null;
 };
 
 // =====================================================
-// CREATE DEPOSIT
+// CREATE DEPOSIT (WITH LOTTERY TICKET SUPPORT)
 // =====================================================
 
 const createDeposit = async (req, res) => {
@@ -174,13 +121,15 @@ const createDeposit = async (req, res) => {
       channel,
       amount,
       utr,
+      configId,
+      lotteryNumbers,
     } = req.body || {};
 
-    if (
-      amount === undefined ||
-      amount === null ||
-      amount === ""
-    ) {
+    // =====================================================
+    // AMOUNT VALIDATION
+    // =====================================================
+
+    if (amount === undefined || amount === null || amount === "") {
       return res.status(400).json({
         success: false,
         message: "Amount is required",
@@ -189,10 +138,7 @@ const createDeposit = async (req, res) => {
 
     const numericAmount = Number(amount);
 
-    if (
-      !Number.isFinite(numericAmount) ||
-      numericAmount <= 0
-    ) {
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       return res.status(400).json({
         success: false,
         message: "Invalid amount",
@@ -222,14 +168,92 @@ const createDeposit = async (req, res) => {
       .toLowerCase()
       .replace(/[\s_-]/g, "");
 
+    // =====================================================
+    // LOTTERY TICKET PURCHASE (QWACKPAY)
+    // =====================================================
+
     if (normalizedChannel === "qwackpay") {
       const finalPaymentMethod = "INR";
       const finalChannel = "qwackpay";
       const money = numericAmount;
 
-      const orderId = `DEP${Date.now()}${Math.floor(
-        Math.random() * 1000
-      )}`;
+      // =====================================================
+      // VALIDATE LOTTERY NUMBERS IF PROVIDED
+      // =====================================================
+
+      let normalizedLotteryNumbers = [];
+
+      if (Array.isArray(lotteryNumbers) && lotteryNumbers.length > 0) {
+        // Validate configId
+        if (!configId || !mongoose.Types.ObjectId.isValid(configId)) {
+          return res.status(400).json({
+            success: false,
+            message: "Valid configId is required for lottery purchase",
+          });
+        }
+
+        // Verify config exists and is active
+        const lotteryConfig = await LotteryConfig.findById(configId);
+
+        if (!lotteryConfig) {
+          return res.status(404).json({
+            success: false,
+            message: "Lottery configuration not found",
+          });
+        }
+
+        if (!lotteryConfig.isActive) {
+          return res.status(400).json({
+            success: false,
+            message: "Lottery is not active",
+          });
+        }
+
+        // Validate each number
+        for (let i = 0; i < lotteryNumbers.length; i++) {
+          const num = String(lotteryNumbers[i] || "").trim();
+
+          if (!/^\d{6}$/.test(num)) {
+            return res.status(400).json({
+              success: false,
+              message: `Ticket ${i + 1}: number must be exactly 6 digits`,
+            });
+          }
+
+          normalizedLotteryNumbers.push(num);
+        }
+
+        // Check duplicate numbers in same purchase
+        const uniqueNumbers = new Set(normalizedLotteryNumbers);
+
+        if (uniqueNumbers.size !== normalizedLotteryNumbers.length) {
+          return res.status(400).json({
+            success: false,
+            message: "Duplicate numbers in the same purchase are not allowed",
+          });
+        }
+
+        // Verify amount matches ticket count * ticket price
+        const ticketPrice = Number(lotteryConfig.ticketPrice) || 0;
+
+        if (ticketPrice > 0) {
+          const expectedAmount =
+            ticketPrice * normalizedLotteryNumbers.length;
+
+          if (Math.abs(money - expectedAmount) > 1) {
+            return res.status(400).json({
+              success: false,
+              message: `Amount mismatch. Expected ₹${expectedAmount} for ${normalizedLotteryNumbers.length} ticket(s)`,
+            });
+          }
+        }
+      }
+
+      const orderId = `DEP${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+      // =====================================================
+      // CREATE DEPOSIT WITH LOTTERY DATA
+      // =====================================================
 
       const deposit = await Deposit.create({
         userId: user._id,
@@ -248,11 +272,17 @@ const createDeposit = async (req, res) => {
         paymentProof: "",
         paymentUrl: "",
         status: STATUS.PENDING,
+
+        // Lottery data
+        configId: configId || null,
+        lotteryNumbers: normalizedLotteryNumbers,
+        number:
+          normalizedLotteryNumbers.length === 1
+            ? normalizedLotteryNumbers[0]
+            : null,
       });
 
-      const existingEmail = String(
-        user.email || ""
-      ).trim();
+      const existingEmail = String(user.email || "").trim();
 
       const customerEmail =
         existingEmail ||
@@ -264,22 +294,9 @@ const createDeposit = async (req, res) => {
         order_id: orderId,
         customer_phone: String(user.mobile || "").trim(),
         customer_email: customerEmail,
-        // Order ID is embedded directly in the return_url as a query
-        // param. Previously the return_url was always the same static
-        // URL, so the payment-success page had to rely entirely on
-        // localStorage to know which order to check. On some mobile
-        // browsers / in-app webviews (especially UPI intent redirects),
-        // localStorage does not survive the round trip to the gateway
-        // and back, so the frontend had no order ID and immediately
-        // showed "Payment Failed" even though the webhook later
-        // credited the wallet successfully. Putting order_id in the
-        // URL itself makes it independent of any client-side storage.
-        return_url: `${getQwackPayReturnUrl()}?order_id=${encodeURIComponent(orderId)}`,
-        // QwackPay's docs refer to this as "notify_url" (that's the field
-        // name their Create Order API is documented to read). We were
-        // previously only sending "callback_url", which QwackPay's API may
-        // not recognize at all - meaning it never knew where to send the
-        // webhook. Sending both is a safe bet either way.
+        return_url: `${getQwackPayReturnUrl()}?order_id=${encodeURIComponent(
+          orderId
+        )}`,
         notify_url: getQwackPayCallbackUrl(),
         callback_url: getQwackPayCallbackUrl(),
       };
@@ -298,10 +315,8 @@ const createDeposit = async (req, res) => {
         customer_phone: orderPayload.customer_phone,
         customer_email: orderPayload.customer_email,
         return_url: orderPayload.return_url,
-        // This is the URL QwackPay will actually try to hit.
-        // If this is not a public HTTPS URL reachable from the
-        // internet, the callback will NEVER arrive.
         callback_url: orderPayload.callback_url,
+        lotteryNumbers: normalizedLotteryNumbers,
       });
       console.log("=================================================");
 
@@ -368,12 +383,16 @@ const createDeposit = async (req, res) => {
             type: "Deposit",
             amount: money,
             status: STATUS.PENDING,
-            remark: "Pending QwackPay recharge",
+            remark: normalizedLotteryNumbers.length
+              ? `Pending QwackPay recharge for ${normalizedLotteryNumbers.length} lottery ticket(s)`
+              : "Pending QwackPay recharge",
           });
 
           return res.status(201).json({
             success: true,
-            message: "QwackPay recharge order created successfully.",
+            message: normalizedLotteryNumbers.length
+              ? `QwackPay order created for ${normalizedLotteryNumbers.length} ticket(s).`
+              : "QwackPay recharge order created successfully.",
             paymentUrl: String(paymentUrl),
             successUrl: getQwackPayReturnUrl(),
             callbackUrl: getQwackPayCallbackUrl(),
@@ -381,6 +400,7 @@ const createDeposit = async (req, res) => {
             depositId: deposit._id,
             amount: money,
             status: "pending",
+            lotteryNumbers: normalizedLotteryNumbers,
             deposit,
             gatewayResponse,
           });
@@ -420,7 +440,7 @@ const createDeposit = async (req, res) => {
     }
 
     // =====================================================
-    // MANUAL FLOW
+    // MANUAL FLOW (non-qwackpay)
     // =====================================================
 
     if (!paymentMethod || !channel) {
@@ -439,9 +459,7 @@ const createDeposit = async (req, res) => {
         ? numericAmount
         : numericAmount * usdRet;
 
-    const orderId = `DEP${Date.now()}${Math.floor(
-      Math.random() * 1000
-    )}`;
+    const orderId = `DEP${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
     let imageUrl = "";
 
@@ -461,14 +479,13 @@ const createDeposit = async (req, res) => {
       channel: finalChannel,
       amount: money,
       exchangeRate:
-        String(finalPaymentMethod).toUpperCase() === "USDT"
-          ? usdRet
-          : 0,
+        String(finalPaymentMethod).toUpperCase() === "USDT" ? usdRet : 0,
       transactionId: orderId,
       utr: utr || "",
       paymentProof: imageUrl,
       paymentUrl: "",
       status: STATUS.PENDING,
+      configId: configId || null,
     });
 
     await TransactionHistory.create({
@@ -498,6 +515,137 @@ const createDeposit = async (req, res) => {
       message: "Server Error",
       error: error.message,
     });
+  }
+};
+
+// =====================================================
+// PROCESS LOTTERY ENTRIES ON SUCCESS
+// =====================================================
+
+const processLotteryEntries = async (deposit, user, session = null) => {
+  // Skip if already processed
+  if (deposit.lotteryProcessed) {
+    console.log("LOTTERY ALREADY PROCESSED FOR DEPOSIT:", deposit._id);
+    return { processed: false, reason: "already_processed" };
+  }
+
+  // Skip if no lottery numbers
+  if (
+    !Array.isArray(deposit.lotteryNumbers) ||
+    deposit.lotteryNumbers.length === 0
+  ) {
+    console.log("NO LOTTERY NUMBERS IN DEPOSIT:", deposit._id);
+    return { processed: false, reason: "no_lottery_numbers" };
+  }
+
+  // Skip if no configId
+  if (!deposit.configId) {
+    console.log("NO CONFIG ID IN DEPOSIT:", deposit._id);
+    return { processed: false, reason: "no_config_id" };
+  }
+
+  try {
+    // Verify lottery config exists and is still active
+    const lotteryConfig = await LotteryConfig.findById(
+      deposit.configId
+    ).session(session);
+
+    if (!lotteryConfig) {
+      console.error(
+        "LOTTERY CONFIG NOT FOUND:",
+        deposit.configId
+      );
+      return { processed: false, reason: "config_not_found" };
+    }
+
+    if (!lotteryConfig.isActive) {
+      console.error(
+        "LOTTERY CONFIG NOT ACTIVE:",
+        deposit.configId
+      );
+      return { processed: false, reason: "config_not_active" };
+    }
+
+    const ticketPrice = Number(lotteryConfig.ticketPrice) || 0;
+
+    // Prepare entries
+    const entries = deposit.lotteryNumbers.map((number) => ({
+      userId: user._id,
+      configId: deposit.configId,
+      depositId: deposit._id,
+      orderId: deposit.orderId,
+      uid: user.uuid || "",
+      phone: user.mobile || "",
+      username: user.username || "",
+      number: String(number),
+      amount: ticketPrice,
+      status: STATUS.SUCCESS,
+    }));
+
+    // Insert entries (ignore duplicates)
+    const createdEntries = [];
+
+    for (const entry of entries) {
+      try {
+        const existing = await LotteryEntry.findOne({
+          userId: entry.userId,
+          configId: entry.configId,
+          number: entry.number,
+        }).session(session);
+
+        if (existing) {
+          console.log(
+            `LOTTERY ENTRY ALREADY EXISTS: user=${entry.userId} number=${entry.number}`
+          );
+          continue;
+        }
+
+        const created = await LotteryEntry.create([entry], { session });
+        createdEntries.push(created[0]);
+      } catch (entryError) {
+        // Handle duplicate key error gracefully
+        if (entryError.code === 11000) {
+          console.log(
+            `DUPLICATE LOTTERY ENTRY SKIPPED: number=${entry.number}`
+          );
+          continue;
+        }
+        throw entryError;
+      }
+    }
+
+    // Mark deposit as lottery processed
+    await Deposit.findByIdAndUpdate(
+      deposit._id,
+      {
+        $set: {
+          lotteryProcessed: true,
+          lotteryProcessedAt: new Date(),
+        },
+      },
+      { session }
+    );
+
+    console.log("=================================================");
+    console.log("LOTTERY ENTRIES CREATED:");
+    console.log("DEPOSIT:", deposit._id);
+    console.log("CONFIG:", deposit.configId);
+    console.log("ENTRIES CREATED:", createdEntries.length);
+    console.log(
+      "ENTRIES SKIPPED:",
+      entries.length - createdEntries.length
+    );
+    console.log("=================================================");
+
+    return {
+      processed: true,
+      createdCount: createdEntries.length,
+      skippedCount: entries.length - createdEntries.length,
+      entries: createdEntries,
+    };
+  } catch (error) {
+    console.error("PROCESS LOTTERY ENTRIES ERROR:", error);
+    throw error;
   }
 };
 
@@ -627,8 +775,6 @@ const getDepositStatusByIdentifier = async (req, res) => {
       });
     }
 
-    // IMPORTANT:
-    // Temporarily userId condition removed for testing
     const deposit = await Deposit.findOne({
       $or: [
         { orderId: safeIdentifier },
@@ -647,6 +793,15 @@ const getDepositStatusByIdentifier = async (req, res) => {
       });
     }
 
+    // Get lottery entries if deposit was successful
+    let lotteryEntries = [];
+
+    if (Number(deposit.status) === STATUS.SUCCESS) {
+      lotteryEntries = await LotteryEntry.find({
+        depositId: deposit._id,
+      }).lean();
+    }
+
     return res.status(200).json({
       success: true,
       deposit: {
@@ -661,6 +816,19 @@ const getDepositStatusByIdentifier = async (req, res) => {
         cancelReason: deposit.cancelReason || "",
         cancelledAt: deposit.cancelledAt || null,
         createdAt: deposit.createdAt,
+
+        // Lottery info
+        configId: deposit.configId || null,
+        lotteryNumbers: deposit.lotteryNumbers || [],
+        lotteryProcessed: deposit.lotteryProcessed || false,
+        lotteryProcessedAt: deposit.lotteryProcessedAt || null,
+        lotteryEntries: lotteryEntries.map((e) => ({
+          _id: e._id,
+          number: e.number,
+          amount: e.amount,
+          status: e.status,
+          createdAt: e.createdAt,
+        })),
       },
     });
   } catch (error) {
@@ -736,22 +904,10 @@ const getCallbackIp = (req) => {
 };
 
 // =====================================================
-// QWACKPAY WEBHOOK / CALLBACK
+// QWACKPAY WEBHOOK / CALLBACK (WITH LOTTERY PROCESSING)
 // =====================================================
 
 const onlinePayCallback = async (req, res) => {
-  // ---------------------------------------------------
-  // ABSOLUTE FIRST LINE.
-  // This proves the request physically reached this
-  // process, independent of Mongo, parsing, or anything
-  // else below. If you NEVER see this line in your
-  // server logs for a real payment, the request is not
-  // reaching this server at all (wrong callback_url,
-  // proxy/firewall blocking it, wrong port, etc) - no
-  // code change in this file can fix that; it has to be
-  // fixed in QWACKPAY_CALLBACK_URL / BACKEND_URL / your
-  // reverse proxy config.
-  // ---------------------------------------------------
   console.log(
     `[QWACKPAY CALLBACK HIT] ${new Date().toISOString()} method=${req.method} url=${req.originalUrl || req.url}`
   );
@@ -788,8 +944,7 @@ const onlinePayCallback = async (req, res) => {
 
   const normalizeGatewayResult = (response) => {
     const root = response && typeof response === "object" ? response : {};
-    const data =
-      root.data && typeof root.data === "object" ? root.data : {};
+    const data = root.data && typeof root.data === "object" ? root.data : {};
     const result =
       root.result && typeof root.result === "object" ? root.result : {};
 
@@ -970,16 +1125,8 @@ const onlinePayCallback = async (req, res) => {
     };
   };
 
-  // ---------------------------------------------------
-  // Parse the request body/query. Kept outside the main
-  // try so we still have these values even if logging
-  // or DB writes fail later.
-  // ---------------------------------------------------
-  const body =
-    req.body && typeof req.body === "object" ? req.body : {};
-
-  const query =
-    req.query && typeof req.query === "object" ? req.query : {};
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+  const query = req.query && typeof req.query === "object" ? req.query : {};
 
   console.log("=================================================");
   console.log("QWACKPAY CALLBACK RECEIVED");
@@ -1049,20 +1196,10 @@ const onlinePayCallback = async (req, res) => {
 
   const callbackAmount = Number(amountRaw);
 
-  // ---------------------------------------------------
-  // FIX: log creation is now its own try/catch. Before,
-  // if this single insert threw for any reason (a brief
-  // Mongo hiccup, a validation edge case, etc.) the error
-  // jumped straight to the outer catch and the function
-  // returned WITHOUT ever crediting the wallet - even
-  // though the callback data had already been received
-  // and parsed. That silent, total abort on a pure
-  // logging failure is the most likely reason you saw
-  // "payment success, but nothing credited, and no log
-  // row" - the insert itself was the thing failing.
-  // Now a log failure is only logged to console; payment
-  // processing continues either way.
-  // ---------------------------------------------------
+  // =====================================================
+  // LOG CREATION (isolated try/catch)
+  // =====================================================
+
   try {
     callbackLog = await QwackPayCallbackLog.create({
       merchantOrderId,
@@ -1096,12 +1233,13 @@ const onlinePayCallback = async (req, res) => {
   }
 
   try {
-    // Browser/crawler GET without an order is only a health hit.
+    // Health check
     if (req.method === "GET" && !merchantOrderId && !qwackOrderId) {
       await setCallbackLog({
         event: "HEALTH_CHECK",
         processingStatus: "SUCCESS",
-        message: "Callback endpoint health check (no order data - not a real payment callback)",
+        message:
+          "Callback endpoint health check (no order data - not a real payment callback)",
         processedAt: new Date(),
       });
 
@@ -1119,10 +1257,9 @@ const onlinePayCallback = async (req, res) => {
       return res.status(200).send("success");
     }
 
-    // ---------------------------------------------------
-    // FIND LOCAL DEPOSIT FIRST
-    // Local merchant order ID is the source of truth.
-    // ---------------------------------------------------
+    // =====================================================
+    // FIND DEPOSIT
+    // =====================================================
 
     const orderConditions = [];
 
@@ -1156,13 +1293,32 @@ const onlinePayCallback = async (req, res) => {
         processedAt: new Date(),
       });
 
-      // Acknowledge so QwackPay does not retry forever.
       return res.status(200).send("success");
     }
 
     await setCallbackLog({ depositId: deposit._id });
 
     if (Number(deposit.status) === STATUS.SUCCESS) {
+      // Already processed - but check if lottery needs processing
+      if (
+        !deposit.lotteryProcessed &&
+        deposit.lotteryNumbers &&
+        deposit.lotteryNumbers.length > 0
+      ) {
+        try {
+          const user = await User.findById(deposit.userId);
+
+          if (user) {
+            await processLotteryEntries(deposit, user, null);
+          }
+        } catch (lotteryError) {
+          console.error(
+            "LATE LOTTERY PROCESSING ERROR:",
+            lotteryError.message
+          );
+        }
+      }
+
       await setCallbackLog({
         event: "ALREADY_PROCESSED",
         processingStatus: "SUCCESS",
@@ -1184,16 +1340,9 @@ const onlinePayCallback = async (req, res) => {
       return res.status(200).send("success");
     }
 
-    // ---------------------------------------------------
+    // =====================================================
     // SIGNATURE CHECK
-    // We verify the callback signature whenever supplied,
-    // but we never treat "signature didn't match our
-    // create-order style signing" as a final failure -
-    // gateways commonly sign webhooks differently from
-    // order-create requests. Instead we always fall back
-    // to /order/query to independently verify with
-    // QwackPay's servers.
-    // ---------------------------------------------------
+    // =====================================================
 
     const webhookPayload = {
       merchant_order_id: merchantOrderId,
@@ -1223,9 +1372,9 @@ const onlinePayCallback = async (req, res) => {
       signValid,
     });
 
-    // ---------------------------------------------------
+    // =====================================================
     // VERIFY GATEWAY STATUS
-    // ---------------------------------------------------
+    // =====================================================
 
     let verified = signValid;
     let gatewayResult = null;
@@ -1300,14 +1449,12 @@ const onlinePayCallback = async (req, res) => {
 
     const finalUtr = gatewayResult?.utr || utr || deposit.utr || "";
 
-    const finalQwackOrderId = gatewayResult?.qwackOrderId || qwackOrderId || "";
+    const finalQwackOrderId =
+      gatewayResult?.qwackOrderId || qwackOrderId || "";
 
-    // ---------------------------------------------------
+    // =====================================================
     // DO NOT FAIL PENDING/UNKNOWN PAYMENTS
-    // A redirect/callback can arrive before the payment is
-    // finalized. Keep local deposit PENDING until a
-    // verified failure is received.
-    // ---------------------------------------------------
+    // =====================================================
 
     if (!verified && !signValid) {
       await setCallbackLog({
@@ -1326,11 +1473,14 @@ const onlinePayCallback = async (req, res) => {
       return res.status(200).send("success");
     }
 
-    // ---------------------------------------------------
+    // =====================================================
     // EXPLICIT VERIFIED FAILURE
-    // ---------------------------------------------------
+    // =====================================================
 
-    if (finalStatus === "failed" && (signValid || gatewayResult?.isFailed)) {
+    if (
+      finalStatus === "failed" &&
+      (signValid || gatewayResult?.isFailed)
+    ) {
       await Deposit.findOneAndUpdate(
         { _id: deposit._id, status: STATUS.PENDING },
         {
@@ -1354,7 +1504,9 @@ const onlinePayCallback = async (req, res) => {
           $set: {
             status: STATUS.FAILED,
             amount: Number(deposit.amount),
-            remark: `QwackPay recharge failed. Status: ${gatewayResult?.status || gatewayStatus}`,
+            remark: `QwackPay recharge failed. Status: ${
+              gatewayResult?.status || gatewayStatus
+            }`,
             updatedAt: new Date(),
           },
         },
@@ -1364,31 +1516,35 @@ const onlinePayCallback = async (req, res) => {
       await setCallbackLog({
         event: "PAYMENT_FAILED",
         processingStatus: "SUCCESS",
-        message: `Verified payment failure: ${gatewayResult?.status || gatewayStatus}`,
+        message: `Verified payment failure: ${
+          gatewayResult?.status || gatewayStatus
+        }`,
         processedAt: new Date(),
       });
 
       return res.status(200).send("success");
     }
 
-    // ---------------------------------------------------
+    // =====================================================
     // PENDING / UNKNOWN
-    // ---------------------------------------------------
+    // =====================================================
 
     if (finalStatus !== "success") {
       await setCallbackLog({
         event: "PAYMENT_PENDING",
         processingStatus: "SUCCESS",
-        message: `Payment is still pending. Callback status=${gatewayStatus || "unknown"}`,
+        message: `Payment is still pending. Callback status=${
+          gatewayStatus || "unknown"
+        }`,
         processedAt: new Date(),
       });
 
       return res.status(200).send("success");
     }
 
-    // ---------------------------------------------------
+    // =====================================================
     // SUCCESS VALIDATION
-    // ---------------------------------------------------
+    // =====================================================
 
     if (!verified) {
       await setCallbackLog({
@@ -1441,14 +1597,15 @@ const onlinePayCallback = async (req, res) => {
       return res.status(200).send("success");
     }
 
-    // ---------------------------------------------------
-    // ATOMIC WALLET + DEPOSIT TRANSACTION
-    // ---------------------------------------------------
+    // =====================================================
+    // ATOMIC WALLET + DEPOSIT + LOTTERY TRANSACTION
+    // =====================================================
 
     const session = await mongoose.startSession();
 
     let transactionCommitted = false;
     let updatedWallet = null;
+    let lotteryResult = null;
 
     try {
       await session.withTransaction(async () => {
@@ -1461,12 +1618,15 @@ const onlinePayCallback = async (req, res) => {
           return;
         }
 
-        const freshUser = await User.findById(deposit.userId).session(session);
+        const freshUser = await User.findById(deposit.userId).session(
+          session
+        );
 
         if (!freshUser) {
           throw new Error("User not found while processing QwackPay payment");
         }
 
+        // Credit wallet
         const walletUpdate = await User.findOneAndUpdate(
           { _id: freshUser._id },
           { $inc: { wallet: finalAmount } },
@@ -1477,6 +1637,7 @@ const onlinePayCallback = async (req, res) => {
           throw new Error("Wallet update returned null");
         }
 
+        // Update deposit
         const depositUpdate = await Deposit.findOneAndUpdate(
           {
             _id: freshDeposit._id,
@@ -1497,7 +1658,10 @@ const onlinePayCallback = async (req, res) => {
           throw new Error("Deposit could not be claimed");
         }
 
-        const successRemark = `Wallet recharge successful via QwackPay. UTR: ${finalUtr || "N/A"}. ₹${finalAmount} credited to wallet.`;
+        // Update transaction history
+        const successRemark = `Wallet recharge successful via QwackPay. UTR: ${
+          finalUtr || "N/A"
+        }. ₹${finalAmount} credited to wallet.`;
 
         const historyUpdate = await TransactionHistory.findOneAndUpdate(
           {
@@ -1537,6 +1701,23 @@ const onlinePayCallback = async (req, res) => {
           );
         }
 
+        // =====================================================
+        // PROCESS LOTTERY ENTRIES (if this was a ticket purchase)
+        // =====================================================
+
+        if (
+          freshDeposit.lotteryNumbers &&
+          freshDeposit.lotteryNumbers.length > 0 &&
+          freshDeposit.configId &&
+          !freshDeposit.lotteryProcessed
+        ) {
+          lotteryResult = await processLotteryEntries(
+            depositUpdate,
+            freshUser,
+            session
+          );
+        }
+
         updatedWallet = walletUpdate.wallet;
         transactionCommitted = true;
       });
@@ -1559,7 +1740,9 @@ const onlinePayCallback = async (req, res) => {
       event: "PAYMENT_SUCCESS",
       processingStatus: "SUCCESS",
       signValid: signValid || Boolean(gatewayResult?.isSuccess),
-      message: `₹${finalAmount} credited successfully. Wallet=${updatedWallet}`,
+      message: `₹${finalAmount} credited successfully. Wallet=${updatedWallet}. Lottery entries: ${
+        lotteryResult?.createdCount || 0
+      } created.`,
       processedAt: new Date(),
     });
 
@@ -1571,6 +1754,13 @@ const onlinePayCallback = async (req, res) => {
     console.log("UTR:", finalUtr);
     console.log("USER:", user._id.toString());
     console.log("NEW WALLET:", updatedWallet);
+    console.log(
+      "LOTTERY ENTRIES:",
+      lotteryResult?.createdCount || 0,
+      "created,",
+      lotteryResult?.skippedCount || 0,
+      "skipped"
+    );
     console.log("=================================================");
 
     return res.status(200).send("success");
@@ -1588,9 +1778,6 @@ const onlinePayCallback = async (req, res) => {
       processedAt: new Date(),
     });
 
-    // Always acknowledge the webhook. The local deposit remains PENDING
-    // when the success transaction could not be committed, so a retry/query
-    // can safely process it later without a false SUCCESS state.
     return res.status(200).send("success");
   }
 };
@@ -1677,7 +1864,10 @@ const getMyDeposits = async (req, res) => {
     }
 
     if (paymentMethod && paymentMethod.trim()) {
-      query.paymentMethod = { $regex: paymentMethod.trim(), $options: "i" };
+      query.paymentMethod = {
+        $regex: paymentMethod.trim(),
+        $options: "i",
+      };
     }
 
     if (channel && channel.trim()) {
@@ -1697,7 +1887,10 @@ const getMyDeposits = async (req, res) => {
     }
 
     if (transactionId && transactionId.trim()) {
-      query.transactionId = { $regex: transactionId.trim(), $options: "i" };
+      query.transactionId = {
+        $regex: transactionId.trim(),
+        $options: "i",
+      };
     }
 
     if (utr && utr.trim()) {
@@ -1937,7 +2130,10 @@ const getAllDepositsForAdmin = async (req, res) => {
     }
 
     if (paymentMethod && paymentMethod.trim()) {
-      query.paymentMethod = { $regex: paymentMethod.trim(), $options: "i" };
+      query.paymentMethod = {
+        $regex: paymentMethod.trim(),
+        $options: "i",
+      };
     }
 
     if (channel && channel.trim()) {
@@ -1961,7 +2157,10 @@ const getAllDepositsForAdmin = async (req, res) => {
     }
 
     if (transactionId && transactionId.trim()) {
-      query.transactionId = { $regex: transactionId.trim(), $options: "i" };
+      query.transactionId = {
+        $regex: transactionId.trim(),
+        $options: "i",
+      };
     }
 
     if (utr && utr.trim()) {
@@ -2050,7 +2249,6 @@ const getAllDepositsForAdmin = async (req, res) => {
 
 // =====================================================
 // TEST ONLY: GENERATE QWACKPAY SIGN
-// REMOVE/DISABLE IN PRODUCTION
 // =====================================================
 
 const generateTestQwackPaySign = async (req, res) => {
@@ -2148,5 +2346,6 @@ module.exports = {
   checkQwackPayOrderStatus,
   generateQwackPaySign,
   generateTestQwackPaySign,
+  processLotteryEntries,
   STATUS,
 };

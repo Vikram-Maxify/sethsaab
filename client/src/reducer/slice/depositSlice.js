@@ -54,6 +54,19 @@ export const createDeposit = createAsyncThunk(
         formData.append("number", depositData.number);
       }
 
+      // =====================================================
+      // LOTTERY NUMBERS (array for bulk ticket purchase)
+      // =====================================================
+
+      if (
+        Array.isArray(depositData.lotteryNumbers) &&
+        depositData.lotteryNumbers.length > 0
+      ) {
+        depositData.lotteryNumbers.forEach((num) => {
+          formData.append("lotteryNumbers[]", String(num));
+        });
+      }
+
       if (
         typeof File !== "undefined" &&
         depositData.paymentProof instanceof File
@@ -85,8 +98,7 @@ export const cancelDeposit = createAsyncThunk(
       const { data } = await api.post(
         `/deposit/${depositId}/cancel`,
         {
-          reason:
-            reason || "User cancelled at gateway",
+          reason: reason || "User cancelled at gateway",
         }
       );
 
@@ -252,9 +264,7 @@ export const getSingleDeposit = createAsyncThunk(
 
   async (id, { rejectWithValue }) => {
     try {
-      const { data } = await api.get(
-        `/deposit/${id}`
-      );
+      const { data } = await api.get(`/deposit/${id}`);
 
       return data;
     } catch (error) {
@@ -326,6 +336,11 @@ const initialState = {
   currentStatus: null,
   cancelledAt: null,
   cancelReason: "",
+
+  // Lottery info from last status check
+  lotteryNumbers: [],
+  lotteryProcessed: false,
+  lotteryEntries: [],
 
   pagination: {
     total: 0,
@@ -407,6 +422,10 @@ const depositSlice = createSlice({
       state.currentStatus = null;
       state.cancelledAt = null;
       state.cancelReason = "";
+
+      state.lotteryNumbers = [];
+      state.lotteryProcessed = false;
+      state.lotteryEntries = [];
     },
 
     setDepositFilters: (state, action) => {
@@ -467,30 +486,32 @@ const depositSlice = createSlice({
 
         state.orderId = String(
           action.payload?.orderId ||
-          action.payload?.deposit?.orderId ||
-          ""
+            action.payload?.deposit?.orderId ||
+            ""
         );
 
         state.depositId = String(
           action.payload?.depositId ||
-          action.payload?.deposit?._id ||
-          ""
+            action.payload?.deposit?._id ||
+            ""
         );
 
         state.amount = Number(
           action.payload?.amount ||
-          action.payload?.deposit?.amount ||
-          0
+            action.payload?.deposit?.amount ||
+            0
         );
 
         state.currentStatus =
-          action.payload?.status === "pending"
-            ? 0
-            : null;
+          action.payload?.status === "pending" ? 0 : null;
+
+        // Store lottery numbers if returned
+        if (Array.isArray(action.payload?.lotteryNumbers)) {
+          state.lotteryNumbers = action.payload.lotteryNumbers;
+        }
 
         if (action.payload?.deposit) {
-          state.currentDeposit =
-            action.payload.deposit;
+          state.currentDeposit = action.payload.deposit;
 
           state.deposits = [
             action.payload.deposit,
@@ -504,8 +525,7 @@ const depositSlice = createSlice({
         state.success = false;
 
         state.error =
-          action.payload ||
-          "Deposit submission failed";
+          action.payload || "Deposit submission failed";
 
         state.paymentUrl = null;
         state.orderId = "";
@@ -532,43 +552,34 @@ const depositSlice = createSlice({
           new Date().toISOString();
 
         state.cancelReason =
-          action.payload?.cancelReason ||
-          "User cancelled";
+          action.payload?.cancelReason || "User cancelled";
 
         state.message =
-          action.payload?.message ||
-          "Deposit cancelled";
+          action.payload?.message || "Deposit cancelled";
 
-        const depositId =
-          action.payload?.depositId;
-
-        const orderId =
-          action.payload?.orderId;
+        const depositId = action.payload?.depositId;
+        const orderId = action.payload?.orderId;
 
         if (depositId || orderId) {
-          state.deposits =
-            state.deposits.map((deposit) => {
-              const idMatch =
-                depositId &&
-                String(deposit._id) ===
-                  String(depositId);
+          state.deposits = state.deposits.map((deposit) => {
+            const idMatch =
+              depositId &&
+              String(deposit._id) === String(depositId);
 
-              const orderMatch =
-                orderId &&
-                String(deposit.orderId) ===
-                  String(orderId);
+            const orderMatch =
+              orderId &&
+              String(deposit.orderId) === String(orderId);
 
-              if (idMatch || orderMatch) {
-                return {
-                  ...deposit,
-                  status: 3,
-                  cancelledAt:
-                    state.cancelledAt,
-                };
-              }
+            if (idMatch || orderMatch) {
+              return {
+                ...deposit,
+                status: 3,
+                cancelledAt: state.cancelledAt,
+              };
+            }
 
-              return deposit;
-            });
+            return deposit;
+          });
         }
       })
 
@@ -576,224 +587,158 @@ const depositSlice = createSlice({
         state.cancelLoading = false;
 
         state.error =
-          action.payload ||
-          "Failed to cancel deposit";
+          action.payload || "Failed to cancel deposit";
       })
 
       /* ======================================================
          STATUS
       ====================================================== */
 
-      .addCase(
-        fetchDepositStatus.pending,
-        (state) => {
-          state.statusLoading = true;
-          state.error = null;
-        }
-      )
+      .addCase(fetchDepositStatus.pending, (state) => {
+        state.statusLoading = true;
+        state.error = null;
+      })
 
-      .addCase(
-        fetchDepositStatus.fulfilled,
-        (state, action) => {
-          state.statusLoading = false;
+      .addCase(fetchDepositStatus.fulfilled, (state, action) => {
+        state.statusLoading = false;
 
-          const deposit =
-            action.payload?.deposit;
+        const deposit = action.payload?.deposit;
 
-          if (deposit) {
-            state.currentStatus =
-              deposit.status;
+        if (deposit) {
+          state.currentStatus = deposit.status;
 
-            state.orderId = String(
-              deposit.orderId || state.orderId || ""
-            );
+          state.orderId = String(
+            deposit.orderId || state.orderId || ""
+          );
 
-            state.depositId = String(
-              deposit._id || state.depositId || ""
-            );
+          state.depositId = String(
+            deposit._id || state.depositId || ""
+          );
 
-            state.amount = Number(
-              deposit.amount || state.amount || 0
-            );
+          state.amount = Number(
+            deposit.amount || state.amount || 0
+          );
 
-            state.cancelledAt =
-              deposit.cancelledAt || null;
+          state.cancelledAt = deposit.cancelledAt || null;
 
-            state.cancelReason =
-              deposit.cancelReason || "";
+          state.cancelReason = deposit.cancelReason || "";
 
-            if (deposit._id) {
-              state.currentDeposit = {
-                ...(state.currentDeposit || {}),
-                ...deposit,
-              };
-            }
+          // Lottery info
+          state.lotteryNumbers = deposit.lotteryNumbers || [];
+          state.lotteryProcessed = deposit.lotteryProcessed || false;
+          state.lotteryEntries = deposit.lotteryEntries || [];
+
+          if (deposit._id) {
+            state.currentDeposit = {
+              ...(state.currentDeposit || {}),
+              ...deposit,
+            };
           }
         }
-      )
+      })
 
-      .addCase(
-        fetchDepositStatus.rejected,
-        (state, action) => {
-          state.statusLoading = false;
+      .addCase(fetchDepositStatus.rejected, (state, action) => {
+        state.statusLoading = false;
 
-          state.error =
-            action.payload ||
-            "Failed to fetch deposit status";
-        }
-      )
+        state.error =
+          action.payload || "Failed to fetch deposit status";
+      })
 
       /* ======================================================
          GET MY DEPOSITS
       ====================================================== */
 
-      .addCase(
-        getMyDeposits.pending,
-        (state) => {
-          state.loading = true;
-          state.error = null;
-        }
-      )
+      .addCase(getMyDeposits.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
 
-      .addCase(
-        getMyDeposits.fulfilled,
-        (state, action) => {
-          state.loading = false;
-          state.success = true;
+      .addCase(getMyDeposits.fulfilled, (state, action) => {
+        state.loading = false;
+        state.success = true;
 
-          state.deposits =
-            action.payload?.deposits || [];
+        state.deposits = action.payload?.deposits || [];
 
-          state.pagination = {
-            total:
-              Number(action.payload?.total) || 0,
+        state.pagination = {
+          total: Number(action.payload?.total) || 0,
+          currentPage: Number(action.payload?.currentPage) || 1,
+          totalPages: Number(action.payload?.totalPages) || 0,
+          limit: Number(action.payload?.limit) || 10,
+        };
+      })
 
-            currentPage:
-              Number(
-                action.payload?.currentPage
-              ) || 1,
+      .addCase(getMyDeposits.rejected, (state, action) => {
+        state.loading = false;
 
-            totalPages:
-              Number(
-                action.payload?.totalPages
-              ) || 0,
+        state.error =
+          action.payload || "Failed to fetch deposits";
 
-            limit:
-              Number(action.payload?.limit) ||
-              10,
-          };
-        }
-      )
-
-      .addCase(
-        getMyDeposits.rejected,
-        (state, action) => {
-          state.loading = false;
-
-          state.error =
-            action.payload ||
-            "Failed to fetch deposits";
-
-          state.deposits = [];
-        }
-      )
+        state.deposits = [];
+      })
 
       /* ======================================================
          ADMIN
       ====================================================== */
 
-      .addCase(
-        getAllDepositsForAdmin.pending,
-        (state) => {
-          state.loading = true;
-          state.error = null;
-        }
-      )
+      .addCase(getAllDepositsForAdmin.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
 
-      .addCase(
-        getAllDepositsForAdmin.fulfilled,
-        (state, action) => {
-          state.loading = false;
-          state.success = true;
+      .addCase(getAllDepositsForAdmin.fulfilled, (state, action) => {
+        state.loading = false;
+        state.success = true;
 
-          state.adminDeposits =
-            action.payload?.deposits || [];
+        state.adminDeposits = action.payload?.deposits || [];
 
-          state.adminPagination = {
-            total:
-              Number(action.payload?.total) || 0,
+        state.adminPagination = {
+          total: Number(action.payload?.total) || 0,
+          currentPage: Number(action.payload?.currentPage) || 1,
+          totalPages: Number(action.payload?.totalPages) || 0,
+          perPage:
+            Number(
+              action.payload?.perPage || action.payload?.limit
+            ) || 20,
+        };
 
-            currentPage:
-              Number(
-                action.payload?.currentPage
-              ) || 1,
+        state.message =
+          action.payload?.message ||
+          "All deposits fetched successfully";
+      })
 
-            totalPages:
-              Number(
-                action.payload?.totalPages
-              ) || 0,
+      .addCase(getAllDepositsForAdmin.rejected, (state, action) => {
+        state.loading = false;
 
-            perPage:
-              Number(
-                action.payload?.perPage ||
-                  action.payload?.limit
-              ) || 20,
-          };
+        state.error =
+          action.payload || "Failed to fetch all deposits";
 
-          state.message =
-            action.payload?.message ||
-            "All deposits fetched successfully";
-        }
-      )
-
-      .addCase(
-        getAllDepositsForAdmin.rejected,
-        (state, action) => {
-          state.loading = false;
-
-          state.error =
-            action.payload ||
-            "Failed to fetch all deposits";
-
-          state.adminDeposits = [];
-        }
-      )
+        state.adminDeposits = [];
+      })
 
       /* ======================================================
          SINGLE
       ====================================================== */
 
-      .addCase(
-        getSingleDeposit.pending,
-        (state) => {
-          state.loading = true;
-          state.error = null;
-        }
-      )
+      .addCase(getSingleDeposit.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
 
-      .addCase(
-        getSingleDeposit.fulfilled,
-        (state, action) => {
-          state.loading = false;
-          state.success = true;
+      .addCase(getSingleDeposit.fulfilled, (state, action) => {
+        state.loading = false;
+        state.success = true;
 
-          state.currentDeposit =
-            action.payload?.deposit || null;
-        }
-      )
+        state.currentDeposit = action.payload?.deposit || null;
+      })
 
-      .addCase(
-        getSingleDeposit.rejected,
-        (state, action) => {
-          state.loading = false;
+      .addCase(getSingleDeposit.rejected, (state, action) => {
+        state.loading = false;
 
-          state.error =
-            action.payload ||
-            "Failed to fetch deposit details";
+        state.error =
+          action.payload || "Failed to fetch deposit details";
 
-          state.currentDeposit = null;
-        }
-      );
+        state.currentDeposit = null;
+      });
   },
 });
 
@@ -816,8 +761,7 @@ export const {
    SELECTORS
 ========================================================== */
 
-export const selectDeposits = (state) =>
-  state.deposit.deposits;
+export const selectDeposits = (state) => state.deposit.deposits;
 
 export const selectDepositPagination = (state) =>
   state.deposit.pagination;
@@ -825,9 +769,8 @@ export const selectDepositPagination = (state) =>
 export const selectAdminDeposits = (state) =>
   state.deposit.adminDeposits;
 
-export const selectAdminDepositPagination = (
-  state
-) => state.deposit.adminPagination;
+export const selectAdminDepositPagination = (state) =>
+  state.deposit.adminPagination;
 
 export const selectCurrentDeposit = (state) =>
   state.deposit.currentDeposit;
@@ -849,5 +792,14 @@ export const selectDepositLoading = (state) =>
 
 export const selectDepositError = (state) =>
   state.deposit.error;
+
+export const selectDepositLotteryNumbers = (state) =>
+  state.deposit.lotteryNumbers;
+
+export const selectDepositLotteryProcessed = (state) =>
+  state.deposit.lotteryProcessed;
+
+export const selectDepositLotteryEntries = (state) =>
+  state.deposit.lotteryEntries;
 
 export default depositSlice.reducer;
