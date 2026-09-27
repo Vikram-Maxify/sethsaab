@@ -108,8 +108,16 @@ export const fetchDepositStatus = createAsyncThunk(
   "deposit/fetchDepositStatus",
   async (identifier, { rejectWithValue }) => {
     try {
+      const safeIdentifier = encodeURIComponent(
+        String(identifier || "").trim()
+      );
+
+      if (!safeIdentifier || safeIdentifier === "undefined") {
+        return rejectWithValue("Deposit order ID is required");
+      }
+
       const { data } = await api.get(
-        `/deposit/${identifier}/status`
+        `/deposit/status/${safeIdentifier}`
       );
 
       return data;
@@ -311,6 +319,9 @@ const initialState = {
   currentDeposit: null,
 
   paymentUrl: null,
+  orderId: "",
+  depositId: "",
+  amount: 0,
 
   currentStatus: null,
   cancelledAt: null,
@@ -359,6 +370,9 @@ const depositSlice = createSlice({
       state.message = "";
 
       state.paymentUrl = null;
+      state.orderId = "";
+      state.depositId = "";
+      state.amount = 0;
     },
 
     clearDeposits: (state) => {
@@ -386,6 +400,9 @@ const depositSlice = createSlice({
     clearCurrentDeposit: (state) => {
       state.currentDeposit = null;
       state.paymentUrl = null;
+      state.orderId = "";
+      state.depositId = "";
+      state.amount = 0;
 
       state.currentStatus = null;
       state.cancelledAt = null;
@@ -432,6 +449,9 @@ const depositSlice = createSlice({
         state.error = null;
         state.message = "";
         state.paymentUrl = null;
+        state.orderId = "";
+        state.depositId = "";
+        state.amount = 0;
       })
 
       .addCase(createDeposit.fulfilled, (state, action) => {
@@ -444,6 +464,24 @@ const depositSlice = createSlice({
 
         state.paymentUrl =
           action.payload?.paymentUrl || null;
+
+        state.orderId = String(
+          action.payload?.orderId ||
+          action.payload?.deposit?.orderId ||
+          ""
+        );
+
+        state.depositId = String(
+          action.payload?.depositId ||
+          action.payload?.deposit?._id ||
+          ""
+        );
+
+        state.amount = Number(
+          action.payload?.amount ||
+          action.payload?.deposit?.amount ||
+          0
+        );
 
         state.currentStatus =
           action.payload?.status === "pending"
@@ -470,6 +508,9 @@ const depositSlice = createSlice({
           "Deposit submission failed";
 
         state.paymentUrl = null;
+        state.orderId = "";
+        state.depositId = "";
+        state.amount = 0;
       })
 
       /* ======================================================
@@ -562,6 +603,18 @@ const depositSlice = createSlice({
           if (deposit) {
             state.currentStatus =
               deposit.status;
+
+            state.orderId = String(
+              deposit.orderId || state.orderId || ""
+            );
+
+            state.depositId = String(
+              deposit._id || state.depositId || ""
+            );
+
+            state.amount = Number(
+              deposit.amount || state.amount || 0
+            );
 
             state.cancelledAt =
               deposit.cancelledAt || null;
@@ -778,5 +831,23 @@ export const selectAdminDepositPagination = (
 
 export const selectCurrentDeposit = (state) =>
   state.deposit.currentDeposit;
+
+export const selectDepositPaymentUrl = (state) =>
+  state.deposit.paymentUrl;
+
+export const selectDepositOrderId = (state) =>
+  state.deposit.orderId;
+
+export const selectDepositId = (state) =>
+  state.deposit.depositId;
+
+export const selectDepositAmount = (state) =>
+  state.deposit.amount;
+
+export const selectDepositLoading = (state) =>
+  state.deposit.loading;
+
+export const selectDepositError = (state) =>
+  state.deposit.error;
 
 export default depositSlice.reducer;
