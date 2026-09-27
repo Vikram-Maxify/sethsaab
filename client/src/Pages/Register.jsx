@@ -14,7 +14,7 @@ import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
-import registerBanner from "../assets/1ban.png";
+import registerBanner from "../assets/IMG_7076.jpg";
 import { register } from "../reducer/slice/authSlice";
 
 const Register = () => {

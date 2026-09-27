@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 
 import firstPrize from "../assets/1trophy.png";
 import secondPrize from "../assets/2trophy.png";
-import kuberBanner from "../assets/3ban.jpeg";
+import kuberBanner from "../assets/IMG_7078.jpg";
 import thirdPrize from "../assets/3trophy.png";
 
 import {

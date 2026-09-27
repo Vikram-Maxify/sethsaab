@@ -18,7 +18,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { login } from "../reducer/slice/authSlice";
 
 // 👇 Apne actual banner filename ke according change kar dena
-import loginBanner from "../assets/1ban.png";
+import loginBanner from "../assets/IMG_7076.jpg";
 
 const Login = () => {
   const navigate = useNavigate();
