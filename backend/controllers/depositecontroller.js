@@ -613,27 +613,32 @@ const cancelDeposit = async (req, res) => {
 const getDepositStatusByIdentifier = async (req, res) => {
   try {
     const { identifier } = req.params;
-    const userId = getUserIdFromRequest(req);
 
-    if (!identifier) {
+    console.log("=================================");
+    console.log("STATUS CHECK");
+    console.log("identifier:", identifier);
+
+    const safeIdentifier = String(identifier || "").trim();
+
+    if (!safeIdentifier) {
       return res.status(400).json({
         success: false,
         message: "Deposit identifier is required",
       });
     }
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required",
-      });
-    }
+    // IMPORTANT:
+    // Temporarily userId condition removed for testing
+    const deposit = await Deposit.findOne({
+      $or: [
+        { orderId: safeIdentifier },
+        ...(mongoose.Types.ObjectId.isValid(safeIdentifier)
+          ? [{ _id: safeIdentifier }]
+          : []),
+      ],
+    }).lean();
 
-    const query = mongoose.Types.ObjectId.isValid(identifier)
-      ? { _id: identifier, userId }
-      : { orderId: String(identifier), userId };
-
-    const deposit = await Deposit.findOne(query).lean();
+    console.log("FOUND DEPOSIT:", deposit);
 
     if (!deposit) {
       return res.status(404).json({
@@ -648,9 +653,10 @@ const getDepositStatusByIdentifier = async (req, res) => {
         _id: deposit._id,
         orderId: deposit.orderId,
         amount: deposit.amount,
-        status: deposit.status,
-        paymentMethod: deposit.paymentMethod,
-        channel: deposit.channel,
+        status: Number(deposit.status),
+        paymentMethod: deposit.paymentMethod || "",
+        channel: deposit.channel || "",
+        transactionId: deposit.transactionId || "",
         utr: deposit.utr || "",
         cancelReason: deposit.cancelReason || "",
         cancelledAt: deposit.cancelledAt || null,

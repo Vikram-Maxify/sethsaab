@@ -73,6 +73,7 @@ router.get(
 
 router.get(
   "/deposit/status/:identifier",
+  authMiddleware,
   getDepositStatusByIdentifier
 );
 
