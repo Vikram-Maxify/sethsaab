@@ -48,6 +48,40 @@ const HINDI_MONTHS = [
 ];
 
 // =====================================================
+// FORMAT CRORE / LAKH
+// =====================================================
+
+const formatCrore = (amount) => {
+  if (amount === undefined || amount === null) return "₹0";
+
+  const num = Number(amount);
+
+  if (!Number.isFinite(num) || num <= 0) {
+    return "₹0";
+  }
+
+  const crore = num / 10000000;
+
+  if (crore >= 1) {
+    const formatted =
+      crore % 1 === 0 ? crore.toFixed(0) : crore.toFixed(2);
+
+    return `₹${formatted} करोड़`;
+  }
+
+  const lakh = num / 100000;
+
+  if (lakh >= 1) {
+    const formatted =
+      lakh % 1 === 0 ? lakh.toFixed(0) : lakh.toFixed(2);
+
+    return `₹${formatted} लाख`;
+  }
+
+  return `₹${num.toLocaleString("en-IN")}`;
+};
+
+// =====================================================
 // CREATE EMPTY TICKET
 // =====================================================
 
@@ -371,6 +405,22 @@ const BuyTicket = () => {
       }
     ).format(date);
   }, [lotteryConfig]);
+
+  // ===================================================
+  // PRIZE AMOUNTS (NEW)
+  // ===================================================
+
+  const firstPrizeAmount = formatCrore(
+    lotteryConfig?.prizes?.first
+  );
+
+  const secondPrizeAmount = formatCrore(
+    lotteryConfig?.prizes?.second
+  );
+
+  const thirdPrizeAmount = formatCrore(
+    lotteryConfig?.prizes?.third
+  );
 
   // ===================================================
   // TOTAL PRICE
@@ -1301,27 +1351,29 @@ const BuyTicket = () => {
             </h2>
           </div>
 
-          <div className="grid grid-cols-3 gap-[8px]">
+          <div className="grid grid-cols-3 gap-[7px] mt-[11px]">
+
             <PrizeCard
               title="प्रथम पुरस्कार"
-              amount="₹5 करोड़"
+              amount={firstPrizeAmount}
               condition="(6 अंक मिलने पर)"
               image={firstPrize}
             />
 
             <PrizeCard
               title="द्वितीय पुरस्कार"
-              amount="₹3 करोड़"
+              amount={secondPrizeAmount}
               condition="(5 अंक मिलने पर)"
               image={secondPrize}
             />
 
             <PrizeCard
               title="तृतीय पुरस्कार"
-              amount="₹2 करोड़"
+              amount={thirdPrizeAmount}
               condition="(4 अंक मिलने पर)"
               image={thirdPrize}
             />
+
           </div>
         </section>
 

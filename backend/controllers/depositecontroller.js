@@ -394,11 +394,11 @@ const createDeposit = async (req, res) => {
         // RETURNED MERCHANT ORDER ID
         // =================================================
 
-        // IMPORTANT: our local merchant order ID is the source of truth.
-        // Never replace Deposit.orderId with a gateway-generated order ID.
         const returnedOrderId =
           gatewayResponse?.data?.merchant_order_id ||
+          gatewayResponse?.data?.order_id ||
           gatewayResponse?.merchant_order_id ||
+          gatewayResponse?.order_id ||
           orderId;
 
         // =================================================
@@ -988,25 +988,21 @@ const getDepositStatusByIdentifier =
 // =====================================================
 
 const getCallbackValue = (body = {}, query = {}, keys = []) => {
-  const sources = [
-    body,
-    body?.data,
-    body?.result,
-    body?.payment,
-    query,
-  ];
+  for (const key of keys) {
+    if (
+      body[key] !== undefined &&
+      body[key] !== null &&
+      body[key] !== ""
+    ) {
+      return body[key];
+    }
 
-  for (const source of sources) {
-    if (!source || typeof source !== "object") continue;
-
-    for (const key of keys) {
-      if (
-        source[key] !== undefined &&
-        source[key] !== null &&
-        source[key] !== ""
-      ) {
-        return source[key];
-      }
+    if (
+      query[key] !== undefined &&
+      query[key] !== null &&
+      query[key] !== ""
+    ) {
+      return query[key];
     }
   }
 
@@ -1057,6 +1053,216 @@ const getCallbackIp = (req) => {
 const onlinePayCallback = async (req, res) => {
   let callbackLog = null;
 
+  const setCallbackLog = async (values) => {
+    if (!callbackLog?._id) return;
+    try {
+      await QwackPayCallbackLog.findByIdAndUpdate(
+        callbackLog._id,
+        { $set: values }
+      );
+    } catch (logError) {
+      console.error("QWACKPAY CALLBACK LOG UPDATE ERROR:", logError.message);
+    }
+  };
+
+  const getGatewayValue = (source, keys) => {
+    if (!source || typeof source !== "object") return undefined;
+    for (const key of keys) {
+      if (
+        source[key] !== undefined &&
+        source[key] !== null &&
+        source[key] !== ""
+      ) {
+        return source[key];
+      }
+    }
+    return undefined;
+  };
+
+  const normalizeGatewayResult = (response) => {
+    const root = response && typeof response === "object" ? response : {};
+    const data =
+      root.data && typeof root.data === "object" ? root.data : {};
+    const result =
+      root.result && typeof root.result === "object" ? root.result : {};
+
+    const statusRaw =
+      getGatewayValue(data, [
+        "status",
+        "payment_status",
+        "paymentStatus",
+        "transaction_status",
+        "transactionStatus",
+        "order_status",
+        "orderStatus",
+      ]) ??
+      getGatewayValue(result, [
+        "status",
+        "payment_status",
+        "paymentStatus",
+        "transaction_status",
+        "transactionStatus",
+        "order_status",
+        "orderStatus",
+      ]) ??
+      getGatewayValue(root, [
+        "status",
+        "payment_status",
+        "paymentStatus",
+        "transaction_status",
+        "transactionStatus",
+        "order_status",
+        "orderStatus",
+      ]);
+
+    const amountRaw =
+      getGatewayValue(data, [
+        "amount",
+        "paid_amount",
+        "paidAmount",
+        "total_amount",
+        "totalAmount",
+      ]) ??
+      getGatewayValue(result, [
+        "amount",
+        "paid_amount",
+        "paidAmount",
+        "total_amount",
+        "totalAmount",
+      ]) ??
+      getGatewayValue(root, [
+        "amount",
+        "paid_amount",
+        "paidAmount",
+        "total_amount",
+        "totalAmount",
+      ]);
+
+    const merchantOrderId = String(
+      getGatewayValue(data, [
+        "merchant_order_id",
+        "merchantOrderId",
+        "order_id",
+        "orderId",
+      ]) ??
+        getGatewayValue(result, [
+          "merchant_order_id",
+          "merchantOrderId",
+          "order_id",
+          "orderId",
+        ]) ??
+        getGatewayValue(root, [
+          "merchant_order_id",
+          "merchantOrderId",
+          "order_id",
+          "orderId",
+        ]) ??
+        ""
+    ).trim();
+
+    const qwackOrderId = String(
+      getGatewayValue(data, [
+        "qwack_order_id",
+        "qwackOrderId",
+        "transaction_id",
+        "transactionId",
+        "payment_id",
+        "paymentId",
+      ]) ??
+        getGatewayValue(result, [
+          "qwack_order_id",
+          "qwackOrderId",
+          "transaction_id",
+          "transactionId",
+          "payment_id",
+          "paymentId",
+        ]) ??
+        getGatewayValue(root, [
+          "qwack_order_id",
+          "qwackOrderId",
+          "transaction_id",
+          "transactionId",
+          "payment_id",
+          "paymentId",
+        ]) ??
+        ""
+    ).trim();
+
+    const utr = String(
+      getGatewayValue(data, [
+        "utr",
+        "utr_number",
+        "utrNumber",
+        "rrn",
+        "reference",
+        "reference_number",
+      ]) ??
+        getGatewayValue(result, [
+          "utr",
+          "utr_number",
+          "utrNumber",
+          "rrn",
+          "reference",
+          "reference_number",
+        ]) ??
+        getGatewayValue(root, [
+          "utr",
+          "utr_number",
+          "utrNumber",
+          "rrn",
+          "reference",
+          "reference_number",
+        ]) ??
+        ""
+    ).trim();
+
+    const status = String(statusRaw ?? "").trim().toLowerCase();
+    const amount = Number(amountRaw);
+
+    const successStatuses = [
+      "success",
+      "successful",
+      "paid",
+      "completed",
+      "complete",
+      "approved",
+      "1",
+    ];
+
+    const failedStatuses = [
+      "failed",
+      "failure",
+      "declined",
+      "rejected",
+      "cancelled",
+      "canceled",
+      "2",
+      "3",
+    ];
+
+    const pendingStatuses = [
+      "",
+      "pending",
+      "processing",
+      "initiated",
+      "created",
+      "unpaid",
+      "0",
+    ];
+
+    return {
+      status,
+      amount,
+      merchantOrderId,
+      qwackOrderId,
+      utr,
+      raw: root,
+      isSuccess: successStatuses.includes(status),
+      isFailed: failedStatuses.includes(status),
+      isPending: pendingStatuses.includes(status),
+    };
+  };
+
   try {
     const body =
       req.body && typeof req.body === "object"
@@ -1067,13 +1273,6 @@ const onlinePayCallback = async (req, res) => {
       req.query && typeof req.query === "object"
         ? req.query
         : {};
-
-    // Some gateways send JSON, some form-data/x-www-form-urlencoded,
-    // and some providers may append values in the query string.
-    const callbackData = {
-      ...query,
-      ...body,
-    };
 
     console.log("=================================================");
     console.log("QWACKPAY CALLBACK RECEIVED");
@@ -1121,6 +1320,8 @@ const onlinePayCallback = async (req, res) => {
         "paymentStatus",
         "transaction_status",
         "transactionStatus",
+        "order_status",
+        "orderStatus",
       ]) || ""
     ).trim();
 
@@ -1144,16 +1345,10 @@ const onlinePayCallback = async (req, res) => {
 
     const callbackAmount = Number(amountRaw);
 
-    // ===================================================
-    // SAVE CALLBACK IMMEDIATELY
-    // ===================================================
-
     callbackLog = await QwackPayCallbackLog.create({
       merchantOrderId,
       qwackOrderId,
-      amount: Number.isFinite(callbackAmount)
-        ? callbackAmount
-        : 0,
+      amount: Number.isFinite(callbackAmount) ? callbackAmount : 0,
       gatewayStatus,
       utr,
       sign: receivedSign,
@@ -1169,63 +1364,106 @@ const onlinePayCallback = async (req, res) => {
       message: "QwackPay callback received",
     });
 
-    console.log(
-      "QWACKPAY CALLBACK LOG SAVED:",
-      callbackLog._id.toString()
-    );
+    console.log("QWACKPAY CALLBACK LOG SAVED:", callbackLog._id.toString());
 
-    // A browser/crawler GET to the callback URL is not a payment webhook.
-    // Keep it logged, but do not process a wallet credit.
-    if (req.method === "GET" && !merchantOrderId) {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            event: "INVALID",
-            processingStatus: "FAILED",
-            message:
-              "GET callback received without order ID",
-            processedAt: new Date(),
-          },
-        }
-      );
-
-      return res.status(200).json({
-        success: false,
-        received: true,
-        message: "Callback endpoint is working",
+    // Browser/crawler GET without an order is only a health hit.
+    if (req.method === "GET" && !merchantOrderId && !qwackOrderId) {
+      await setCallbackLog({
+        event: "INVALID",
+        processingStatus: "SUCCESS",
+        message: "Callback endpoint health check",
+        processedAt: new Date(),
       });
-    }
 
-    // ===================================================
-    // ORDER ID VALIDATION
-    // ===================================================
-
-    if (!merchantOrderId && !qwackOrderId) {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            event: "INVALID",
-            processingStatus: "FAILED",
-            message: "Order ID missing",
-            processedAt: new Date(),
-          },
-        }
-      );
-
-      // Acknowledge the webhook so the gateway does not keep retrying.
-      // No wallet credit is ever performed without a matching local order.
       return res.status(200).send("success");
     }
 
-    // ===================================================
-    // SIGNATURE VALIDATION
-    // ===================================================
-    // Keep the existing QwackPay signing convention used by
-    // this controller: merchant_order_id, qwack_order_id,
-    // amount, status and utr, sorted alphabetically, then key.
-    // ===================================================
+    if (!merchantOrderId && !qwackOrderId) {
+      await setCallbackLog({
+        event: "INVALID",
+        processingStatus: "SUCCESS",
+        message: "Callback received without order ID; no wallet action taken",
+        processedAt: new Date(),
+      });
+
+      return res.status(200).send("success");
+    }
+
+    // ---------------------------------------------------
+    // FIND LOCAL DEPOSIT FIRST
+    // ---------------------------------------------------
+    // Local merchant order ID is the source of truth.
+    // ---------------------------------------------------
+
+    const orderConditions = [];
+
+    if (merchantOrderId) {
+      orderConditions.push({ orderId: merchantOrderId });
+    }
+
+    if (qwackOrderId) {
+      orderConditions.push({ transactionId: qwackOrderId });
+    }
+
+    let deposit = null;
+
+    if (orderConditions.length) {
+      deposit = await Deposit.findOne({ $or: orderConditions });
+    }
+
+    if (!deposit && merchantOrderId) {
+      deposit = await Deposit.findOne({ orderId: merchantOrderId });
+    }
+
+    if (!deposit && qwackOrderId) {
+      deposit = await Deposit.findOne({ transactionId: qwackOrderId });
+    }
+
+    if (!deposit) {
+      await setCallbackLog({
+        event: "DEPOSIT_NOT_FOUND",
+        processingStatus: "FAILED",
+        message: `Deposit not found for merchantOrderId=${merchantOrderId}, qwackOrderId=${qwackOrderId}`,
+        processedAt: new Date(),
+      });
+
+      // Acknowledge so QwackPay does not retry forever.
+      return res.status(200).send("success");
+    }
+
+    await setCallbackLog({ depositId: deposit._id });
+
+    // Already successfully processed.
+    if (Number(deposit.status) === STATUS.SUCCESS) {
+      await setCallbackLog({
+        event: "ALREADY_PROCESSED",
+        processingStatus: "SUCCESS",
+        message: "Payment already processed",
+        processedAt: new Date(),
+      });
+
+      return res.status(200).send("success");
+    }
+
+    if (Number(deposit.status) === STATUS.CANCELLED) {
+      await setCallbackLog({
+        event: "CANCELLED_DEPOSIT",
+        processingStatus: "SUCCESS",
+        message: "Deposit was already cancelled",
+        processedAt: new Date(),
+      });
+
+      return res.status(200).send("success");
+    }
+
+    // ---------------------------------------------------
+    // SIGNATURE CHECK
+    // ---------------------------------------------------
+    // The callback signature is still verified whenever supplied.
+    // If QwackPay's callback signature format differs from the
+    // create-order signature, we do NOT blindly reject a real payment;
+    // we verify the order directly through QwackPay /order/query.
+    // ---------------------------------------------------
 
     const webhookPayload = {
       merchant_order_id: merchantOrderId,
@@ -1240,211 +1478,31 @@ const onlinePayCallback = async (req, res) => {
       QWACKPAY_API_KEY
     );
 
-    const receivedSignUpper = receivedSign.toUpperCase();
-
     const signValid =
-      Boolean(receivedSignUpper) &&
-      expectedSign.toUpperCase() === receivedSignUpper;
+      Boolean(receivedSign) &&
+      expectedSign.toUpperCase() === receivedSign.toUpperCase();
+
+    await setCallbackLog({
+      signValid,
+      event: signValid ? "SIGN_VALID" : "SIGN_INVALID",
+    });
 
     console.log("QWACKPAY SIGN CHECK:", {
       expectedSign,
-      receivedSign: receivedSignUpper,
+      receivedSign: receivedSign.toUpperCase(),
       signValid,
     });
 
-    await QwackPayCallbackLog.findByIdAndUpdate(
-      callbackLog._id,
-      {
-        $set: {
-          signValid,
-          event: signValid
-            ? "SIGN_VALID"
-            : "SIGN_INVALID",
-        },
-      }
-    );
+    // ---------------------------------------------------
+    // VERIFY GATEWAY STATUS
+    // ---------------------------------------------------
 
-    if (!signValid) {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            processingStatus: "FAILED",
-            message: receivedSign
-              ? "Invalid callback signature"
-              : "Callback signature missing",
-            error: receivedSign
-              ? `Expected ${expectedSign}, received ${receivedSignUpper}`
-              : "sign/signature was not supplied",
-            processedAt: new Date(),
-          },
-        }
-      );
+    let verified = signValid;
+    let gatewayResult = null;
 
-      return res.status(200).send("success");
-    }
+    const callbackStatusLower = gatewayStatus.toLowerCase();
 
-    // ===================================================
-    // FIND DEPOSIT
-    // ===================================================
-
-    const orderConditions = [];
-
-    if (merchantOrderId) {
-      orderConditions.push({
-        orderId: merchantOrderId,
-      });
-    }
-
-    if (qwackOrderId) {
-      orderConditions.push({
-        transactionId: qwackOrderId,
-      });
-    }
-
-    let deposit = null;
-
-    if (orderConditions.length > 0) {
-      deposit = await Deposit.findOne({
-        $or: orderConditions,
-      });
-    }
-
-    if (!deposit && merchantOrderId) {
-      deposit = await Deposit.findOne({
-        orderId: merchantOrderId,
-      });
-    }
-
-    if (!deposit && qwackOrderId) {
-      deposit = await Deposit.findOne({
-        transactionId: qwackOrderId,
-      });
-    }
-
-    if (!deposit) {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            event: "DEPOSIT_NOT_FOUND",
-            processingStatus: "FAILED",
-            message:
-              `Deposit not found for merchantOrderId=${merchantOrderId}, qwackOrderId=${qwackOrderId}`,
-            processedAt: new Date(),
-          },
-        }
-      );
-
-      // Gateway callbacks are normally acknowledged even when the
-      // corresponding local order cannot be found, so the gateway does
-      // not keep retrying an unknown order forever.
-      return res.send("success");
-    }
-
-    await QwackPayCallbackLog.findByIdAndUpdate(
-      callbackLog._id,
-      {
-        $set: {
-          depositId: deposit._id,
-        },
-      }
-    );
-
-    // ===================================================
-    // ALREADY SUCCESS
-    // ===================================================
-
-    if (Number(deposit.status) === STATUS.SUCCESS) {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            event: "ALREADY_PROCESSED",
-            processingStatus: "IGNORED",
-            message: "Payment already processed",
-            processedAt: new Date(),
-          },
-        }
-      );
-
-      return res.send("success");
-    }
-
-    // ===================================================
-    // ALREADY CANCELLED
-    // ===================================================
-
-    if (Number(deposit.status) === STATUS.CANCELLED) {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            event: "CANCELLED_DEPOSIT",
-            processingStatus: "IGNORED",
-            message: "Deposit was already cancelled",
-            processedAt: new Date(),
-          },
-        }
-      );
-
-      return res.send("success");
-    }
-
-    // ===================================================
-    // AMOUNT VALIDATION
-    // ===================================================
-
-    if (
-      !Number.isFinite(callbackAmount) ||
-      callbackAmount <= 0
-    ) {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            event: "INVALID_AMOUNT",
-            processingStatus: "FAILED",
-            message: `Invalid callback amount: ${amountRaw}`,
-            processedAt: new Date(),
-          },
-        }
-      );
-
-      return res.status(200).send("success");
-    }
-
-    const depositAmount = Number(deposit.amount);
-
-    if (
-      Number.isFinite(depositAmount) &&
-      Math.abs(callbackAmount - depositAmount) > 0.01
-    ) {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            event: "AMOUNT_MISMATCH",
-            processingStatus: "FAILED",
-            message:
-              `Amount mismatch. Deposit=${depositAmount}, Callback=${callbackAmount}`,
-            processedAt: new Date(),
-          },
-        }
-      );
-
-      return res.status(200).send("success");
-    }
-
-    // ===================================================
-    // STATUS
-    // ===================================================
-
-    const normalizedStatus = gatewayStatus
-      .trim()
-      .toLowerCase();
-
-    const isSuccess = [
+    const callbackLooksSuccess = [
       "success",
       "successful",
       "paid",
@@ -1452,9 +1510,9 @@ const onlinePayCallback = async (req, res) => {
       "complete",
       "approved",
       "1",
-    ].includes(normalizedStatus);
+    ].includes(callbackStatusLower);
 
-    const isFailed = [
+    const callbackLooksFailed = [
       "failed",
       "failure",
       "declined",
@@ -1463,42 +1521,106 @@ const onlinePayCallback = async (req, res) => {
       "canceled",
       "2",
       "3",
-    ].includes(normalizedStatus);
+    ].includes(callbackStatusLower);
 
-    if (!isSuccess && !isFailed) {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            event: "UNKNOWN_STATUS",
-            processingStatus: "FAILED",
-            message:
-              `Unknown QwackPay status: ${gatewayStatus}`,
-            processedAt: new Date(),
-          },
+    // Always query QwackPay when signature is missing/invalid,
+    // when callback is pending/unknown, or when callback amount is bad.
+    const mustQueryGateway =
+      !signValid ||
+      !callbackLooksSuccess ||
+      !Number.isFinite(callbackAmount) ||
+      callbackAmount <= 0;
+
+    if (mustQueryGateway) {
+      try {
+        const queryOrderId = merchantOrderId || deposit.orderId;
+        const queryResponse = await checkQwackPayOrderStatus(queryOrderId);
+        gatewayResult = normalizeGatewayResult(queryResponse);
+
+        console.log("QWACKPAY VERIFIED QUERY:", {
+          orderId: queryOrderId,
+          status: gatewayResult.status,
+          amount: gatewayResult.amount,
+          merchantOrderId: gatewayResult.merchantOrderId,
+          qwackOrderId: gatewayResult.qwackOrderId,
+          utr: gatewayResult.utr,
+        });
+
+        if (gatewayResult.isSuccess) {
+          verified = true;
         }
-      );
+      } catch (queryError) {
+        console.error(
+          "QWACKPAY ORDER QUERY ERROR:",
+          queryError.response?.data || queryError.message
+        );
+      }
+    }
+
+    // ---------------------------------------------------
+    // USE VERIFIED GATEWAY DATA WHEN AVAILABLE
+    // ---------------------------------------------------
+
+    const finalStatus = gatewayResult?.isSuccess
+      ? "success"
+      : gatewayResult?.isFailed
+      ? "failed"
+      : callbackStatusLower;
+
+    const finalAmount =
+      gatewayResult && Number.isFinite(gatewayResult.amount) && gatewayResult.amount > 0
+        ? gatewayResult.amount
+        : callbackAmount;
+
+    const finalUtr =
+      gatewayResult?.utr ||
+      utr ||
+      deposit.utr ||
+      "";
+
+    const finalQwackOrderId =
+      gatewayResult?.qwackOrderId ||
+      qwackOrderId ||
+      "";
+
+    // ---------------------------------------------------
+    // DO NOT FAIL PENDING/UNKNOWN PAYMENTS
+    // ---------------------------------------------------
+    // A redirect/callback can arrive before the payment is finalized.
+    // Keep local deposit PENDING until a verified failure is received.
+    // ---------------------------------------------------
+
+    if (!verified && !signValid) {
+      await setCallbackLog({
+        event: "VERIFICATION_PENDING",
+        processingStatus: "SUCCESS",
+        message:
+          gatewayResult?.isPending || !gatewayResult?.status
+            ? "Callback received; gateway payment is not yet verified"
+            : "Callback signature invalid and gateway query did not verify success",
+        error: receivedSign
+          ? `Expected ${expectedSign}, received ${receivedSign.toUpperCase()}`
+          : "Callback signature missing",
+        processedAt: new Date(),
+      });
 
       return res.status(200).send("success");
     }
 
-    // ===================================================
-    // FAILED PAYMENT
-    // ===================================================
+    // ---------------------------------------------------
+    // EXPLICIT VERIFIED FAILURE
+    // ---------------------------------------------------
 
-    if (isFailed) {
+    if (finalStatus === "failed" && (signValid || gatewayResult?.isFailed)) {
       await Deposit.findOneAndUpdate(
-        {
-          _id: deposit._id,
-          status: STATUS.PENDING,
-        },
+        { _id: deposit._id, status: STATUS.PENDING },
         {
           $set: {
             status: STATUS.FAILED,
-            utr: utr || deposit.utr || "",
+            utr: finalUtr,
             transactionId:
-              qwackOrderId ||
-              utr ||
+              finalQwackOrderId ||
+              finalUtr ||
               deposit.transactionId,
           },
         }
@@ -1514,254 +1636,256 @@ const onlinePayCallback = async (req, res) => {
         {
           $set: {
             status: STATUS.FAILED,
-            amount: depositAmount,
-            remark:
-              `QwackPay recharge failed. Status: ${gatewayStatus}`,
+            amount: Number(deposit.amount),
+            remark: `QwackPay recharge failed. Status: ${gatewayResult?.status || gatewayStatus}`,
             updatedAt: new Date(),
           },
         },
-        {
-          sort: { createdAt: -1 },
-        }
+        { sort: { createdAt: -1 } }
       );
 
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            event: "PAYMENT_FAILED",
-            processingStatus: "SUCCESS",
-            message:
-              `Payment failed with status ${gatewayStatus}`,
-            processedAt: new Date(),
-          },
-        }
-      );
+      await setCallbackLog({
+        event: "PAYMENT_FAILED",
+        processingStatus: "SUCCESS",
+        message: `Verified payment failure: ${gatewayResult?.status || gatewayStatus}`,
+        processedAt: new Date(),
+      });
 
-      return res.send("success");
+      return res.status(200).send("success");
     }
 
-    // ===================================================
-    // SUCCESS - FIND USER
-    // ===================================================
+    // ---------------------------------------------------
+    // PENDING / UNKNOWN
+    // ---------------------------------------------------
+
+    if (finalStatus !== "success") {
+      await setCallbackLog({
+        event: "PAYMENT_PENDING",
+        processingStatus: "SUCCESS",
+        message: `Payment is still pending. Callback status=${gatewayStatus || "unknown"}`,
+        processedAt: new Date(),
+      });
+
+      return res.status(200).send("success");
+    }
+
+    // ---------------------------------------------------
+    // SUCCESS VALIDATION
+    // ---------------------------------------------------
+
+    if (!verified) {
+      await setCallbackLog({
+        event: "SUCCESS_NOT_VERIFIED",
+        processingStatus: "FAILED",
+        message: "Success callback could not be verified",
+        processedAt: new Date(),
+      });
+
+      return res.status(200).send("success");
+    }
+
+    if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
+      await setCallbackLog({
+        event: "INVALID_AMOUNT",
+        processingStatus: "FAILED",
+        message: `Invalid verified amount: ${finalAmount}`,
+        processedAt: new Date(),
+      });
+
+      return res.status(200).send("success");
+    }
+
+    const depositAmount = Number(deposit.amount);
+
+    if (
+      Number.isFinite(depositAmount) &&
+      Math.abs(finalAmount - depositAmount) > 0.01
+    ) {
+      await setCallbackLog({
+        event: "AMOUNT_MISMATCH",
+        processingStatus: "FAILED",
+        message: `Amount mismatch. Deposit=${depositAmount}, Gateway=${finalAmount}`,
+        processedAt: new Date(),
+      });
+
+      return res.status(200).send("success");
+    }
 
     const user = await User.findById(deposit.userId);
 
     if (!user) {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            event: "USER_NOT_FOUND",
-            processingStatus: "FAILED",
-            message: "User not found",
-            processedAt: new Date(),
-          },
-        }
-      );
+      await setCallbackLog({
+        event: "USER_NOT_FOUND",
+        processingStatus: "FAILED",
+        message: "User not found",
+        processedAt: new Date(),
+      });
 
-      return res.send("success");
+      return res.status(200).send("success");
     }
 
-    // ===================================================
-    // ATOMIC CLAIM
-    // ===================================================
-    // This is the most important duplicate-payment protection.
-    // If QwackPay sends the same callback twice, only the first
-    // request can change PENDING -> SUCCESS.
-    // ===================================================
+    // ---------------------------------------------------
+    // ATOMIC WALLET + DEPOSIT TRANSACTION
+    // ---------------------------------------------------
+    // IMPORTANT FIX:
+    // Previously Deposit was changed to SUCCESS BEFORE wallet credit.
+    // If wallet update failed, deposit stayed SUCCESS and retry could
+    // never credit the user. Now both operations commit together.
+    // ---------------------------------------------------
 
-    const claimed =
-      await Deposit.findOneAndUpdate(
-        {
+    const session = await mongoose.startSession();
+
+    let transactionCommitted = false;
+    let updatedWallet = null;
+
+    try {
+      await session.withTransaction(async () => {
+        const freshDeposit = await Deposit.findOne({
           _id: deposit._id,
           status: STATUS.PENDING,
-        },
-        {
-          $set: {
-            status: STATUS.SUCCESS,
-            utr: utr || deposit.utr || "",
-            transactionId:
-              qwackOrderId ||
-              utr ||
-              deposit.transactionId,
-          },
-        },
-        {
-          new: true,
+        }).session(session);
+
+        if (!freshDeposit) {
+          return;
         }
-      );
 
-    // ===================================================
-    // DUPLICATE CALLBACK
-    // ===================================================
+        const freshUser = await User.findById(deposit.userId).session(session);
 
-    if (!claimed) {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            event: "ALREADY_CLAIMED",
-            processingStatus: "IGNORED",
-            message:
-              "Webhook was already processed by another request",
-            processedAt: new Date(),
-          },
+        if (!freshUser) {
+          throw new Error("User not found while processing QwackPay payment");
         }
-      );
 
-      return res.send("success");
-    }
+        const walletUpdate = await User.findOneAndUpdate(
+          { _id: freshUser._id },
+          { $inc: { wallet: finalAmount } },
+          { new: true, session }
+        );
 
-    // ===================================================
-    // WALLET CREDIT
-    // ===================================================
-
-    const updatedUser =
-      await User.findByIdAndUpdate(
-        user._id,
-        {
-          $inc: {
-            wallet: callbackAmount,
-          },
-        },
-        {
-          new: true,
+        if (!walletUpdate) {
+          throw new Error("Wallet update returned null");
         }
-      );
 
-    if (!updatedUser) {
-      await QwackPayCallbackLog.findByIdAndUpdate(
-        callbackLog._id,
-        {
-          $set: {
-            event: "WALLET_UPDATE_FAILED",
-            processingStatus: "FAILED",
-            message:
-              "Deposit was claimed but wallet update failed",
-            error:
-              "User.findByIdAndUpdate returned null",
-            processedAt: new Date(),
+        const depositUpdate = await Deposit.findOneAndUpdate(
+          {
+            _id: freshDeposit._id,
+            status: STATUS.PENDING,
           },
-        }
-      );
-
-      console.error(
-        "CRITICAL: DEPOSIT CLAIMED BUT WALLET UPDATE FAILED",
-        deposit._id.toString()
-      );
-
-      return res.status(500).send("wallet update failed");
-    }
-
-    // ===================================================
-    // TRANSACTION HISTORY
-    // ===================================================
-
-    const successRemark =
-      `Wallet recharge successful via QwackPay. UTR: ${
-        utr || "N/A"
-      }. ₹${callbackAmount} credited to wallet.`;
-
-    const transactionUpdate =
-      await TransactionHistory.findOneAndUpdate(
-        {
-          orderId: String(deposit.orderId),
-          userId: user._id,
-          type: "Deposit",
-          status: STATUS.PENDING,
-        },
-        {
-          $set: {
-            status: STATUS.SUCCESS,
-            amount: callbackAmount,
-            uid: user.uuid,
-            phone: user.mobile,
-            remark: successRemark,
-            updatedAt: new Date(),
+          {
+            $set: {
+              status: STATUS.SUCCESS,
+              utr: finalUtr,
+              transactionId:
+                finalQwackOrderId ||
+                finalUtr ||
+                freshDeposit.transactionId,
+            },
           },
-        },
-        {
-          new: true,
-          sort: { createdAt: -1 },
-        }
-      );
+          { new: true, session }
+        );
 
-    // Fallback in case the pending history was not created.
-    if (!transactionUpdate) {
-      await TransactionHistory.create({
-        orderId: String(deposit.orderId),
-        userId: user._id,
-        uid: user.uuid,
-        phone: user.mobile,
-        type: "Deposit",
-        amount: callbackAmount,
-        status: STATUS.SUCCESS,
-        remark: successRemark,
+        if (!depositUpdate) {
+          throw new Error("Deposit could not be claimed");
+        }
+
+        const successRemark =
+          `Wallet recharge successful via QwackPay. UTR: ${finalUtr || "N/A"}. ₹${finalAmount} credited to wallet.`;
+
+        const historyUpdate = await TransactionHistory.findOneAndUpdate(
+          {
+            orderId: String(freshDeposit.orderId),
+            userId: freshUser._id,
+            type: "Deposit",
+            status: STATUS.PENDING,
+          },
+          {
+            $set: {
+              status: STATUS.SUCCESS,
+              amount: finalAmount,
+              uid: freshUser.uuid,
+              phone: freshUser.mobile,
+              remark: successRemark,
+              updatedAt: new Date(),
+            },
+          },
+          {
+            new: true,
+            sort: { createdAt: -1 },
+            session,
+          }
+        );
+
+        if (!historyUpdate) {
+          await TransactionHistory.create(
+            [
+              {
+                orderId: String(freshDeposit.orderId),
+                userId: freshUser._id,
+                uid: freshUser.uuid,
+                phone: freshUser.mobile,
+                type: "Deposit",
+                amount: finalAmount,
+                status: STATUS.SUCCESS,
+                remark: successRemark,
+              },
+            ],
+            { session }
+          );
+        }
+
+        updatedWallet = walletUpdate.wallet;
+        transactionCommitted = true;
       });
+    } finally {
+      await session.endSession();
     }
 
-    // ===================================================
-    // FINAL CALLBACK LOG
-    // ===================================================
+    if (!transactionCommitted) {
+      await setCallbackLog({
+        event: "ALREADY_PROCESSED",
+        processingStatus: "SUCCESS",
+        message: "Payment was already processed by another callback",
+        processedAt: new Date(),
+      });
 
-    await QwackPayCallbackLog.findByIdAndUpdate(
-      callbackLog._id,
-      {
-        $set: {
-          event: "PAYMENT_SUCCESS",
-          processingStatus: "SUCCESS",
-          signValid: true,
-          message:
-            `₹${callbackAmount} credited successfully`,
-          processedAt: new Date(),
-        },
-      }
-    );
+      return res.status(200).send("success");
+    }
+
+    await setCallbackLog({
+      event: "PAYMENT_SUCCESS",
+      processingStatus: "SUCCESS",
+      signValid: signValid || Boolean(gatewayResult?.isSuccess),
+      message: `₹${finalAmount} credited successfully. Wallet=${updatedWallet}`,
+      processedAt: new Date(),
+    });
 
     console.log("=================================================");
     console.log("QWACKPAY CALLBACK SUCCESS");
-    console.log("ORDER:", merchantOrderId);
-    console.log("QWACK ORDER:", qwackOrderId);
-    console.log("AMOUNT:", callbackAmount);
-    console.log("UTR:", utr);
+    console.log("ORDER:", merchantOrderId || deposit.orderId);
+    console.log("QWACK ORDER:", finalQwackOrderId);
+    console.log("AMOUNT:", finalAmount);
+    console.log("UTR:", finalUtr);
     console.log("USER:", user._id.toString());
-    console.log("NEW WALLET:", updatedUser.wallet);
+    console.log("NEW WALLET:", updatedWallet);
     console.log("=================================================");
 
-    return res.send("success");
+    return res.status(200).send("success");
   } catch (error) {
     console.error(
       "QWACKPAY CALLBACK ERROR:",
       error.response?.data || error.message
     );
 
-    // IMPORTANT: use FAILED, not ERROR, because the callback log
-    // schema uses FAILED as the error state.
-    if (callbackLog?._id) {
-      try {
-        await QwackPayCallbackLog.findByIdAndUpdate(
-          callbackLog._id,
-          {
-            $set: {
-              event: "EXCEPTION",
-              processingStatus: "FAILED",
-              message:
-                "Callback processing exception",
-              error: error.message,
-              processedAt: new Date(),
-            },
-          }
-        );
-      } catch (logError) {
-        console.error(
-          "CALLBACK ERROR LOG FAILED:",
-          logError.message
-        );
-      }
-    }
+    await setCallbackLog({
+      event: "EXCEPTION",
+      processingStatus: "FAILED",
+      message: "Callback processing exception",
+      error: error.message,
+      processedAt: new Date(),
+    });
 
-    // Always acknowledge gateway callbacks after logging the exception.
+    // Always acknowledge the webhook. The local deposit remains PENDING
+    // when the success transaction could not be committed, so a retry/query
+    // can safely process it later without a false SUCCESS state.
     return res.status(200).send("success");
   }
 };
@@ -2778,6 +2902,96 @@ const getAllDepositsForAdmin =
     }
   };
 
+  // =====================================================
+// TEST ONLY: GENERATE QWACKPAY SIGN
+// REMOVE/DISABLE IN PRODUCTION
+// =====================================================
+const generateTestQwackPaySign = async (req, res) => {
+  try {
+    const {
+      merchant_order_id,
+      qwack_order_id,
+      amount,
+      status,
+      utr = "",
+    } = req.body || {};
+
+    if (!merchant_order_id) {
+      return res.status(400).json({
+        success: false,
+        message: "merchant_order_id is required",
+      });
+    }
+
+    if (!qwack_order_id) {
+      return res.status(400).json({
+        success: false,
+        message: "qwack_order_id is required",
+      });
+    }
+
+    if (amount === undefined || amount === null || amount === "") {
+      return res.status(400).json({
+        success: false,
+        message: "amount is required",
+      });
+    }
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: "status is required",
+      });
+    }
+
+    if (!QWACKPAY_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        message: "QWACKPAY_API_KEY is not configured",
+      });
+    }
+
+    const payload = {
+      merchant_order_id: String(merchant_order_id).trim(),
+      qwack_order_id: String(qwack_order_id).trim(),
+      amount: String(amount).trim(),
+      status: String(status).trim(),
+      utr: String(utr || "").trim(),
+    };
+
+    const sign = generateQwackPaySign(
+      payload,
+      QWACKPAY_API_KEY
+    );
+
+    console.log("===============================================");
+    console.log("QWACKPAY TEST SIGN");
+    console.log("PAYLOAD:", payload);
+    console.log("GENERATED SIGN:", sign);
+    console.log("===============================================");
+
+    return res.status(200).json({
+      success: true,
+      message: "QwackPay test sign generated",
+      data: {
+        ...payload,
+        sign,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "GENERATE QWACKPAY TEST SIGN ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to generate test sign",
+      error: error.message,
+    });
+  }
+};
+
 // =====================================================
 // EXPORTS
 // =====================================================
@@ -2800,6 +3014,7 @@ module.exports = {
   checkQwackPayOrderStatus,
 
   generateQwackPaySign,
+  generateTestQwackPaySign,
 
   STATUS,
 };

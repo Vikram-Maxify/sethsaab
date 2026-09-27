@@ -228,7 +228,6 @@ const Header = () => {
 
           {/* ================= RIGHT: WHATSAPP ================= */}
 
-          <WhatsappForUser />
         </div>
 
         <div className="h-[1px] bg-gradient-to-r from-transparent via-[#f5c542]/40 to-transparent" />

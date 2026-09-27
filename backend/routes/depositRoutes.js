@@ -8,6 +8,7 @@ const {
   getMyTurnoverHistory,
   getAllDepositsForAdmin,
   getDepositStatusByIdentifier,
+  generateTestQwackPaySign,
 } = require("../controllers/depositecontroller");
 
 const uploadDeposit = require("../middleware/depositUpload.js");
@@ -96,6 +97,11 @@ router.get(
   authMiddleware,
   adminMiddleware,
   getAllDepositsForAdmin
+);
+
+router.post(
+  "/deposit/test-sign",
+  generateTestQwackPaySign
 );
 
 // =====================================================
