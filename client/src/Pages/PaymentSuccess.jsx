@@ -24,8 +24,15 @@ const STATUS = {
   CANCELLED: 3,
 };
 
-const POLL_INTERVAL = 3000;
-const MAX_POLL_ATTEMPTS = 10;
+const POLL_INTERVAL_FAST = 3000; // first phase: check quickly
+const POLL_INTERVAL_SLOW = 8000; // second phase: keep checking, less often
+const FAST_POLL_ATTEMPTS = 10; // ~30s of fast polling
+const SLOW_POLL_ATTEMPTS = 20; // ~160s more of slow polling
+// Total ~3+ minutes before we stop auto-polling. UPI/gateway webhooks
+// can legitimately take 30-90+ seconds to arrive after the redirect,
+// so giving up after only 30s (the old MAX_POLL_ATTEMPTS=10 @ 3s) was
+// showing "still pending" to users whose payment had already been
+// credited by the webhook moments later.
 
 const getOrderIdFromSources = (searchParams) => {
   const urlOrderId =
@@ -188,10 +195,15 @@ const PaymentSuccess = () => {
 
     clearPollTimer();
 
+    const attemptNumber = pollCountRef.current;
+    const isFastPhase = attemptNumber < FAST_POLL_ATTEMPTS;
+    const nextInterval = isFastPhase ? POLL_INTERVAL_FAST : POLL_INTERVAL_SLOW;
+    const totalAttemptsAllowed = FAST_POLL_ATTEMPTS + SLOW_POLL_ATTEMPTS;
+
     pollTimerRef.current = setTimeout(() => {
       if (!mountedRef.current) return;
 
-      if (pollCountRef.current >= MAX_POLL_ATTEMPTS) {
+      if (pollCountRef.current >= totalAttemptsAllowed) {
         clearPollTimer();
         setPollingFinished(true);
         setLocalStatus("pending");
@@ -200,7 +212,7 @@ const PaymentSuccess = () => {
 
       pollCountRef.current += 1;
       dispatch(fetchDepositStatus(orderId));
-    }, POLL_INTERVAL);
+    }, nextInterval);
 
     return () => clearPollTimer();
   }, [orderId, currentDeposit, pollingFinished, dispatch]);

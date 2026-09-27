@@ -1093,9 +1093,9 @@ const onlinePayCallback = async (req, res) => {
     // Browser/crawler GET without an order is only a health hit.
     if (req.method === "GET" && !merchantOrderId && !qwackOrderId) {
       await setCallbackLog({
-        event: "INVALID",
+        event: "HEALTH_CHECK",
         processingStatus: "SUCCESS",
-        message: "Callback endpoint health check",
+        message: "Callback endpoint health check (no order data - not a real payment callback)",
         processedAt: new Date(),
       });
 
@@ -1104,7 +1104,7 @@ const onlinePayCallback = async (req, res) => {
 
     if (!merchantOrderId && !qwackOrderId) {
       await setCallbackLog({
-        event: "INVALID",
+        event: "NO_ORDER_ID",
         processingStatus: "SUCCESS",
         message: "Callback received without order ID; no wallet action taken",
         processedAt: new Date(),
